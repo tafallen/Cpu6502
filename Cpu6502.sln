@@ -1,0 +1,64 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{9930F6FC-3302-41D0-A24C-AAC8BCE732E5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpu6502.Core", "src\Cpu6502.Core\Cpu6502.Core.csproj", "{26BFAF23-A684-4BB0-9974-0CD2BC99DEBE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{BE7F3117-D582-4F9A-9E7C-CC27D9F75CE3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpu6502.Tests", "tests\Cpu6502.Tests\Cpu6502.Tests.csproj", "{200FB359-6A7B-4D1C-AD95-A8FD200DDDD3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Machines.Common", "src\Machines.Common\Machines.Common.csproj", "{BDB033A1-496F-4D98-9785-E33588577A04}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Machines.Atom", "src\Machines.Atom\Machines.Atom.csproj", "{76250277-273E-41E7-B3A6-47E4097F070B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Machines.Atom.Tests", "tests\Machines.Atom.Tests\Machines.Atom.Tests.csproj", "{5731699C-1E49-4D1E-A6A9-90B39C21325D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Adapters.Raylib", "src\Adapters.Raylib\Adapters.Raylib.csproj", "{BAAB70A1-E98B-4AFF-AA5B-7C9CACE2C5DF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{26BFAF23-A684-4BB0-9974-0CD2BC99DEBE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{26BFAF23-A684-4BB0-9974-0CD2BC99DEBE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{26BFAF23-A684-4BB0-9974-0CD2BC99DEBE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{26BFAF23-A684-4BB0-9974-0CD2BC99DEBE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{200FB359-6A7B-4D1C-AD95-A8FD200DDDD3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{200FB359-6A7B-4D1C-AD95-A8FD200DDDD3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{200FB359-6A7B-4D1C-AD95-A8FD200DDDD3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{200FB359-6A7B-4D1C-AD95-A8FD200DDDD3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BDB033A1-496F-4D98-9785-E33588577A04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BDB033A1-496F-4D98-9785-E33588577A04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BDB033A1-496F-4D98-9785-E33588577A04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BDB033A1-496F-4D98-9785-E33588577A04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{76250277-273E-41E7-B3A6-47E4097F070B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{76250277-273E-41E7-B3A6-47E4097F070B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{76250277-273E-41E7-B3A6-47E4097F070B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{76250277-273E-41E7-B3A6-47E4097F070B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5731699C-1E49-4D1E-A6A9-90B39C21325D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5731699C-1E49-4D1E-A6A9-90B39C21325D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5731699C-1E49-4D1E-A6A9-90B39C21325D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5731699C-1E49-4D1E-A6A9-90B39C21325D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BAAB70A1-E98B-4AFF-AA5B-7C9CACE2C5DF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BAAB70A1-E98B-4AFF-AA5B-7C9CACE2C5DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BAAB70A1-E98B-4AFF-AA5B-7C9CACE2C5DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BAAB70A1-E98B-4AFF-AA5B-7C9CACE2C5DF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{26BFAF23-A684-4BB0-9974-0CD2BC99DEBE} = {9930F6FC-3302-41D0-A24C-AAC8BCE732E5}
+		{200FB359-6A7B-4D1C-AD95-A8FD200DDDD3} = {BE7F3117-D582-4F9A-9E7C-CC27D9F75CE3}
+		{BDB033A1-496F-4D98-9785-E33588577A04} = {9930F6FC-3302-41D0-A24C-AAC8BCE732E5}
+		{76250277-273E-41E7-B3A6-47E4097F070B} = {9930F6FC-3302-41D0-A24C-AAC8BCE732E5}
+		{5731699C-1E49-4D1E-A6A9-90B39C21325D} = {BE7F3117-D582-4F9A-9E7C-CC27D9F75CE3}
+		{BAAB70A1-E98B-4AFF-AA5B-7C9CACE2C5DF} = {9930F6FC-3302-41D0-A24C-AAC8BCE732E5}
+	EndGlobalSection
+EndGlobal
