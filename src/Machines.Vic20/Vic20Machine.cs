@@ -42,6 +42,7 @@ public sealed class Vic20Machine
 
     private readonly VicI      _vic;
     private readonly Ram       _colorRam;          // 1KB at $8000
+    private readonly byte[]    _charRom;           // 4KB, VIC-only — not on CPU bus
     private readonly AddressDecoder _bus;
 
     // Frames: PAL VIC-20 runs at 1,108,405 Hz / 50 Hz = 22,168 cycles/frame
@@ -63,6 +64,7 @@ public sealed class Vic20Machine
     {
         Ram       = new Ram(0x2000);   // covers $0000–$1FFF (4KB zero+stack+main)
         _colorRam = new Ram(0x0400);   // 1KB at $8000
+        _charRom  = charRom ?? new byte[0x1000]; // 4KB; zeros if not supplied
         Via1      = new Via6522();
         Via2      = new Via6522();
         _vic      = new VicI(audio);
@@ -132,22 +134,25 @@ public sealed class Vic20Machine
 
     // ── VIC-I 14-bit address space translation ────────────────────────────────
     //
-    // The unexpanded VIC-20 wires VIC address lines as follows:
-    //   VIC $0000–$0FFF → CPU $8000–$8FFF (colour RAM / char ROM area)
-    //   VIC $1000–$1FFF → CPU $1000–$1FFF (screen RAM + main RAM)
-    //   VIC $2000–$2FFF → CPU $0000–$0FFF (zero page etc.)
-    //   VIC $3000–$3FFF → CPU $8000–$8FFF (mirrors char ROM)
+    // Unexpanded PAL VIC-20 address wiring:
+    //   VIC $0000–$0FFF → character ROM (VIC-only; CPU sees colour RAM at $8000)
+    //   VIC $1000–$1FFF → CPU $1000–$1FFF (screen RAM in main RAM)
+    //   VIC $2000–$2FFF → CPU $0000–$0FFF (zero page / stack)
+    //   VIC $3000–$3FFF → character ROM mirror
     //
-    // Standard unexpanded config: screen at $1E00 (VIC $1E00), chars at VIC $8000 (CPU $8000).
+    // Default Kernal config: screen base $1E00 (VIC $1E00), char base $8000 (VIC $0000).
 
     private byte ReadVicMemory(ushort vicAddr)
     {
+        // Character ROM ranges ($0000-$0FFF and $3000-$3FFF) — VIC-only, not on CPU bus
+        if (vicAddr <= 0x0FFF || (vicAddr >= 0x3000 && vicAddr <= 0x3FFF))
+            return _charRom[vicAddr & 0x0FFF];
+
         ushort cpuAddr = vicAddr switch
         {
-            >= 0x0000 and <= 0x0FFF => (ushort)(0x8000 | (vicAddr & 0x0FFF)),
             >= 0x1000 and <= 0x1FFF => vicAddr,
             >= 0x2000 and <= 0x2FFF => (ushort)(vicAddr & 0x0FFF),
-            _                       => (ushort)(0x8000 | (vicAddr & 0x0FFF)),
+            _                       => vicAddr,
         };
         return _bus.Read(cpuAddr);
     }

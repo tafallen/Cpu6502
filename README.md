@@ -87,6 +87,34 @@ dotnet run --project src/Host.Atom -- --basic atom-basic.rom --os atom-os.rom --
 
 See [docs/atom.md](docs/atom.md) for the full address map, chip documentation, and all command-line options.
 
+## Commodore VIC-20 emulator
+
+A complete VIC-20 (unexpanded PAL) emulator is included in `src/Machines.Vic20` and `src/Host.Vic20`.
+
+| Component | Class | Hardware |
+|---|---|---|
+| CPU | `Cpu` | MOS 6502 @ 1.108 MHz |
+| Video | `VicI` | MOS 6560/6561 — text mode, 16 colours, 256×272 PAL output |
+| I/O 1 | `Via6522` | MOS 6522 VIA 1 — serial bus, tape, joystick |
+| I/O 2 | `Via6522` | MOS 6522 VIA 2 — keyboard matrix, joystick |
+| Keyboard | `Vic20KeyboardAdapter` | 8×8 key matrix, column-select via VIA 2 Port B |
+| Tape | `Vic20TapeAdapter` + `TapParser` | Commodore TAP images (v0 and v1 extended) |
+
+To run you need three ROM images from the VIC-20 (these are freely available from community ROM archives):
+
+| File | Size | Description |
+|---|---|---|
+| `basic.901486-01.bin` | 8 KB | BASIC ROM |
+| `kernal.901486-07.bin` | 8 KB | Kernal ROM (PAL) |
+| `chargen.901460-03.bin` | 4 KB | Character ROM |
+
+```
+dotnet run --project src/Host.Vic20 -- --basic basic.901486-01.bin --kernal kernal.901486-07.bin --char chargen.901460-03.bin
+dotnet run --project src/Host.Vic20 -- --basic basic.901486-01.bin --kernal kernal.901486-07.bin --char chargen.901460-03.bin --tape game.tap
+```
+
+See [docs/vic20.md](docs/vic20.md) for the full address map and chip documentation.
+
 ## Validating correctness
 
 Drop `6502_functional_test.bin` from [Klaus Dörmann's test suite](https://github.com/Klaus2m5/6502_65C02_functional_tests) into `tests/Cpu6502.Tests/TestData/` and run `dotnet test`. The integration test will confirm the CPU runs the suite to completion at PC=`$3469`.
