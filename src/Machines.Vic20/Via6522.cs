@@ -34,9 +34,16 @@ public sealed class Via6522 : IBus
     // ── Interrupt control ─────────────────────────────────────────────────────
 
     private byte _acr; // auxiliary control register
+    private byte _pcr; // peripheral control register
     private byte _ifr; // interrupt flags (bits 0-6); bit 7 computed on read
     private byte _ier; // interrupt enable (bits 0-6)
 
+    // CA1/CB1 pin levels (for edge detection)
+    private bool _ca1Level;
+    private bool _cb1Level;
+
+    private const byte IFR_CA1 = 0x02;
+    private const byte IFR_CB1 = 0x10;
     private const byte IFR_T2  = 0x20;
     private const byte IFR_T1  = 0x40;
     private const byte IFR_ANY = 0x80;
@@ -58,6 +65,7 @@ public sealed class Via6522 : IBus
             case 8:  _ifr &= unchecked((byte)~IFR_T2); return (byte)(_t2Counter & 0xFF);
             case 9:  return (byte)((_t2Counter >> 8) & 0xFF);
             case 11: return _acr;
+            case 12: return _pcr;
             case 13: return (byte)(_ifr | ((_ifr & _ier) != 0 ? IFR_ANY : 0));
             case 14: return (byte)(_ier | IFR_ANY); // bit 7 always 1 on read
             default: return 0xFF;
@@ -91,6 +99,7 @@ public sealed class Via6522 : IBus
                 _ifr &= unchecked((byte)~IFR_T2);
                 break;
             case 11: _acr = value; break;
+            case 12: _pcr = value; break;
             case 13: _ifr &= (byte)~value; break;   // write 1s to clear flags
             case 14:
                 if ((value & IFR_ANY) != 0)
@@ -134,6 +143,30 @@ public sealed class Via6522 : IBus
 
     /// <summary>True when an enabled interrupt is pending (IFR bit 7).</summary>
     public bool Irq => (_ifr & _ier) != 0;
+
+    // ── CA1 / CB1 pin inputs ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Drive the CB1 pin. Sets IFR bit 4 on the active edge (PCR bit 4: 0=falling, 1=rising).
+    /// </summary>
+    public void SetCB1(bool level)
+    {
+        bool activeHigh = (_pcr & 0x10) != 0;
+        bool edge = activeHigh ? (!_cb1Level && level) : (_cb1Level && !level);
+        _cb1Level = level;
+        if (edge) _ifr |= IFR_CB1;
+    }
+
+    /// <summary>
+    /// Drive the CA1 pin. Sets IFR bit 1 on the active edge (PCR bit 0: 0=falling, 1=rising).
+    /// </summary>
+    public void SetCA1(bool level)
+    {
+        bool activeHigh = (_pcr & 0x01) != 0;
+        bool edge = activeHigh ? (!_ca1Level && level) : (_ca1Level && !level);
+        _ca1Level = level;
+        if (edge) _ifr |= IFR_CA1;
+    }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 

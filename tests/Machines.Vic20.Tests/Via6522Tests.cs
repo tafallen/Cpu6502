@@ -339,4 +339,82 @@ public class Via6522Tests
         via.Write(IFR, IFR_T1);
         Assert.False(via.Irq);
     }
+
+    // ── CA1 / CB1 edge detection ──────────────────────────────────────────────
+
+    private const byte PCR    = 12; // Peripheral control register
+    private const byte IFR_CA1 = 0x02;
+    private const byte IFR_CB1 = 0x10;
+
+    [Fact]
+    public void SetCB1_FallingEdge_SetsIfrBit4_WhenPcrBit4IsZero()
+    {
+        var via = Make();
+        via.Write(PCR, 0x00); // bit 4 = 0: active edge is falling
+        via.SetCB1(true);     // start high
+        via.SetCB1(false);    // falling edge
+        Assert.Equal(IFR_CB1, via.Read(IFR) & IFR_CB1);
+    }
+
+    [Fact]
+    public void SetCB1_RisingEdge_SetsIfrBit4_WhenPcrBit4IsOne()
+    {
+        var via = Make();
+        via.Write(PCR, 0x10); // bit 4 = 1: active edge is rising
+        via.SetCB1(false);    // start low
+        via.SetCB1(true);     // rising edge
+        Assert.Equal(IFR_CB1, via.Read(IFR) & IFR_CB1);
+    }
+
+    [Fact]
+    public void SetCB1_InactiveEdge_DoesNotSetIfrBit4()
+    {
+        var via = Make();
+        via.Write(PCR, 0x00); // active = falling
+        via.SetCB1(false);    // start low
+        via.SetCB1(true);     // rising edge (inactive)
+        Assert.Equal(0, via.Read(IFR) & IFR_CB1);
+    }
+
+    [Fact]
+    public void SetCB1_AssertsCpuIrq_WhenIerBit4Enabled()
+    {
+        var via = Make();
+        via.Write(IER, 0x80 | IFR_CB1);
+        via.Write(PCR, 0x00);
+        via.SetCB1(true);
+        via.SetCB1(false);
+        Assert.True(via.Irq);
+    }
+
+    [Fact]
+    public void SetCA1_FallingEdge_SetsIfrBit1_WhenPcrBit0IsZero()
+    {
+        var via = Make();
+        via.Write(PCR, 0x00); // bit 0 = 0: active edge is falling
+        via.SetCA1(true);
+        via.SetCA1(false);
+        Assert.Equal(IFR_CA1, via.Read(IFR) & IFR_CA1);
+    }
+
+    [Fact]
+    public void SetCA1_RisingEdge_SetsIfrBit1_WhenPcrBit0IsOne()
+    {
+        var via = Make();
+        via.Write(PCR, 0x01); // bit 0 = 1: active edge is rising
+        via.SetCA1(false);
+        via.SetCA1(true);
+        Assert.Equal(IFR_CA1, via.Read(IFR) & IFR_CA1);
+    }
+
+    [Fact]
+    public void SetCA1_AssertsCpuIrq_WhenIerBit1Enabled()
+    {
+        var via = Make();
+        via.Write(IER, 0x80 | IFR_CA1);
+        via.Write(PCR, 0x00);
+        via.SetCA1(true);
+        via.SetCA1(false);
+        Assert.True(via.Irq);
+    }
 }
