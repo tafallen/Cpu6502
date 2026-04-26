@@ -38,8 +38,6 @@ public sealed class AtomMachine
 
     private byte _lastPortC;
 
-    private static readonly byte[] DefaultCharRom = new byte[64 * 12];
-
     /// <param name="basicRom">8KB BASIC ROM image, mapped at $D000–$EFFF.</param>
     /// <param name="osRom">4KB OS ROM image, mapped at $F000–$FFFF. Reset vector at offset $FFC/$FFD.</param>
     /// <param name="keyboard">Physical keyboard source. Pass null for headless/test use.</param>
@@ -75,7 +73,7 @@ public sealed class AtomMachine
 
         Tape = tape;
 
-        _vdg = new Mc6847(VideoRam.RawBytes, charRom ?? DefaultCharRom);
+        _vdg = new Mc6847(VideoRam.RawBytes, charRom);
 
         _bus = new AddressDecoder();
         _bus.Map(0x0000, 0x7FFF, MainRam);

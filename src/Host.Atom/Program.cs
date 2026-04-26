@@ -7,6 +7,7 @@ string? osPath    = null;
 string? tapePath  = null;
 string? floatPath = null;
 string? extPath   = null;
+string? charPath  = null;
 int     scale     = 3;
 
 for (int i = 0; i < args.Length; i++)
@@ -18,6 +19,7 @@ for (int i = 0; i < args.Length; i++)
         case "--tape":  tapePath  = args[++i]; break;
         case "--float": floatPath = args[++i]; break;
         case "--ext":   extPath   = args[++i]; break;
+        case "--char":  charPath  = args[++i]; break;
         case "--scale": scale     = int.Parse(args[++i]); break;
         default:
             Console.Error.WriteLine($"Unknown argument: {args[i]}");
@@ -34,10 +36,11 @@ if (basicPath is null || osPath is null)
 }
 
 // ── load ROMs ─────────────────────────────────────────────────────────────────
-byte[] basicRom = File.ReadAllBytes(basicPath);
-byte[] osRom    = File.ReadAllBytes(osPath);
+byte[] basicRom  = File.ReadAllBytes(basicPath);
+byte[] osRom     = File.ReadAllBytes(osPath);
 byte[]? floatRom = floatPath is not null ? File.ReadAllBytes(floatPath) : null;
 byte[]? extRom   = extPath   is not null ? File.ReadAllBytes(extPath)   : null;
+byte[]? charRom  = charPath  is not null ? File.ReadAllBytes(charPath)  : null;
 
 // ── tape ──────────────────────────────────────────────────────────────────────
 AtomTapeAdapter? tape = null;
@@ -58,6 +61,7 @@ var machine = new AtomMachine(
     audio:    host,
     floatRom: floatRom,
     extRom:   extRom,
+    charRom:  charRom,
     tape:     tape);
 
 machine.Reset();
@@ -81,6 +85,7 @@ static void PrintUsage()
           --tape  <path>   UEF tape image (.uef or .uef.gz)
           --float <path>   Floating-point ROM image
           --ext   <path>   Extension ROM image (#A socket)
+          --char  <path>   MC6847 character ROM (768 bytes; built-in default used if omitted)
           --scale <n>      Window scale factor (default: 3)
         """);
 }
