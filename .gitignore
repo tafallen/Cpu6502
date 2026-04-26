@@ -92,3 +92,7 @@ yarn-error.log*
 *.log
 *.tmp
 .DS_Store
+
+# Coverlet coverage output
+**/coverage/
+coverage.cobertura.xml
