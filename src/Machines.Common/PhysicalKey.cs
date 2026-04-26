@@ -22,10 +22,10 @@ public enum PhysicalKey
     Comma, Period, Slash, Backslash, Grave,
 
     // Modifiers
-    LeftShift, RightShift, LeftControl, RightControl, CapsLock,
+    LeftShift, RightShift, LeftControl, RightControl, LeftAlt, RightAlt, CapsLock,
 
     // Editing
-    Space, Return, Backspace, Delete, Escape, Tab,
+    Space, Return, Backspace, Delete, Escape, Tab, Insert, Home, End, PageUp, PageDown,
 
     // Cursor
     Up, Down, Left, Right,
