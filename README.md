@@ -65,6 +65,28 @@ cpu.Reset();
 
 See [docs/walkthrough.md](docs/walkthrough.md) for a full tutorial.
 
+## Acorn Atom emulator
+
+A complete Acorn Atom emulator is included in `src/Machines.Atom` and `src/Host.Atom`. It emulates the full hardware stack:
+
+| Component | Class | Hardware |
+|---|---|---|
+| CPU | `Cpu` | MOS 6502 @ 1 MHz |
+| PPI | `Ppi8255` | Intel 8255A — keyboard, cassette I/O, VDG mode pins |
+| VDG | `Mc6847` | Motorola MC6847 — 10 display modes, 256×192 output |
+| Keyboard | `AtomKeyboardAdapter` | 10×6 key matrix, row-select via Port A |
+| Sound | `AtomSoundAdapter` | PC4 bit-banged square wave → 44100 Hz PCM |
+| Tape | `AtomTapeAdapter` + `UefParser` | UEF tape images (plain or gzip), 300 baud KCS |
+
+To run:
+
+```
+dotnet run --project src/Host.Atom -- --basic atom-basic.rom --os atom-os.rom
+dotnet run --project src/Host.Atom -- --basic atom-basic.rom --os atom-os.rom --tape game.uef
+```
+
+See [docs/atom.md](docs/atom.md) for the full address map, chip documentation, and all command-line options.
+
 ## Validating correctness
 
 Drop `6502_functional_test.bin` from [Klaus Dörmann's test suite](https://github.com/Klaus2m5/6502_65C02_functional_tests) into `tests/Cpu6502.Tests/TestData/` and run `dotnet test`. The integration test will confirm the CPU runs the suite to completion at PC=`$3469`.

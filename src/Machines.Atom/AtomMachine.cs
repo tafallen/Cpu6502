@@ -74,15 +74,6 @@ public sealed class AtomMachine
             _sound = new AtomSoundAdapter(audio);
 
         Tape = tape;
-        if (tape is not null)
-        {
-            // PC7 (bit 7) = cassette data in (active low)
-            Ppi.ReadPortC = () =>
-            {
-                bool bit = tape.ReadBit(Cpu?.TotalCycles ?? 0);
-                return (byte)(bit ? 0x00 : 0x80); // active low
-            };
-        }
 
         _vdg = new Mc6847(VideoRam.RawBytes, charRom ?? DefaultCharRom);
 
@@ -98,20 +89,39 @@ public sealed class AtomMachine
         _bus.Map(0xF000, 0xFFFF, new Rom(osRom));
 
         Cpu = new Cpu(_bus);
+
+        if (tape is not null)
+        {
+            // PC7 (bit 7) = cassette data in (active low: 0 = tone/1 bit, 0x80 = silence/0 bit)
+            Ppi.ReadPortC = () =>
+            {
+                bool bit = tape.ReadBit(Cpu.TotalCycles);
+                return (byte)(bit ? 0x00 : 0x80);
+            };
+        }
     }
 
     public void Reset() => Cpu.Reset();
 
-    /// <summary>Execute one CPU instruction and notify the sound adapter of any PC4 change.</summary>
+    /// <summary>Execute one CPU instruction and notify the sound and tape adapters of any PC change.</summary>
     public void Step()
     {
         Cpu.Step();
 
-        if (_sound is null) return;
         byte portC = Ppi.PortCLatch;
         if (portC == _lastPortC) return;
+
+        if (Tape is not null)
+        {
+            // PC5 = cassette motor relay
+            bool motorOn    = (portC      & 0x20) != 0;
+            bool motorWasOn = (_lastPortC & 0x20) != 0;
+            if (motorOn && !motorWasOn)  Tape.MotorOn(Cpu.TotalCycles);
+            if (!motorOn && motorWasOn)  Tape.MotorOff(Cpu.TotalCycles);
+        }
+
+        _sound?.NotifyPortC(portC, Cpu.TotalCycles);
         _lastPortC = portC;
-        _sound.NotifyPortC(portC, Cpu.TotalCycles);
     }
 
     /// <summary>
