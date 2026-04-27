@@ -52,6 +52,24 @@ if (tapePath is not null)
     Console.WriteLine($"Tape loaded: {Path.GetFileName(tapePath)}");
 }
 
+// ── diagnostics ───────────────────────────────────────────────────────────────
+Console.WriteLine($"BASIC ROM:  {basicRom.Length} bytes");
+Console.WriteLine($"OS ROM:     {osRom.Length} bytes");
+if (floatRom is not null) Console.WriteLine($"Float ROM:  {floatRom.Length} bytes");
+if (charRom  is not null) Console.WriteLine($"Char ROM:   {charRom.Length} bytes");
+
+// Reset vector is at the last two bytes of the OS ROM ($FFFC/$FFFD)
+// OS ROM is mapped at $F000, so $FFFC is at offset $FFC within the ROM
+if (osRom.Length >= 0x1000)
+{
+    ushort resetVec = (ushort)(osRom[0xFFC] | (osRom[0xFFD] << 8));
+    Console.WriteLine($"Reset vector: ${resetVec:X4}");
+}
+else
+{
+    Console.WriteLine($"WARNING: OS ROM is only {osRom.Length} bytes — expected 4096 ($1000)");
+}
+
 // ── build machine and host ────────────────────────────────────────────────────
 using var host = new RaylibHost("Acorn Atom", scale);
 
@@ -65,13 +83,25 @@ var machine = new AtomMachine(
     tape:     tape);
 
 machine.Reset();
+Console.WriteLine($"PC after reset: ${machine.Cpu.PC:X4}");
 
 // ── emulator loop ─────────────────────────────────────────────────────────────
+int frameCount = 0;
 while (host.IsRunning)
 {
     host.PollEvents();
     machine.RunFrame();
     machine.RenderFrame(host);
+
+    // After the first few frames, dump video RAM so we can see if the OS wrote anything
+    if (++frameCount == 5)
+    {
+        Console.Write("Video RAM (first 32 bytes): ");
+        for (int i = 0; i < 32; i++)
+            Console.Write($"{machine.VideoRam.Read((ushort)i):X2} ");
+        Console.WriteLine();
+        Console.WriteLine($"PC after 5 frames: ${machine.Cpu.PC:X4}  Cycles: {machine.Cpu.TotalCycles}");
+    }
 }
 
 return 0;
