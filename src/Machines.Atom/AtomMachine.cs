@@ -81,7 +81,7 @@ public sealed class AtomMachine
         _bus.Map(0x8000, 0x9FFF, VideoRam);
         if (extRom is not null)
             _bus.Map(0xA000, 0xAFFF, new Rom(extRom));
-        _bus.Map(0xB000, 0xB003, Ppi);
+        _bus.Map(0xB000, 0xBFFF, Ppi); // partial address decode: PPI mirrors across $B000-$BFFF
         if (floatRom is not null)
             _bus.Map(0xC000, 0xCFFF, new Rom(floatRom));
         _bus.Map(0xD000, 0xDFFF, new Rom(basicRom));
