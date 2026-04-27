@@ -85,14 +85,20 @@ var machine = new AtomMachine(
 machine.Reset();
 Console.WriteLine($"PC after reset: ${machine.Cpu.PC:X4}");
 
-// Trace the first 40 instructions so we can see where the OS gets stuck
-Console.WriteLine("--- First 40 instructions ---");
-for (int i = 0; i < 40; i++)
+// Trace 2000 instructions, printing only the first visit to each address.
+// This compresses loops down to one line so we can see the full control flow.
+Console.WriteLine("--- Instruction trace (first visit per address) ---");
+var seen = new HashSet<ushort>();
+for (int i = 0; i < 2000; i++)
 {
-    ushort pc = machine.Cpu.PC;
-    byte   op = machine.Bus.Read(pc);
+    ushort pc  = machine.Cpu.PC;
+    byte   op  = machine.Bus.Read(pc);
+    byte   b1  = machine.Bus.Read((ushort)(pc + 1));
+    byte   b2  = machine.Bus.Read((ushort)(pc + 2));
+    bool   fresh = seen.Add(pc);
     machine.Cpu.Step();
-    Console.WriteLine($"  ${pc:X4}: op=${op:X2}  → PC=${machine.Cpu.PC:X4} A=${machine.Cpu.A:X2} X=${machine.Cpu.X:X2} Y=${machine.Cpu.Y:X2} SP=${machine.Cpu.SP:X2}");
+    if (fresh)
+        Console.WriteLine($"  ${pc:X4}: {op:X2} {b1:X2} {b2:X2}  → PC=${machine.Cpu.PC:X4}  A=${machine.Cpu.A:X2} X=${machine.Cpu.X:X2} Y=${machine.Cpu.Y:X2} SP=${machine.Cpu.SP:X2}");
 }
 Console.WriteLine("--- end trace ---");
 
