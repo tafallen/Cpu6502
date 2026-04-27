@@ -85,6 +85,17 @@ var machine = new AtomMachine(
 machine.Reset();
 Console.WriteLine($"PC after reset: ${machine.Cpu.PC:X4}");
 
+// Trace the first 40 instructions so we can see where the OS gets stuck
+Console.WriteLine("--- First 40 instructions ---");
+for (int i = 0; i < 40; i++)
+{
+    ushort pc = machine.Cpu.PC;
+    byte   op = machine.Bus.Read(pc);
+    machine.Cpu.Step();
+    Console.WriteLine($"  ${pc:X4}: op=${op:X2}  → PC=${machine.Cpu.PC:X4} A=${machine.Cpu.A:X2} X=${machine.Cpu.X:X2} Y=${machine.Cpu.Y:X2} SP=${machine.Cpu.SP:X2}");
+}
+Console.WriteLine("--- end trace ---");
+
 // ── emulator loop ─────────────────────────────────────────────────────────────
 int frameCount = 0;
 while (host.IsRunning)
@@ -93,7 +104,6 @@ while (host.IsRunning)
     machine.RunFrame();
     machine.RenderFrame(host);
 
-    // After the first few frames, dump video RAM so we can see if the OS wrote anything
     if (++frameCount == 5)
     {
         Console.Write("Video RAM (first 32 bytes): ");

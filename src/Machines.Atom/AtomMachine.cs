@@ -27,6 +27,7 @@ namespace Machines.Atom;
 public sealed class AtomMachine
 {
     public Cpu              Cpu      { get; }
+    public IBus             Bus      { get; }
     public Ram              MainRam  { get; }
     public Ram              VideoRam { get; }
     public Ppi8255          Ppi      { get; }
@@ -83,9 +84,10 @@ public sealed class AtomMachine
         _bus.Map(0xB000, 0xB003, Ppi);
         if (floatRom is not null)
             _bus.Map(0xC000, 0xCFFF, new Rom(floatRom));
-        _bus.Map(0xD000, 0xEFFF, new Rom(basicRom));
+        _bus.Map(0xD000, 0xDFFF, new Rom(basicRom));
         _bus.Map(0xF000, 0xFFFF, new Rom(osRom));
 
+        Bus = _bus;
         Cpu = new Cpu(_bus);
 
         if (tape is not null)
