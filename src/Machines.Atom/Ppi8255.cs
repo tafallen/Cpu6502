@@ -16,9 +16,11 @@ public sealed class Ppi8255 : IBus
     private byte _portCLatch;
 
     // Callers inject these to supply the external pin state for input-configured ports.
-    public Func<byte> ReadPortA { get; set; } = () => 0xFF;
-    public Func<byte> ReadPortB { get; set; } = () => 0xFF;
-    public Func<byte> ReadPortC { get; set; } = () => 0xFF;
+    public Func<byte>  ReadPortA     { get; set; } = () => 0xFF;
+    public Func<byte>  ReadPortB     { get; set; } = () => 0xFF;
+    public Func<byte>  ReadPortC     { get; set; } = () => 0xFF;
+    public Action<byte>? OnPortAWrite { get; set; }
+    public Action<byte, byte>? OnPortBRead { get; set; } // (portALatch, portBResult)
 
     // Expose output latches so other chips can observe driven values without a bus read.
     public byte PortALatch => _portALatch;
@@ -34,7 +36,7 @@ public sealed class Ppi8255 : IBus
     public byte Read(ushort address) => (address & 3) switch
     {
         0 => PortAIsInput ? ReadPortA() : _portALatch,
-        1 => PortBIsInput ? ReadPortB() : _portBLatch,
+        1 => ReadPortBWithLog(),
         2 => ReadPortCMerged(),
         _ => _control
     };
@@ -43,7 +45,7 @@ public sealed class Ppi8255 : IBus
     {
         switch (address & 3)
         {
-            case 0: _portALatch = value; break;
+            case 0: _portALatch = value; OnPortAWrite?.Invoke(value); break;
             case 1: _portBLatch = value; break;
             case 2: _portCLatch = value; break;
             case 3:
@@ -53,6 +55,13 @@ public sealed class Ppi8255 : IBus
                     ApplyPortCBitSetReset(value);
                 break;
         }
+    }
+
+    private byte ReadPortBWithLog()
+    {
+        byte result = PortBIsInput ? ReadPortB() : _portBLatch;
+        OnPortBRead?.Invoke(_portALatch, result);
+        return result;
     }
 
     private byte ReadPortCMerged()

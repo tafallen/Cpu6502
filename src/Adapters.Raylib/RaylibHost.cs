@@ -53,7 +53,14 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     public bool IsRunning => !Raylib_cs.Raylib.WindowShouldClose();
 
     /// <summary>Process OS events and update key state. Call once per emulator iteration.</summary>
-    public void PollEvents() => Raylib_cs.Raylib.PollInputEvents();
+    public void PollEvents()
+    {
+        Raylib_cs.Raylib.PollInputEvents();
+        // Log any key pressed this frame so we can verify Raylib is receiving input
+        int kp;
+        while ((kp = (int)Raylib_cs.Raylib.GetKeyPressed()) != 0)
+            Console.WriteLine($"[key] Raylib saw keypress: {(KeyboardKey)kp} ({kp})");
+    }
 
     // ── IVideoSink ────────────────────────────────────────────────────────────
 

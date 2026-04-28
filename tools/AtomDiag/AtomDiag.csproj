@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>atomdiag</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Machines.Atom\Machines.Atom.csproj" />
+    <ProjectReference Include="..\..\src\Machines.Common\Machines.Common.csproj" />
+    <ProjectReference Include="..\..\src\Cpu6502.Core\Cpu6502.Core.csproj" />
+  </ItemGroup>
+
+</Project>

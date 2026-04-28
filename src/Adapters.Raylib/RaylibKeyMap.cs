@@ -57,6 +57,11 @@ internal static class RaylibKeyMap
         { PhysicalKey.Delete,       KeyboardKey.Delete       },
         { PhysicalKey.Escape,       KeyboardKey.Escape       },
         { PhysicalKey.Tab,          KeyboardKey.Tab          },
+        { PhysicalKey.Insert,       KeyboardKey.Insert       },
+        { PhysicalKey.Home,         KeyboardKey.Home         },
+        { PhysicalKey.End,          KeyboardKey.End          },
+        { PhysicalKey.PageUp,       KeyboardKey.PageUp       },
+        { PhysicalKey.PageDown,     KeyboardKey.PageDown     },
 
         // Cursor
         { PhysicalKey.Up,    KeyboardKey.Up    },

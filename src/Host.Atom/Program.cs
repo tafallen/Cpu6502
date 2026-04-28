@@ -6,6 +6,7 @@ string? basicPath = null;
 string? osPath    = null;
 string? tapePath  = null;
 string? floatPath = null;
+string? dosPath   = null;
 string? extPath   = null;
 string? charPath  = null;
 int     scale     = 3;
@@ -18,6 +19,7 @@ for (int i = 0; i < args.Length; i++)
         case "--os":    osPath    = args[++i]; break;
         case "--tape":  tapePath  = args[++i]; break;
         case "--float": floatPath = args[++i]; break;
+        case "--dos":   dosPath   = args[++i]; break;
         case "--ext":   extPath   = args[++i]; break;
         case "--char":  charPath  = args[++i]; break;
         case "--scale": scale     = int.Parse(args[++i]); break;
@@ -39,6 +41,7 @@ if (basicPath is null || osPath is null)
 byte[] basicRom  = File.ReadAllBytes(basicPath);
 byte[] osRom     = File.ReadAllBytes(osPath);
 byte[]? floatRom = floatPath is not null ? File.ReadAllBytes(floatPath) : null;
+byte[]? dosRom   = dosPath   is not null ? File.ReadAllBytes(dosPath)   : null;
 byte[]? extRom   = extPath   is not null ? File.ReadAllBytes(extPath)   : null;
 byte[]? charRom  = charPath  is not null ? File.ReadAllBytes(charPath)  : null;
 
@@ -56,6 +59,7 @@ if (tapePath is not null)
 Console.WriteLine($"BASIC ROM:  {basicRom.Length} bytes");
 Console.WriteLine($"OS ROM:     {osRom.Length} bytes");
 if (floatRom is not null) Console.WriteLine($"Float ROM:  {floatRom.Length} bytes");
+if (dosRom   is not null) Console.WriteLine($"DOS ROM:    {dosRom.Length} bytes");
 if (charRom  is not null) Console.WriteLine($"Char ROM:   {charRom.Length} bytes");
 
 // Reset vector is at the last two bytes of the OS ROM ($FFFC/$FFFD)
@@ -78,6 +82,7 @@ var machine = new AtomMachine(
     keyboard: host,
     audio:    host,
     floatRom: floatRom,
+    dosRom:   dosRom,
     extRom:   extRom,
     charRom:  charRom,
     tape:     tape);
@@ -85,39 +90,19 @@ var machine = new AtomMachine(
 machine.Reset();
 Console.WriteLine($"PC after reset: ${machine.Cpu.PC:X4}");
 
-// Trace 2000 instructions, printing only the first visit to each address.
-// This compresses loops down to one line so we can see the full control flow.
-Console.WriteLine("--- Instruction trace (first visit per address) ---");
-var seen = new HashSet<ushort>();
-for (int i = 0; i < 2000; i++)
+// Print IRQ vector so we know where the keyboard handler lives
+if (osRom.Length >= 0x1000)
 {
-    ushort pc  = machine.Cpu.PC;
-    byte   op  = machine.Bus.Read(pc);
-    byte   b1  = machine.Bus.Read((ushort)(pc + 1));
-    byte   b2  = machine.Bus.Read((ushort)(pc + 2));
-    bool   fresh = seen.Add(pc);
-    machine.Cpu.Step();
-    if (fresh)
-        Console.WriteLine($"  ${pc:X4}: {op:X2} {b1:X2} {b2:X2}  → PC=${machine.Cpu.PC:X4}  A=${machine.Cpu.A:X2} X=${machine.Cpu.X:X2} Y=${machine.Cpu.Y:X2} SP=${machine.Cpu.SP:X2}");
+    ushort irqVec = (ushort)(osRom[0xFFE] | (osRom[0xFFF] << 8));
+    Console.WriteLine($"IRQ vector:   ${irqVec:X4}");
 }
-Console.WriteLine("--- end trace ---");
 
 // ── emulator loop ─────────────────────────────────────────────────────────────
-int frameCount = 0;
 while (host.IsRunning)
 {
     host.PollEvents();
     machine.RunFrame();
     machine.RenderFrame(host);
-
-    if (++frameCount == 5)
-    {
-        Console.Write("Video RAM (first 32 bytes): ");
-        for (int i = 0; i < 32; i++)
-            Console.Write($"{machine.VideoRam.Read((ushort)i):X2} ");
-        Console.WriteLine();
-        Console.WriteLine($"PC after 5 frames: ${machine.Cpu.PC:X4}  Cycles: {machine.Cpu.TotalCycles}");
-    }
 }
 
 return 0;
@@ -129,8 +114,9 @@ static void PrintUsage()
 
         Options:
           --tape  <path>   UEF tape image (.uef or .uef.gz)
-          --float <path>   Floating-point ROM image
-          --ext   <path>   Extension ROM image (#A socket)
+          --float <path>   Floating-point ROM (afloat.rom) — $D000-$DFFF
+          --dos   <path>   DOS ROM (dosrom.rom) — $E000-$EFFF
+          --ext   <path>   Utility ROM (#A socket, axr1.rom) — $A000-$AFFF
           --char  <path>   MC6847 character ROM (768 bytes; built-in default used if omitted)
           --scale <n>      Window scale factor (default: 3)
         """);
