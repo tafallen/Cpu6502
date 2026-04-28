@@ -79,6 +79,9 @@ public sealed partial class Cpu
     /// <summary>Request a maskable interrupt (IRQ). Serviced before next instruction if I=0.</summary>
     public void Irq() => _irqPending = true;
 
+    /// <summary>Called at the moment an IRQ is serviced (before PC changes). Parameter = interrupted PC.</summary>
+    public Action<ushort>? OnIrqServiced { get; set; }
+
     /// <summary>Request a non-maskable interrupt (NMI). Always serviced before next instruction.</summary>
     public void Nmi() => _nmiPending = true;
 
@@ -129,6 +132,7 @@ public sealed partial class Cpu
 
     private void ServiceIrq()
     {
+        OnIrqServiced?.Invoke(PC);
         _irqPending = false;
         StackPushWord(PC);
         StackPush(GetStatus(breakFlag: false));
@@ -281,6 +285,101 @@ public sealed partial class Cpu
         _ops[0x58] = CLI; _ops[0x78] = SEI;
         _ops[0xD8] = CLD; _ops[0xF8] = SED;
         _ops[0xB8] = CLV;
+
+        // ── Illegal / undocumented (NMOS 6502) ───────────────────────────────
+        // NOP variants — consume operand bytes and cycles, discard result
+        // Implied 1-byte 2-cycle
+        _ops[0x1A] = _ops[0x3A] = _ops[0x5A] = _ops[0x7A] =
+        _ops[0xDA] = _ops[0xFA] = () => { TotalCycles += 2; };
+        // Immediate 2-byte 2-cycle
+        _ops[0x80] = _ops[0x82] = _ops[0x89] = _ops[0xC2] = _ops[0xE2] =
+            () => { Fetch(); TotalCycles += 2; };
+        // Zero-page 2-byte 3-cycle
+        _ops[0x04] = _ops[0x44] = _ops[0x64] =
+            () => { ReadByte((ushort)Fetch()); TotalCycles += 3; };
+        // Zero-page,X 2-byte 4-cycle
+        _ops[0x14] = _ops[0x34] = _ops[0x54] = _ops[0x74] =
+        _ops[0xD4] = _ops[0xF4] =
+            () => { ReadByte((ushort)((Fetch() + X) & 0xFF)); TotalCycles += 4; };
+        // Absolute 3-byte 4-cycle
+        _ops[0x0C] = () => { ushort a = (ushort)(Fetch() | (Fetch() << 8)); ReadByte(a); TotalCycles += 4; };
+        // Absolute,X 3-byte 4-cycle (no page-cross penalty on NOPs)
+        Action nopAbsX = () =>
+        {
+            ushort b = (ushort)(Fetch() | (Fetch() << 8));
+            ReadByte((ushort)(b + X));
+            TotalCycles += 4;
+        };
+        _ops[0x1C] = _ops[0x3C] = _ops[0x5C] = _ops[0x7C] =
+        _ops[0xDC] = _ops[0xFC] = nopAbsX;
+
+        // LAX — LDA + LDX same value (sets Z and N)
+        _ops[0xA3] = () => { byte v = ReadByte(AddrIndexedIndirect());   A = X = v; SetZN(v); TotalCycles += 6; };
+        _ops[0xA7] = () => { byte v = ReadByte(AddrZeroPage());          A = X = v; SetZN(v); TotalCycles += 3; };
+        _ops[0xAF] = () => { byte v = ReadByte(AddrAbsolute());          A = X = v; SetZN(v); TotalCycles += 4; };
+        _ops[0xB3] = () => { byte v = ReadByte(AddrIndirectIndexed());   A = X = v; SetZN(v); TotalCycles += 5; };
+        _ops[0xB7] = () => { byte v = ReadByte(AddrZeroPageY());         A = X = v; SetZN(v); TotalCycles += 4; };
+        _ops[0xBF] = () => { byte v = ReadByte(AddrAbsoluteY());         A = X = v; SetZN(v); TotalCycles += 4; };
+
+        // SAX — store A & X (no flags)
+        _ops[0x83] = () => { WriteByte(AddrIndexedIndirect(), (byte)(A & X)); TotalCycles += 6; };
+        _ops[0x87] = () => { WriteByte(AddrZeroPage(),        (byte)(A & X)); TotalCycles += 3; };
+        _ops[0x8F] = () => { WriteByte(AddrAbsolute(),        (byte)(A & X)); TotalCycles += 4; };
+        _ops[0x97] = () => { WriteByte(AddrZeroPageY(),       (byte)(A & X)); TotalCycles += 4; };
+
+        // DCP — DEC memory then CMP A (sets C, Z, N like CMP)
+        _ops[0xC3] = () => { DcpAt(AddrIndexedIndirect());  TotalCycles += 8; };
+        _ops[0xC7] = () => { DcpAt(AddrZeroPage());         TotalCycles += 5; };
+        _ops[0xCF] = () => { DcpAt(AddrAbsolute());         TotalCycles += 6; };
+        _ops[0xD3] = () => { DcpAt(AddrIndirectIndexed(true)); TotalCycles += 8; };
+        _ops[0xD7] = () => { DcpAt(AddrZeroPageX());        TotalCycles += 6; };
+        _ops[0xDB] = () => { DcpAt(AddrAbsoluteY(true));    TotalCycles += 7; };
+        _ops[0xDF] = () => { DcpAt(AddrAbsoluteX(true));    TotalCycles += 7; };
+
+        // ISB/ISC — INC memory then SBC A
+        _ops[0xE3] = () => { IsbAt(AddrIndexedIndirect());  TotalCycles += 8; };
+        _ops[0xE7] = () => { IsbAt(AddrZeroPage());         TotalCycles += 5; };
+        _ops[0xEF] = () => { IsbAt(AddrAbsolute());         TotalCycles += 6; };
+        _ops[0xF3] = () => { IsbAt(AddrIndirectIndexed(true)); TotalCycles += 8; };
+        _ops[0xF7] = () => { IsbAt(AddrZeroPageX());        TotalCycles += 6; };
+        _ops[0xFB] = () => { IsbAt(AddrAbsoluteY(true));    TotalCycles += 7; };
+        _ops[0xFF] = () => { IsbAt(AddrAbsoluteX(true));    TotalCycles += 7; };
+
+        // SLO — ASL memory then ORA A
+        _ops[0x03] = () => { SloAt(AddrIndexedIndirect());  TotalCycles += 8; };
+        _ops[0x07] = () => { SloAt(AddrZeroPage());         TotalCycles += 5; };
+        _ops[0x0F] = () => { SloAt(AddrAbsolute());         TotalCycles += 6; };
+        _ops[0x13] = () => { SloAt(AddrIndirectIndexed(true)); TotalCycles += 8; };
+        _ops[0x17] = () => { SloAt(AddrZeroPageX());        TotalCycles += 6; };
+        _ops[0x1B] = () => { SloAt(AddrAbsoluteY(true));    TotalCycles += 7; };
+        _ops[0x1F] = () => { SloAt(AddrAbsoluteX(true));    TotalCycles += 7; };
+
+        // RLA — ROL memory then AND A
+        _ops[0x23] = () => { RlaAt(AddrIndexedIndirect());  TotalCycles += 8; };
+        _ops[0x27] = () => { RlaAt(AddrZeroPage());         TotalCycles += 5; };
+        _ops[0x2F] = () => { RlaAt(AddrAbsolute());         TotalCycles += 6; };
+        _ops[0x33] = () => { RlaAt(AddrIndirectIndexed(true)); TotalCycles += 8; };
+        _ops[0x37] = () => { RlaAt(AddrZeroPageX());        TotalCycles += 6; };
+        _ops[0x3B] = () => { RlaAt(AddrAbsoluteY(true));    TotalCycles += 7; };
+        _ops[0x3F] = () => { RlaAt(AddrAbsoluteX(true));    TotalCycles += 7; };
+
+        // SRE — LSR memory then EOR A
+        _ops[0x43] = () => { SreAt(AddrIndexedIndirect());  TotalCycles += 8; };
+        _ops[0x47] = () => { SreAt(AddrZeroPage());         TotalCycles += 5; };
+        _ops[0x4F] = () => { SreAt(AddrAbsolute());         TotalCycles += 6; };
+        _ops[0x53] = () => { SreAt(AddrIndirectIndexed(true)); TotalCycles += 8; };
+        _ops[0x57] = () => { SreAt(AddrZeroPageX());        TotalCycles += 6; };
+        _ops[0x5B] = () => { SreAt(AddrAbsoluteY(true));    TotalCycles += 7; };
+        _ops[0x5F] = () => { SreAt(AddrAbsoluteX(true));    TotalCycles += 7; };
+
+        // RRA — ROR memory then ADC A
+        _ops[0x63] = () => { RraAt(AddrIndexedIndirect());  TotalCycles += 8; };
+        _ops[0x67] = () => { RraAt(AddrZeroPage());         TotalCycles += 5; };
+        _ops[0x6F] = () => { RraAt(AddrAbsolute());         TotalCycles += 6; };
+        _ops[0x73] = () => { RraAt(AddrIndirectIndexed(true)); TotalCycles += 8; };
+        _ops[0x77] = () => { RraAt(AddrZeroPageX());        TotalCycles += 6; };
+        _ops[0x7B] = () => { RraAt(AddrAbsoluteY(true));    TotalCycles += 7; };
+        _ops[0x7F] = () => { RraAt(AddrAbsoluteX(true));    TotalCycles += 7; };
     }
 
     private void IllegalOpcode()

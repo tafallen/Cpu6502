@@ -180,15 +180,19 @@ public sealed class AtomMachine
     {
         _frameStartCycles = Cpu.TotalCycles;
         ulong target      = _frameStartCycles + AtomSoundAdapter.CyclesPerFrame;
-        ulong vblStart    = target - VblCycles; // VBL fires near end of frame
+        ulong vblEnd = _frameStartCycles + VblCycles; // VBL is active at the start of the frame
 
-        // MC6847 /FS (field sync) fires once per frame, wired to the 6502 IRQ pin.
+        // MC6847 /FS (field sync) fires at the start of vertical blank, wired to the 6502 IRQ.
+        // VBL is active for the first ~800 cycles, matching real hardware timing so the OS
+        // cursor-blink routine (which waits for VBL before toggling) fires promptly.
+        _vbl = true;
         Cpu.Irq();
 
         _sound?.BeginFrame(Cpu.TotalCycles);
         while (Cpu.TotalCycles < target)
         {
-            _vbl = Cpu.TotalCycles >= vblStart;
+            if (_vbl && Cpu.TotalCycles >= vblEnd)
+                _vbl = false;
             Step();
         }
         _vbl = false;
