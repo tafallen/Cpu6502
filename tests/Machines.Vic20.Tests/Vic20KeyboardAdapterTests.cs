@@ -255,6 +255,61 @@ public class Vic20KeyboardAdapterTests
         Assert.Equal(0, col3 & 0x02); // Shift row 1 IS pulled low (normal shift)
     }
 
+    // ── cursor left / up (Shift-injecting combos) ─────────────────────────────
+    //
+    // VIC-20 has no dedicated ← or ↑ keys; they are Shift+CRSR→ and Shift+CRSR↓.
+    // PC Left  → injects CRSR→ (row 7, col 2) + Shift (row 1, col 3)
+    // PC Up    → injects CRSR↓ (row 7, col 3) + Shift (row 1, col 3)
+
+    [Fact]
+    public void LeftCursor_InjectsCrsrRightAtCol2Row7()
+    {
+        var kb = new Vic20KeyboardAdapter(new StubKeyboard(PhysicalKey.Left));
+        byte result = kb.ScanColumns(0xFB); // col 2 active (bit 2 = 0)
+        Assert.Equal(0, result & 0x80);     // row 7 (bit 7) pulled low — CRSR→
+    }
+
+    [Fact]
+    public void LeftCursor_InjectsShiftAtCol3Row1()
+    {
+        var kb = new Vic20KeyboardAdapter(new StubKeyboard(PhysicalKey.Left));
+        byte result = kb.ScanColumns(0xF7); // col 3 active (bit 3 = 0)
+        Assert.Equal(0, result & 0x02);     // row 1 (bit 1) pulled low — Shift
+    }
+
+    [Fact]
+    public void UpCursor_InjectsCrsrDownAtCol3Row7()
+    {
+        var kb = new Vic20KeyboardAdapter(new StubKeyboard(PhysicalKey.Up));
+        byte result = kb.ScanColumns(0xF7); // col 3 active (bit 3 = 0)
+        Assert.Equal(0, result & 0x80);     // row 7 (bit 7) pulled low — CRSR↓
+    }
+
+    [Fact]
+    public void UpCursor_InjectsShiftAtCol3Row1()
+    {
+        var kb = new Vic20KeyboardAdapter(new StubKeyboard(PhysicalKey.Up));
+        byte result = kb.ScanColumns(0xF7); // col 3 active
+        Assert.Equal(0, result & 0x02);     // row 1 (bit 1) — Shift also injected
+    }
+
+    [Fact]
+    public void NormalRightCursor_NotAffectedByLeftCursorLogic()
+    {
+        // Pressing Right (without Left) should still work normally
+        var kb = new Vic20KeyboardAdapter(new StubKeyboard(PhysicalKey.Right));
+        byte result = kb.ScanColumns(0xFB); // col 2 active
+        Assert.Equal(0, result & 0x80);     // CRSR→ at row 7 — still fires
+    }
+
+    [Fact]
+    public void LeftCursor_DoesNotFireOnWrongColumn()
+    {
+        var kb = new Vic20KeyboardAdapter(new StubKeyboard(PhysicalKey.Left));
+        byte result = kb.ScanColumns(0xFE); // col 0 active — not col 2
+        Assert.NotEqual(0, result & 0x80);  // CRSR→ row 7 stays high
+    }
+
     // ── matrix position lookup ────────────────────────────────────────────────
 
     [Theory]

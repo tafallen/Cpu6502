@@ -84,31 +84,46 @@ public sealed class Vic20KeyboardAdapter
     /// Bits that are 0 in the return value indicate pressed keys in that row.
     /// </summary>
     /// <remarks>
-    /// The VIC-20 has dedicated keys for +, £, and * that have no direct PC
-    /// equivalents. These are emulated as PC shift-key combinations:
-    ///   Shift += → VIC + key  (row 5, col 0)
-    ///   Shift +3 → VIC £ key  (row 6, col 0)
-    ///   Shift +8 → VIC * key  (row 6, col 1)
-    /// When one of these combos is detected, both the Shift key and the base
-    /// key are suppressed from their normal matrix positions so the kernal
-    /// only sees the VIC combo key, not Shift + something-else.
+    /// Three categories of key translation are applied:
+    ///
+    /// 1. Shift-to-VIC-key combos: VIC-20 keys with no PC equivalent are
+    ///    reached via Shift + a base key. Both Shift and the base key are
+    ///    suppressed from their normal matrix positions so the kernal sees
+    ///    only the VIC combo key:
+    ///      Shift+= → VIC +  (row 5, col 0)
+    ///      Shift+3 → VIC £  (row 6, col 0)
+    ///      Shift+8 → VIC *  (row 6, col 1)
+    ///
+    /// 2. Cursor-left / cursor-up: the VIC-20 has no dedicated ← or ↑ keys;
+    ///    they are reached by holding Shift with the right/down cursor keys.
+    ///    PC Left  → injects CRSR→ (row 7, col 2) + Shift (row 1, col 3)
+    ///    PC Up    → injects CRSR↓ (row 7, col 3) + Shift (row 1, col 3)
+    ///    Shift is only injected if it is not already being suppressed by a
+    ///    category-1 combo.
     /// </remarks>
     public byte ScanColumns(byte portB)
     {
         bool anyShift  = _keyboard.IsKeyDown(PhysicalKey.LeftShift) ||
                          _keyboard.IsKeyDown(PhysicalKey.RightShift);
+
+        // ── Category 1: Shift combos for VIC-only keys ────────────────────────
         bool plusCombo  = anyShift && _keyboard.IsKeyDown(PhysicalKey.Equals); // Shift+= → +
         bool poundCombo = anyShift && _keyboard.IsKeyDown(PhysicalKey.D3);     // Shift+3 → £
         bool starCombo  = anyShift && _keyboard.IsKeyDown(PhysicalKey.D8);     // Shift+8 → *
 
-        // Keys suppressed from the normal matrix when a combo is active.
-        // We suppress both shift keys and the base key so the kernal doesn't
-        // also see Shift + Equals (which would produce a shifted = instead of +).
         bool suppressShift  = plusCombo || poundCombo || starCombo;
         bool suppressEquals = plusCombo;
         bool suppressD3     = poundCombo;
         bool suppressD8     = starCombo;
 
+        // ── Category 2: cursor left / up ─────────────────────────────────────
+        bool leftCursor = _keyboard.IsKeyDown(PhysicalKey.Left);
+        bool upCursor   = _keyboard.IsKeyDown(PhysicalKey.Up);
+        // Inject Shift for cursor combos unless a category-1 combo already
+        // claimed Shift (edge case, but keeps the logic consistent).
+        bool injectShiftForCursor = (leftCursor || upCursor) && !suppressShift;
+
+        // ── Normal matrix scan ────────────────────────────────────────────────
         byte rows = 0xFF;
         for (int col = 0; col < Cols; col++)
         {
@@ -126,11 +141,16 @@ public sealed class Vic20KeyboardAdapter
             }
         }
 
-        // Inject the combo keys into the appropriate column/row slots.
-        // + is at [row=5, col=0]; £ at [row=6, col=0]; * at [row=6, col=1].
-        if (plusCombo  && (portB & (1 << 0)) == 0) rows &= unchecked((byte)~(1 << 5)); // + row 5, col 0
-        if (poundCombo && (portB & (1 << 0)) == 0) rows &= unchecked((byte)~(1 << 6)); // £ row 6, col 0
-        if (starCombo  && (portB & (1 << 1)) == 0) rows &= unchecked((byte)~(1 << 6)); // * row 6, col 1
+        // ── Inject virtual keys ───────────────────────────────────────────────
+        // Category 1: + [row5,col0], £ [row6,col0], * [row6,col1]
+        if (plusCombo  && (portB & (1 << 0)) == 0) rows &= unchecked((byte)~(1 << 5));
+        if (poundCombo && (portB & (1 << 0)) == 0) rows &= unchecked((byte)~(1 << 6));
+        if (starCombo  && (portB & (1 << 1)) == 0) rows &= unchecked((byte)~(1 << 6));
+
+        // Category 2: CRSR→ [row7,col2], CRSR↓ [row7,col3], Shift [row1,col3]
+        if (leftCursor && (portB & (1 << 2)) == 0) rows &= unchecked((byte)~(1 << 7));
+        if (upCursor   && (portB & (1 << 3)) == 0) rows &= unchecked((byte)~(1 << 7));
+        if (injectShiftForCursor && (portB & (1 << 3)) == 0) rows &= unchecked((byte)~(1 << 1));
 
         return rows;
     }
