@@ -46,7 +46,10 @@ tests/
   Machines.Atom.Tests/ — Atom hardware tests (Ppi8255, Mc6847, keyboard, sound, tape, UEF, machine)
 docs/
   walkthrough.md      — IBus / AddressDecoder / CPU tutorial
-  atom.md             — Full Atom hardware reference: address map, chips, adapters
+  atom.md             — Acorn Atom hardware reference: address map, chips, ROM layout, VBL timing
+  electron.md         — Acorn Electron hardware reference: ULA, address map, ROM banking, video modes
+  vic20.md            — Commodore VIC-20 hardware reference
+  vic20-tape.md       — VIC-20 TAP tape format details
 ```
 
 ## Architecture
@@ -83,7 +86,37 @@ Cpu  →  IBus
 | `Cpu.Transfer.cs` | TAX/TAY/TXA/TYA/TSX/TXS/PHA/PLA/PHP/PLP |
 | `Cpu.Flags.cs` | CLC/SEC/CLI/SEI/CLD/SED/CLV/NOP |
 
-Opcodes are dispatched via `Action[] _ops` (256 slots). Illegal opcodes throw `InvalidOperationException`. Each instruction method adds its own base cycle count directly to `TotalCycles`; the addressing mode helpers add the page-cross `+1` penalty inline.
+Opcodes are dispatched via `Action[] _ops` (256 slots). Unimplemented opcodes throw `InvalidOperationException`. Each instruction method adds its own base cycle count directly to `TotalCycles`; the addressing mode helpers add the page-cross `+1` penalty inline.
+
+### Undocumented (illegal) NMOS 6502 opcodes
+
+The full NMOS 6502 undocumented opcode set is implemented in `Cpu.Illegal.cs` and registered in `BuildDispatchTable()`. These were added when the VIC-20 kernal was found to use several of them. **Do not remove or stub them out** — real machines rely on them.
+
+| Mnemonic | Opcodes | Description |
+|---|---|---|
+| LAX | `$A3 $A7 $AF $B3 $B7 $BF` | LDA + LDX same value |
+| SAX | `$83 $87 $8F $97` | Store A & X (no flags) |
+| DCP | `$C3 $C7 $CF $D3 $D7 $DB $DF` | DEC memory then CMP A |
+| ISB/ISC | `$E3 $E7 $EF $F3 $F7 $FB $FF` | INC memory then SBC A |
+| SLO | `$03 $07 $0F $13 $17 $1B $1F` | ASL memory then ORA A |
+| RLA | `$23 $27 $2F $33 $37 $3B $3F` | ROL memory then AND A |
+| SRE | `$43 $47 $4F $53 $57 $5B $5F` | LSR memory then EOR A |
+| RRA | `$63 $67 $6F $73 $77 $7B $7F` | ROR memory then ADC A |
+| ANC | `$0B $2B` | AND imm; C = bit 7 of result |
+| ALR | `$4B` | AND imm then LSR accumulator |
+| ARR | `$6B` | AND imm then ROR (complex V/C flags) |
+| SBX/AXS | `$CB` | (A & X) − imm → X; sets C/Z/N |
+| USBC | `$EB` | SBC immediate (duplicate of `$E9`) |
+| SHX | `$9E` | Store X & (addr_hi + 1), abs,Y |
+| SHY | `$9C` | Store Y & (addr_hi + 1), abs,X |
+| SHA | `$9F $93` | Store A & X & (addr_hi + 1) |
+| TAS/XAS | `$9B` | SP = A & X; store A & X & (addr_hi + 1) abs,Y |
+| LAS/LAR | `$BB` | (SP & mem) → A, X, SP; abs,Y |
+| XAA/ANE | `$8B` | Unstable; emulated as (A \| $EE) & X & imm |
+| LXA/OAL | `$AB` | Unstable; emulated as (A \| $EE) & imm → A, X |
+| NOP variants | many | Various implied/immediate/zp/abs NOPs |
+
+KIL/JAM opcodes (`$02 $12 $22 $32 $42 $52 $62 $72 $92 $B2 $D2 $F2`) are **not** implemented; they throw `InvalidOperationException` because hitting one always indicates the CPU has gone off the rails.
 
 ### Cycle counting rule for write and RMW instructions
 

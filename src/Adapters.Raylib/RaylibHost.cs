@@ -24,29 +24,33 @@ namespace Adapters.Raylib;
 public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDisposable
 {
     private readonly int _scale;
+    private readonly int _frameWidth;
+    private readonly int _frameHeight;
     private Texture2D   _texture;
     private AudioStream _audioStream;
     private readonly uint[]  _rgbaBuffer;
     private readonly short[] _audioBuffer;
     private bool _disposed;
 
-    public RaylibHost(string title = "Acorn Atom", int scale = 3)
+    public RaylibHost(string title = "Acorn Atom", int scale = 3, int frameWidth = 256, int frameHeight = 192)
     {
-        _scale = scale;
-        Raylib_cs.Raylib.InitWindow(256 * scale, 192 * scale, title);
+        _scale       = scale;
+        _frameWidth  = frameWidth;
+        _frameHeight = frameHeight;
+        Raylib_cs.Raylib.InitWindow(frameWidth * scale, frameHeight * scale, title);
         Raylib_cs.Raylib.SetTargetFPS(50);
 
         // Video texture
-        var img = Raylib_cs.Raylib.GenImageColor(256, 192, Color.Black);
+        var img = Raylib_cs.Raylib.GenImageColor(frameWidth, frameHeight, Color.Black);
         _texture = Raylib_cs.Raylib.LoadTextureFromImage(img);
         Raylib_cs.Raylib.UnloadImage(img);
 
-        // Audio: mono, 16-bit, 44100 Hz — matches AtomSoundAdapter
+        // Audio: mono, 16-bit, 44100 Hz
         Raylib_cs.Raylib.InitAudioDevice();
         _audioStream = Raylib_cs.Raylib.LoadAudioStream(44100, 16, 1);
         Raylib_cs.Raylib.PlayAudioStream(_audioStream);
 
-        _rgbaBuffer  = new uint[256 * 192];
+        _rgbaBuffer  = new uint[frameWidth * frameHeight];
         _audioBuffer = new short[AtomSoundAdapter.SamplesPerFrame];
     }
 
@@ -71,7 +75,8 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     public unsafe void SubmitFrame(ReadOnlySpan<uint> pixels, int width, int height)
     {
         // Convert ARGB32 (0xAARRGGBB) → RGBA32 (memory: R G B A = 0xAABBGGRR as uint)
-        for (int i = 0; i < pixels.Length; i++)
+        int count = Math.Min(pixels.Length, _rgbaBuffer.Length);
+        for (int i = 0; i < count; i++)
         {
             uint argb = pixels[i];
             uint r = (argb >> 16) & 0xFF;

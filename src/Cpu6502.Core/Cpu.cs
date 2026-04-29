@@ -380,6 +380,97 @@ public sealed partial class Cpu
         _ops[0x77] = () => { RraAt(AddrZeroPageX());        TotalCycles += 6; };
         _ops[0x7B] = () => { RraAt(AddrAbsoluteY(true));    TotalCycles += 7; };
         _ops[0x7F] = () => { RraAt(AddrAbsoluteX(true));    TotalCycles += 7; };
+
+        // ANC ($0B/$2B) — AND imm, carry = bit 7 of result
+        _ops[0x0B] = _ops[0x2B] = () =>
+        {
+            A &= Fetch(); SetZN(A); C = (A & 0x80) != 0; TotalCycles += 2;
+        };
+
+        // ALR ($4B) — AND imm then LSR accumulator
+        _ops[0x4B] = () =>
+        {
+            A &= Fetch(); C = (A & 0x01) != 0; A >>= 1; SetZN(A); TotalCycles += 2;
+        };
+
+        // ARR ($6B) — AND imm then ROR accumulator (complex flags)
+        _ops[0x6B] = () =>
+        {
+            byte imm = Fetch();
+            A &= imm;
+            byte r = (byte)((A >> 1) | (C ? 0x80 : 0));
+            C = (r & 0x40) != 0;
+            V = ((r ^ (r << 1)) & 0x40) != 0;
+            A = r; SetZN(A); TotalCycles += 2;
+        };
+
+        // SBX/AXS ($CB) — (A & X) - imm → X; sets C,Z,N like CMP
+        _ops[0xCB] = () =>
+        {
+            byte imm = Fetch();
+            int r = (A & X) - imm;
+            C = r >= 0; X = (byte)r; SetZN(X); TotalCycles += 2;
+        };
+
+        // USBC ($EB) — SBC immediate (duplicate of $E9)
+        _ops[0xEB] = () => { DoSbc(Fetch()); TotalCycles += 2; };
+
+        // LAS/LAR ($BB) — (SP & mem) → A, X, SP; abs,Y
+        _ops[0xBB] = () =>
+        {
+            byte v = (byte)(ReadByte(AddrAbsoluteY()) & SP);
+            A = X = SP = v; SetZN(v); TotalCycles += 4;
+        };
+
+        // XAA/ANE ($8B) — unstable; treat as A = (A | 0xEE) & X & imm
+        _ops[0x8B] = () => { A = (byte)((A | 0xEE) & X & Fetch()); SetZN(A); TotalCycles += 2; };
+
+        // LXA/OAL ($AB) — A = X = (A | 0xEE) & imm (unstable; common magic = 0xFF)
+        _ops[0xAB] = () => { byte v = (byte)((A | 0xEE) & Fetch()); A = X = v; SetZN(v); TotalCycles += 2; };
+
+        // TAS/XAS ($9B) — SP = A & X; store A & X & (addr_hi+1) abs,Y
+        _ops[0x9B] = () =>
+        {
+            ushort base16 = (ushort)(Fetch() | (Fetch() << 8));
+            SP = (byte)(A & X);
+            WriteByte((ushort)(base16 + Y), (byte)(SP & ((base16 >> 8) + 1)));
+            TotalCycles += 5;
+        };
+
+        // SHY ($9C) — Store Y & (addr_hi + 1), abs,X
+        _ops[0x9C] = () =>
+        {
+            ushort base16 = (ushort)(Fetch() | (Fetch() << 8));
+            ushort ea     = (ushort)(base16 + X);
+            WriteByte(ea, (byte)(Y & ((base16 >> 8) + 1)));
+            TotalCycles += 5;
+        };
+
+        // SHX ($9E) — Store X & (addr_hi + 1), abs,Y
+        _ops[0x9E] = () =>
+        {
+            ushort base16 = (ushort)(Fetch() | (Fetch() << 8));
+            ushort ea     = (ushort)(base16 + Y);
+            WriteByte(ea, (byte)(X & ((base16 >> 8) + 1)));
+            TotalCycles += 5;
+        };
+
+        // SHA ($9F abs,Y; $93 (ind),Y) — Store A & X & (addr_hi + 1)
+        _ops[0x9F] = () =>
+        {
+            ushort base16 = (ushort)(Fetch() | (Fetch() << 8));
+            ushort ea     = (ushort)(base16 + Y);
+            WriteByte(ea, (byte)(A & X & ((base16 >> 8) + 1)));
+            TotalCycles += 5;
+        };
+        _ops[0x93] = () =>
+        {
+            byte zp       = Fetch();
+            ushort base16 = ReadWord(zp);
+            ushort ea     = (ushort)(base16 + Y);
+            WriteByte(ea, (byte)(A & X & ((base16 >> 8) + 1)));
+            TotalCycles += 6;
+        };
     }
 
     private void IllegalOpcode()

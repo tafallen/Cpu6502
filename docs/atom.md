@@ -12,28 +12,33 @@ All `--` flags:
 
 | Flag | Required | Description |
 |---|---|---|
-| `--basic <path>` | Yes | 8 KB BASIC ROM image |
-| `--os <path>` | Yes | 4 KB OS ROM image |
+| `--basic <path>` | Yes | 4 KB BASIC ROM (`abasic.rom`) |
+| `--os <path>` | Yes | 4 KB OS/kernel ROM (`akernel.rom`) |
 | `--tape <path>` | No | UEF tape image (plain or gzip-compressed) |
-| `--float <path>` | No | 4 KB floating-point ROM |
-| `--ext <path>` | No | 4 KB extension ROM (socket #A) |
+| `--float <path>` | No | 4 KB floating-point ROM (`afloat.rom`) |
+| `--dos <path>` | No | 4 KB DOS/extension ROM (`dosrom.rom`) |
+| `--ext <path>` | No | 4 KB utility ROM for socket #A (`axr1.rom`) |
+| `--char <path>` | No | 768-byte MC6847 character ROM (64 chars × 12 rows) |
 | `--scale <n>` | No | Window scale factor (default: 3 → 768×576) |
 
 ---
 
 ## Address map
 
-| Range | Device | Size |
-|---|---|---|
-| `$0000–$7FFF` | Main RAM | 32 KB |
-| `$8000–$9FFF` | Video RAM (dual-ported: CPU + VDG) | 8 KB |
-| `$A000–$AFFF` | Extension ROM socket #A (optional) | 4 KB |
-| `$B000–$B003` | 8255 PPI (keyboard, cassette, VDG mode) | 4 bytes |
-| `$C000–$CFFF` | Floating-point ROM (optional) | 4 KB |
-| `$D000–$EFFF` | BASIC ROM | 8 KB |
-| `$F000–$FFFF` | OS ROM (reset vector at `$FFFC`/`$FFFD`) | 4 KB |
+| Range | Device | Size | ROM file |
+|---|---|---|---|
+| `$0000–$7FFF` | Main RAM | 32 KB | — |
+| `$8000–$9FFF` | Video RAM (dual-ported: CPU + VDG) | 8 KB | — |
+| `$A000–$AFFF` | Extension ROM socket #A (`--ext`) | 4 KB | `axr1.rom` |
+| `$B000–$BFFF` | 8255 PPI (keyboard, cassette, VDG mode) — mirrors across full range | 4 bytes | — |
+| `$C000–$CFFF` | BASIC ROM (`--basic`) | 4 KB | `abasic.rom` |
+| `$D000–$DFFF` | Floating-point / arithmetic ROM (`--float`) | 4 KB | `afloat.rom` |
+| `$E000–$EFFF` | DOS / extension ROM (`--dos`) | 4 KB | `dosrom.rom` |
+| `$F000–$FFFF` | OS kernel ROM (`--os`, reset vector at `$FFFC`/`$FFFD`) | 4 KB | `akernel.rom` |
 
-Unmapped regions return `$FF` (open bus). The real Atom had 2 KB of on-board RAM; mapping the full 32 KB just means the top of that window is always available.
+Unmapped regions return `$FF` (open bus). The real Atom had 2 KB of on-board RAM; the emulator maps the full 32 KB for convenience.
+
+**Missing ROM stubs:** if `--float` or `--dos` is omitted, the emulator fills the region with `$60` (RTS) bytes so JSR calls return safely. If `--ext` is omitted, `$A000` is set to `PLA/RTI` to balance the OS's IRQ handler `PHA` before it jumps to `$A000`.
 
 ---
 
@@ -52,18 +57,20 @@ The Programmable Peripheral Interface sits at `$B000–$B003` and is the hub for
 
 The OS configures the PPI with control byte `$8A`: Port A output, Port B input, Port C lower output, Port C upper input.
 
-**Port C bit assignments:**
+**Port C bit assignments (confirmed from Atomulator source):**
+
+Control word `$8A`: Port C lower (PC0–PC3) = **output**, Port C upper (PC4–PC7) = **input**.
 
 | Bit | Direction | Signal |
 |---|---|---|
-| PC0 | Out | VDG `AG` (alphanumeric / graphics select) |
-| PC1 | Out | VDG `GM0` |
-| PC2 | Out | VDG `GM1` |
-| PC3 | Out | VDG `GM2` |
-| PC4 | Out | Sound output (bit-banged square wave) |
-| PC5 | Out | Cassette motor relay |
-| PC6 | Out | Cassette data out |
-| PC7 | In | Cassette data in |
+| PC0 | Out | VDG `GM2` |
+| PC1 | Out | VDG `GM1` |
+| PC2 | Out | VDG `GM0` |
+| PC3 | Out | VDG `A/G` (alphanumeric / graphics select) |
+| PC4 | In/Out | `CSS` colour select for VDG; also the bit-banged sound output |
+| PC5 | In/Out | Cassette motor relay (written by OS); cassette data-in (read by OS — active-low when tone present) |
+| PC6 | In | RPT key (unused in emulator; stays high) |
+| PC7 | In | `/VBL` — vertical blank from VDG, active-low during blanking (~800 cycles per frame) |
 
 `Ppi8255` exposes `ReadPortA`, `ReadPortB`, `ReadPortC` as `Func<byte>` delegates, allowing peripheral adapters to be wired in without the PPI knowing about them.
 
@@ -125,7 +132,7 @@ Supported UEF chunks:
 
 `AtomTapeAdapter` streams those bits to the CPU at 300 baud (3333 cycles/bit at 1 MHz). Motor control is cycle-accurate: `MotorOn(cycle)` and `MotorOff(cycle)` freeze/resume the tape position precisely.
 
-The cassette read signal appears on PC7 (active low). The motor relay is driven by PC5. Both are wired automatically when a tape is passed to `AtomMachine`.
+The cassette data-in signal appears on PC5 (active low when tone present). The VBL signal appears on PC7 (active low). The motor relay is driven by writing PC5 in the output latch. Both are wired automatically when a tape is passed to `AtomMachine`.
 
 ---
 
@@ -140,6 +147,7 @@ new AtomMachine(
     IPhysicalKeyboard? keyboard = null,
     IAudioSink?        audio    = null,
     byte[]?            floatRom = null,
+    byte[]?            dosRom   = null,
     byte[]?            extRom   = null,
     byte[]?            charRom  = null,
     AtomTapeAdapter?   tape     = null)
@@ -158,6 +166,8 @@ while (host.IsRunning)
 ```
 
 `RunFrame` runs until `TotalCycles` advances by `CyclesPerFrame` (20 000), bracketing audio generation with `BeginFrame`/`EndFrame`. On each `Step`, Port C changes trigger `NotifyPortC` (sound) and `MotorOn`/`MotorOff` (tape).
+
+**VBL timing:** The MC6847 `/FS` (field-sync) pin fires an IRQ at the start of each frame. VBL is active for the first ~800 cycles of the frame (PC7 = 0), then goes high for the remaining ~19 200 cycles. The OS keyboard scan routine at `$FCEA` waits for VBL start before scanning and blinking the cursor — getting this wrong causes the cursor to be drawn but never erased (visible as persistent green squares).
 
 ---
 

@@ -47,7 +47,7 @@ if (tapePath is not null)
 }
 
 // ── build machine and host ────────────────────────────────────────────────────
-using var host = new RaylibHost("Commodore VIC-20", scale);
+using var host = new RaylibHost("Commodore VIC-20", scale, VicI.FrameWidth, VicI.FrameHeight);
 
 var machine = new Vic20Machine(
     basicRom, kernalRom,
