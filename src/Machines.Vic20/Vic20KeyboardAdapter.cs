@@ -60,11 +60,11 @@ public sealed class Vic20KeyboardAdapter
         { PhysicalKey.D9,         PhysicalKey.I,            PhysicalKey.J,           PhysicalKey.N,
           PhysicalKey.M,          PhysicalKey.K,            PhysicalKey.O,           PhysicalKey.D0 },
 
-        // Row 5  (+ has no PC equivalent → None; : mapped to '; @ mapped to \)
+        // Row 5  (+ via Shift+=; : mapped to '; @ mapped to \)
         { PhysicalKey.None,       PhysicalKey.P,            PhysicalKey.L,           PhysicalKey.Comma,
           PhysicalKey.Period,     PhysicalKey.Apostrophe,   PhysicalKey.Backslash,   PhysicalKey.Minus },
 
-        // Row 6  (£ → None; * → None; ; mapped to Semicolon; ↑ → PageUp)
+        // Row 6  (£ via Shift+3; * via Shift+8; ; mapped to Semicolon; ↑ → PageUp)
         { PhysicalKey.None,       PhysicalKey.None,         PhysicalKey.Semicolon,   PhysicalKey.Slash,
           PhysicalKey.RightShift, PhysicalKey.Equals,       PhysicalKey.PageUp,      PhysicalKey.Home },
 
@@ -83,8 +83,32 @@ public sealed class Vic20KeyboardAdapter
     /// Bits that are 0 in <paramref name="portB"/> indicate active columns.
     /// Bits that are 0 in the return value indicate pressed keys in that row.
     /// </summary>
+    /// <remarks>
+    /// The VIC-20 has dedicated keys for +, £, and * that have no direct PC
+    /// equivalents. These are emulated as PC shift-key combinations:
+    ///   Shift += → VIC + key  (row 5, col 0)
+    ///   Shift +3 → VIC £ key  (row 6, col 0)
+    ///   Shift +8 → VIC * key  (row 6, col 1)
+    /// When one of these combos is detected, both the Shift key and the base
+    /// key are suppressed from their normal matrix positions so the kernal
+    /// only sees the VIC combo key, not Shift + something-else.
+    /// </remarks>
     public byte ScanColumns(byte portB)
     {
+        bool anyShift  = _keyboard.IsKeyDown(PhysicalKey.LeftShift) ||
+                         _keyboard.IsKeyDown(PhysicalKey.RightShift);
+        bool plusCombo  = anyShift && _keyboard.IsKeyDown(PhysicalKey.Equals); // Shift+= → +
+        bool poundCombo = anyShift && _keyboard.IsKeyDown(PhysicalKey.D3);     // Shift+3 → £
+        bool starCombo  = anyShift && _keyboard.IsKeyDown(PhysicalKey.D8);     // Shift+8 → *
+
+        // Keys suppressed from the normal matrix when a combo is active.
+        // We suppress both shift keys and the base key so the kernal doesn't
+        // also see Shift + Equals (which would produce a shifted = instead of +).
+        bool suppressShift  = plusCombo || poundCombo || starCombo;
+        bool suppressEquals = plusCombo;
+        bool suppressD3     = poundCombo;
+        bool suppressD8     = starCombo;
+
         byte rows = 0xFF;
         for (int col = 0; col < Cols; col++)
         {
@@ -92,10 +116,22 @@ public sealed class Vic20KeyboardAdapter
             for (int row = 0; row < Rows; row++)
             {
                 var key = Matrix[row, col];
-                if (key != PhysicalKey.None && _keyboard.IsKeyDown(key))
+                if (key == PhysicalKey.None) continue;
+                if (suppressShift  && (key == PhysicalKey.LeftShift  || key == PhysicalKey.RightShift)) continue;
+                if (suppressEquals && key == PhysicalKey.Equals) continue;
+                if (suppressD3     && key == PhysicalKey.D3)     continue;
+                if (suppressD8     && key == PhysicalKey.D8)     continue;
+                if (_keyboard.IsKeyDown(key))
                     rows &= (byte)~(1 << row);
             }
         }
+
+        // Inject the combo keys into the appropriate column/row slots.
+        // + is at [row=5, col=0]; £ at [row=6, col=0]; * at [row=6, col=1].
+        if (plusCombo  && (portB & (1 << 0)) == 0) rows &= unchecked((byte)~(1 << 5)); // + row 5, col 0
+        if (poundCombo && (portB & (1 << 0)) == 0) rows &= unchecked((byte)~(1 << 6)); // £ row 6, col 0
+        if (starCombo  && (portB & (1 << 1)) == 0) rows &= unchecked((byte)~(1 << 6)); // * row 6, col 1
+
         return rows;
     }
 

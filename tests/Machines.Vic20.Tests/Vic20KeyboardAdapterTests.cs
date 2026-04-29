@@ -179,6 +179,82 @@ public class Vic20KeyboardAdapterTests
         Assert.Equal(0, result & 0x01);     // row 0 pulled low
     }
 
+    // ── shift-combo keys: +, £, * ─────────────────────────────────────────────
+    //
+    // These VIC-20 keys have no PC equivalent and are mapped to Shift combos.
+    // When the combo is active, Shift and the base key must be suppressed from
+    // their normal positions so the kernal only sees the VIC combo key.
+
+    // Shift+= → VIC + at [row=5, col=0]
+    [Fact]
+    public void ShiftEquals_PullsPlusRow5Col0()
+    {
+        var kb = new Vic20KeyboardAdapter(new StubKeyboard(PhysicalKey.LeftShift, PhysicalKey.Equals));
+        byte result = kb.ScanColumns(0xFE); // col 0 active
+        Assert.Equal(0, result & 0x20);     // row 5 (bit 5) pulled low — the + key
+    }
+
+    [Fact]
+    public void ShiftEquals_SuppressesShiftAndEqualsFromNormalPositions()
+    {
+        var kb = new Vic20KeyboardAdapter(new StubKeyboard(PhysicalKey.LeftShift, PhysicalKey.Equals));
+        // Shift is at [row=1, col=3]; Equals is at [row=6, col=5]
+        byte col3 = kb.ScanColumns(0xF7); // col 3 active
+        byte col5 = kb.ScanColumns(0xDF); // col 5 active
+        Assert.NotEqual(0, col3 & 0x02);  // Shift row 1 NOT pulled low
+        Assert.NotEqual(0, col5 & 0x40);  // Equals row 6 NOT pulled low
+    }
+
+    // Shift+3 → VIC £ at [row=6, col=0]
+    [Fact]
+    public void ShiftD3_PullsPoundRow6Col0()
+    {
+        var kb = new Vic20KeyboardAdapter(new StubKeyboard(PhysicalKey.LeftShift, PhysicalKey.D3));
+        byte result = kb.ScanColumns(0xFE); // col 0 active
+        Assert.Equal(0, result & 0x40);     // row 6 (bit 6) pulled low — the £ key
+    }
+
+    [Fact]
+    public void ShiftD3_SuppressesShiftAndD3FromNormalPositions()
+    {
+        var kb = new Vic20KeyboardAdapter(new StubKeyboard(PhysicalKey.LeftShift, PhysicalKey.D3));
+        // Shift at [row=1, col=3]; D3 at [row=1, col=0]
+        byte col0 = kb.ScanColumns(0xFE); // col 0 active
+        byte col3 = kb.ScanColumns(0xF7); // col 3 active
+        Assert.NotEqual(0, col0 & 0x02);  // D3 row 1 NOT pulled low
+        Assert.NotEqual(0, col3 & 0x02);  // Shift row 1 NOT pulled low
+    }
+
+    // Shift+8 → VIC * at [row=6, col=1]
+    [Fact]
+    public void ShiftD8_PullsStarRow6Col1()
+    {
+        var kb = new Vic20KeyboardAdapter(new StubKeyboard(PhysicalKey.LeftShift, PhysicalKey.D8));
+        byte result = kb.ScanColumns(0xFD); // col 1 active
+        Assert.Equal(0, result & 0x40);     // row 6 (bit 6) pulled low — the * key
+    }
+
+    [Fact]
+    public void ShiftD8_SuppressesShiftAndD8FromNormalPositions()
+    {
+        var kb = new Vic20KeyboardAdapter(new StubKeyboard(PhysicalKey.LeftShift, PhysicalKey.D8));
+        // Shift at [row=1, col=3]; D8 at [row=3, col=7]
+        byte col3 = kb.ScanColumns(0xF7); // col 3 active
+        byte col7 = kb.ScanColumns(0x7F); // col 7 active
+        Assert.NotEqual(0, col3 & 0x02);  // Shift row 1 NOT pulled low
+        Assert.NotEqual(0, col7 & 0x08);  // D8 row 3 NOT pulled low
+    }
+
+    // Shift+A (a normal shifted key) must NOT suppress shift
+    [Fact]
+    public void ShiftA_DoesNotSuppressShift()
+    {
+        var kb = new Vic20KeyboardAdapter(new StubKeyboard(PhysicalKey.LeftShift, PhysicalKey.A));
+        // Shift at [row=1, col=3]
+        byte col3 = kb.ScanColumns(0xF7);
+        Assert.Equal(0, col3 & 0x02); // Shift row 1 IS pulled low (normal shift)
+    }
+
     // ── matrix position lookup ────────────────────────────────────────────────
 
     [Theory]
