@@ -58,13 +58,21 @@ public class Vic20MachineTests
     // ── ROM ──────────────────────────────────────────────────────────────────
 
     [Fact]
-    public void BasicRom_VisibleAt_A000()
+    public void BasicRom_VisibleAt_C000()
     {
         var basic = MakeBasicRom();
         basic[0] = 0x77;
         var m = new Vic20Machine(basic, MakeKernalRom());
         m.Reset();
-        Assert.Equal(0x77, m.Bus.Read(0xA000));
+        Assert.Equal(0x77, m.Bus.Read(0xC000));
+    }
+
+    [Fact]
+    public void ExpansionArea_A000_ReturnsOpenBus()
+    {
+        var m = Make();
+        m.Reset();
+        Assert.Equal(0xFF, m.Bus.Read(0xA000)); // $A000–$BFFF unmapped on unexpanded VIC-20
     }
 
     [Fact]
@@ -82,9 +90,9 @@ public class Vic20MachineTests
     {
         var m = Make();
         m.Reset();
-        byte before = m.Bus.Read(0xA000);
-        m.Bus.Write(0xA000, 0xFF);
-        Assert.Equal(before, m.Bus.Read(0xA000));
+        byte before = m.Bus.Read(0xC000);
+        m.Bus.Write(0xC000, 0xFF);
+        Assert.Equal(before, m.Bus.Read(0xC000));
     }
 
     // ── colour RAM ────────────────────────────────────────────────────────────

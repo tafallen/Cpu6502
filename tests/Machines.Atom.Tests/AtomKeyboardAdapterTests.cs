@@ -77,13 +77,13 @@ public class AtomKeyboardAdapterTests
     [Fact]
     public void TwoKeysInSameRow_BothColumnsBitsClear()
     {
-        // Row 9 has R(col0), H(col1), Period(col2), D4(col3), Space(col5)
+        // Row 9: Space(col0), —(col1), D4(col2), Period(col3), H(col4), R(col5)
         _kb.Press(PhysicalKey.R);
         _kb.Press(PhysicalKey.H);
         byte result = _adapter.ScanColumns(9);
-        Assert.Equal(0, result & (1 << 0)); // R at col 0
-        Assert.Equal(0, result & (1 << 1)); // H at col 1
-        Assert.NotEqual(0, result & (1 << 2)); // Period not pressed
+        Assert.Equal(0, result & (1 << 5)); // R at col 5
+        Assert.Equal(0, result & (1 << 4)); // H at col 4
+        Assert.NotEqual(0, result & (1 << 3)); // Period not pressed
     }
 
     // --- release clears the column ---
@@ -103,11 +103,12 @@ public class AtomKeyboardAdapterTests
     [Fact]
     public void KeyPressed_OtherColumnsInSameRow_Unaffected()
     {
-        // Press Space (row 9, col 5) — col 0 (R) should stay high
+        // Row 9: Space(col0), —(col1), D4(col2), Period(col3), H(col4), R(col5)
+        // Press Space (row 9, col 0) — col 5 (R) should stay high
         _kb.Press(PhysicalKey.Space);
         byte result = _adapter.ScanColumns(9);
-        Assert.Equal(0,   result & (1 << 5)); // Space col low
-        Assert.NotEqual(0, result & (1 << 0)); // R col unaffected
+        Assert.Equal(0,    result & (1 << 0)); // Space at col 0 → low
+        Assert.NotEqual(0, result & (1 << 5)); // R at col 5 → unaffected
     }
 
     // --- matrix coverage: every mapped key round-trips ---
