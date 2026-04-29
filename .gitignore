@@ -96,3 +96,10 @@ yarn-error.log*
 # Coverlet coverage output
 **/coverage/
 coverage.cobertura.xml
+
+# ROM images
+roms/
+*.rom
+*.bin
+*.tap
+*.uef

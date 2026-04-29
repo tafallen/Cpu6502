@@ -45,8 +45,8 @@ The character ROM is optional — if omitted the screen will show blank glyphs.
 | `$9000–$900F` | VIC-I | Video and audio registers |
 | `$9110–$911F` | VIA 1 | Serial bus, tape, joystick |
 | `$9120–$912F` | VIA 2 | Keyboard matrix, joystick |
-| `$A000–$BFFF` | BASIC ROM | 8 KB, read-only |
-| `$C000–$DFFF` | Open bus | |
+| `$A000–$BFFF` | Expansion cartridge (Block 5) | Unmapped on unexpanded VIC-20 |
+| `$C000–$DFFF` | BASIC ROM | 8 KB, read-only |
 | `$E000–$FFFF` | Kernal ROM | 8 KB; reset vector at `$FFFC/$FFFD` |
 
 The character ROM (4 KB) is **not on the CPU bus** — it is accessed exclusively by the VIC-I chip at VIC address space `$0000–$0FFF`.

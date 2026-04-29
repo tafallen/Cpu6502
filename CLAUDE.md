@@ -138,6 +138,22 @@ See [docs/atom.md](docs/atom.md) for the full hardware reference. Key classes:
 
 Chips are decoupled via delegates: `ppi.ReadPortB = () => kb.ScanColumns(ppi.PortALatch)`. The machine never exposes internal wiring — only `Cpu`, `MainRam`, `VideoRam`, `Ppi`, and `Tape` are public.
 
+### Commodore VIC-20 machine (Machines.Vic20)
+
+See [docs/vic20.md](docs/vic20.md) for the full hardware reference. Key classes:
+
+| Class | Role |
+|---|---|
+| `Vic20Machine` | Compositor: wires all chips to the bus and to each other via delegates |
+| `Via6522` | MOS 6522 VIA — two instances; VIA1 at `$9110` (tape/serial), VIA2 at `$9120` (keyboard) |
+| `VicI` | MOS 6560/6561 video chip; generates 256×272 PAL frame; also handles sound |
+| `Vic20KeyboardAdapter` | Maps `IPhysicalKeyboard` to the VIC-20 keyboard matrix; wired to `Via2.ReadPortA` |
+| `Vic20TapeAdapter` | TAP-format tape streamer; motor driven by VIA1 Port B bit 3 |
+
+**Critical address map note:** BASIC ROM (`$C000–$DFFF`) must NOT be mapped at `$A000–$BFFF`. The `$A000–$BFFF` range is the expansion cartridge area (Block 5), unmapped on an unexpanded VIC-20. Mapping BASIC at `$A000` causes the kernal to see open bus (`$FF`) at `$C002` during cold start, making `JMP ($C002)` jump to `$FFFF` instead of the BASIC entry point, which slowly overflows the stack.
+
+IRQ timing: the VIA1 Timer 1 drives the 50 Hz interrupt. The IRQ pin is level-sensitive on the 6502; only notify the CPU (`Cpu.Irq()`) on the false→true edge (`_irqWasActive` field in `Vic20Machine`). Calling `Cpu.Irq()` every step while the VIA IFR is set causes immediate re-entry after every RTI, overflowing the stack.
+
 ### Test pattern (Cpu6502.Tests)
 
 All CPU tests inherit `CpuFixture`, which wires a 64 KB `Ram` as the bus. Tests write opcodes into RAM at a known address, call `Load()` to set PC via the reset vector, then `Step(n)` to execute instructions.

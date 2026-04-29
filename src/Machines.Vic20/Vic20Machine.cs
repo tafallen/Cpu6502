@@ -16,8 +16,8 @@ namespace Machines.Vic20;
 ///   $9000–$900F  VIC-I video/audio registers
 ///   $9110–$911F  VIA 1 (serial bus, tape, joystick)
 ///   $9120–$912F  VIA 2 (keyboard matrix, joystick)
-///   $A000–$BFFF  BASIC ROM (8KB)
-///   $C000–$DFFF  Unmapped
+///   $A000–$BFFF  Expansion cartridge area (Block 5; unmapped on unexpanded VIC-20)
+///   $C000–$DFFF  BASIC ROM (8KB)
 ///   $E000–$FFFF  Kernal ROM (8KB; reset vector at $FFFC/$FFFD)
 ///
 /// Emulator loop:
@@ -44,6 +44,7 @@ public sealed class Vic20Machine
     private readonly Ram       _colorRam;          // 1KB at $8000
     private readonly byte[]    _charRom;           // 4KB, VIC-only — not on CPU bus
     private readonly AddressDecoder _bus;
+    private bool _irqWasActive;
 
     // Frames: PAL VIC-20 runs at 1,108,405 Hz / 50 Hz = 22,168 cycles/frame
     private const int CyclesPerFrame = 22_168;
@@ -93,7 +94,7 @@ public sealed class Vic20Machine
         _bus.Map(0x9000, 0x900F, _vic);
         _bus.Map(0x9110, 0x911F, Via1);
         _bus.Map(0x9120, 0x912F, Via2);
-        _bus.Map(0xA000, 0xBFFF, new Rom(basicRom));
+        _bus.Map(0xC000, 0xDFFF, new Rom(basicRom));
         _bus.Map(0xE000, 0xFFFF, new Rom(kernalRom));
 
         Bus = _bus;
@@ -111,8 +112,11 @@ public sealed class Vic20Machine
         Via1.Tick(cycles);
         Via2.Tick(cycles);
 
-        if (Via1.Irq || Via2.Irq)
+        // Level-sensitive IRQ: only notify the CPU on the low-going edge (false→true).
+        bool irqNow = Via1.Irq || Via2.Irq;
+        if (irqNow && !_irqWasActive)
             Cpu.Irq();
+        _irqWasActive = irqNow;
 
         // Tape motor: VIA 1 Port B bit 3 (CB2 relay on real hardware)
         if (Tape is not null)
@@ -134,26 +138,26 @@ public sealed class Vic20Machine
 
     // ── VIC-I 14-bit address space translation ────────────────────────────────
     //
-    // Unexpanded PAL VIC-20 address wiring:
-    //   VIC $0000–$0FFF → character ROM (VIC-only; CPU sees colour RAM at $8000)
-    //   VIC $1000–$1FFF → CPU $1000–$1FFF (screen RAM in main RAM)
-    //   VIC $2000–$2FFF → CPU $0000–$0FFF (zero page / stack)
-    //   VIC $3000–$3FFF → character ROM mirror
+    // The VIC chip's 14-bit address space maps to the VIC-20 system bus as follows:
+    //   VIC $0000–$0FFF → Character ROM ($8000–$8FFF CPU; VIC-only, not on CPU bus)
+    //   VIC $1000–$1FFF → CPU $9000–$9FFF (VIC/VIA registers; open bus for VIC reads)
+    //   VIC $2000–$2FFF → CPU $0000–$0FFF (zero page / stack RAM)
+    //   VIC $3000–$3FFF → CPU $1000–$1FFF (main user RAM)
     //
-    // Default Kernal config: screen base $1E00 (VIC $1E00), char base $8000 (VIC $0000).
+    // Default kernal config: screen base VIC $3E00 = CPU $1E00 (reg5=$F0, reg2 bit7=1),
+    //                        char base  VIC $0000 = char ROM (reg5 low nibble = 0).
 
     private byte ReadVicMemory(ushort vicAddr)
     {
-        // Character ROM ranges ($0000-$0FFF and $3000-$3FFF) — VIC-only, not on CPU bus
-        if (vicAddr <= 0x0FFF || (vicAddr >= 0x3000 && vicAddr <= 0x3FFF))
+        if (vicAddr < 0x1000)
+            // VIC $0000–$0FFF → character ROM
             return _charRom[vicAddr & 0x0FFF];
 
-        ushort cpuAddr = vicAddr switch
-        {
-            >= 0x1000 and <= 0x1FFF => vicAddr,
-            >= 0x2000 and <= 0x2FFF => (ushort)(vicAddr & 0x0FFF),
-            _                       => vicAddr,
-        };
-        return _bus.Read(cpuAddr);
+        if (vicAddr < 0x2000)
+            // VIC $1000–$1FFF → CPU $9000–$9FFF (hardware registers, open bus for VIC)
+            return 0xFF;
+
+        // VIC $2000–$3FFF → CPU $0000–$1FFF
+        return _bus.Read((ushort)(vicAddr - 0x2000));
     }
 }

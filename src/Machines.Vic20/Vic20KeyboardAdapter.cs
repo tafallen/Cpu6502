@@ -22,43 +22,55 @@ public sealed class Vic20KeyboardAdapter
     private readonly IPhysicalKeyboard _keyboard;
 
     // [row, col] → physical key
+    //
+    // Source: jvic KeyboardMatrix.java keyConvMapArr, cross-referenced with
+    // Commodore VIC-20 Programmer's Reference Guide Appendix C.
+    //
+    // Port B (VIA2 output) selects the column (bit n → col n, active-low).
+    // Port A (VIA2 input) returns the row state (bit n → row n, active-low).
+    //
+    //       Col0        Col1         Col2         Col3         Col4         Col5         Col6         Col7
+    // Row0: 1           ←(Grave)     CTRL         RUN/STOP     SPACE        CBM          Q            2
+    // Row1: 3           W            A            LSHIFT       Z            S            E            4
+    // Row2: 5           R            D            X            C            F            T            6
+    // Row3: 7           Y            G            V            B            H            U            8
+    // Row4: 9           I            J            N            M            K            O            0
+    // Row5: +(none)     P            L            ,            .            :(Apostrophe) @(Backslash) -
+    // Row6: £(none)     *(none)      ;            /            RSHIFT       =            ↑(PageUp)    HOME
+    // Row7: DEL(BkSp)   RETURN       CRSR→        CRSR↓        F1           F3           F5           F7
     private static readonly PhysicalKey[,] Matrix = new PhysicalKey[Rows, Cols]
     {
-        // Row 0: number keys 1–8
-        { PhysicalKey.D1, PhysicalKey.D2, PhysicalKey.D3, PhysicalKey.D4,
-          PhysicalKey.D5, PhysicalKey.D6, PhysicalKey.D7, PhysicalKey.D8 },
+        // Row 0
+        { PhysicalKey.D1,         PhysicalKey.Grave,        PhysicalKey.LeftControl, PhysicalKey.Escape,
+          PhysicalKey.Space,      PhysicalKey.LeftAlt,      PhysicalKey.Q,           PhysicalKey.D2 },
 
-        // Row 1: Q–I
-        { PhysicalKey.Q, PhysicalKey.W, PhysicalKey.E, PhysicalKey.R,
-          PhysicalKey.T, PhysicalKey.Y, PhysicalKey.U, PhysicalKey.I },
+        // Row 1
+        { PhysicalKey.D3,         PhysicalKey.W,            PhysicalKey.A,           PhysicalKey.LeftShift,
+          PhysicalKey.Z,          PhysicalKey.S,            PhysicalKey.E,           PhysicalKey.D4 },
 
-        // Row 2: CTRL, A–J
-        { PhysicalKey.LeftControl, PhysicalKey.A, PhysicalKey.S, PhysicalKey.D,
-          PhysicalKey.F, PhysicalKey.G, PhysicalKey.H, PhysicalKey.J },
+        // Row 2
+        { PhysicalKey.D5,         PhysicalKey.R,            PhysicalKey.D,           PhysicalKey.X,
+          PhysicalKey.C,          PhysicalKey.F,            PhysicalKey.T,           PhysicalKey.D6 },
 
-        // Row 3: RUN/STOP (Escape), Z–M
-        { PhysicalKey.Escape, PhysicalKey.Z, PhysicalKey.X, PhysicalKey.C,
-          PhysicalKey.V, PhysicalKey.B, PhysicalKey.N, PhysicalKey.M },
+        // Row 3
+        { PhysicalKey.D7,         PhysicalKey.Y,            PhysicalKey.G,           PhysicalKey.V,
+          PhysicalKey.B,          PhysicalKey.H,            PhysicalKey.U,           PhysicalKey.D8 },
 
-        // Row 4: SPACE, CRSR←→ (Right), @([), *( ]), / , CRSR↓↑ (Down), =, RSHIFT
-        { PhysicalKey.Space,      PhysicalKey.Right,       PhysicalKey.LeftBracket,
-          PhysicalKey.RightBracket, PhysicalKey.Slash,     PhysicalKey.Down,
-          PhysicalKey.Equals,     PhysicalKey.RightShift },
+        // Row 4
+        { PhysicalKey.D9,         PhysicalKey.I,            PhysicalKey.J,           PhysicalKey.N,
+          PhysicalKey.M,          PhysicalKey.K,            PhysicalKey.O,           PhysicalKey.D0 },
 
-        // Row 5: CBM (LeftAlt), ;, :  (Apostrophe), . , , , 0, 9, -
-        { PhysicalKey.LeftAlt,    PhysicalKey.Semicolon,   PhysicalKey.Apostrophe,
-          PhysicalKey.Period,     PhysicalKey.Comma,       PhysicalKey.D0,
-          PhysicalKey.D9,         PhysicalKey.Minus },
+        // Row 5  (+ has no PC equivalent → None; : mapped to '; @ mapped to \)
+        { PhysicalKey.None,       PhysicalKey.P,            PhysicalKey.L,           PhysicalKey.Comma,
+          PhysicalKey.Period,     PhysicalKey.Apostrophe,   PhysicalKey.Backslash,   PhysicalKey.Minus },
 
-        // Row 6: ← arrow (Delete), ↑ arrow (Grave), +  (Hash), Home, L, P, O, K
-        { PhysicalKey.Delete,     PhysicalKey.Grave,       PhysicalKey.Hash,
-          PhysicalKey.Home,       PhysicalKey.L,           PhysicalKey.P,
-          PhysicalKey.O,          PhysicalKey.K },
+        // Row 6  (£ → None; * → None; ; mapped to Semicolon; ↑ → PageUp)
+        { PhysicalKey.None,       PhysicalKey.None,         PhysicalKey.Semicolon,   PhysicalKey.Slash,
+          PhysicalKey.RightShift, PhysicalKey.Equals,       PhysicalKey.PageUp,      PhysicalKey.Home },
 
-        // Row 7: CRSR↓↑ (Up), F1, F3, F5, F7, End, DEL (Backspace), RETURN
-        { PhysicalKey.Up,         PhysicalKey.F1,          PhysicalKey.F3,
-          PhysicalKey.F5,         PhysicalKey.F7,          PhysicalKey.End,
-          PhysicalKey.Backspace,  PhysicalKey.Return },
+        // Row 7  (DEL/INST → Backspace; CRSR→ → Right; CRSR↓ → Down)
+        { PhysicalKey.Backspace,  PhysicalKey.Return,       PhysicalKey.Right,       PhysicalKey.Down,
+          PhysicalKey.F1,         PhysicalKey.F3,           PhysicalKey.F5,          PhysicalKey.F7 },
     };
 
     // Reverse lookup: physical key → (row, col)
