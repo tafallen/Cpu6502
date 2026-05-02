@@ -178,3 +178,55 @@ Every test asserts **both** the observable state (registers/flags/memory) **and*
 - **BRK skips the padding byte**: BRK is effectively a 2-byte instruction; RTI returns to `PC+2` of the BRK.
 - **Zero-page indexed addressing wraps**: `$FF + X=1` → `$00`, not `$0100`.
 - **BCD mode**: implemented in `DoADC` / `DoSBC`; overflow flag is undefined in BCD on NMOS 6502 and is not set.
+
+---
+
+## Future work
+
+### Display: scaling filter (`--smooth`)
+
+`RaylibHost.SubmitFrame` currently uses `DrawTextureEx` with Raylib's default nearest-neighbour filtering, giving a hard-pixel look. A `--smooth` flag should enable bilinear filtering:
+
+```csharp
+Raylib.SetTextureFilter(_texture, TextureFilter.Bilinear);
+```
+
+This is a one-line change in `RaylibHost` after the texture is loaded. For higher quality, a GLSL sharp-bilinear or xBR shader could be added later via `LoadShader` / `BeginShaderMode`.
+
+### Display: scanlines (`--scanlines <intensity>`)
+
+Simulate CRT scanline gaps by darkening alternating horizontal rows. Recommended approach is a GPU-side GLSL fragment shader so the effect is free at runtime and trivially togglable:
+
+```glsl
+// scanlines.frag (sketch)
+uniform float intensity;   // 0.0 = off, 0.5 = half brightness on dark rows
+void main() {
+    vec4 col = texture(texture0, fragTexCoord);
+    if (mod(floor(gl_FragCoord.y), 2.0) == 0.0)
+        col.rgb *= (1.0 - intensity);
+    finalColor = col;
+}
+```
+
+Wire up in `RaylibHost`: load the shader once, pass `intensity` as a uniform, wrap `DrawTextureEx` in `BeginShaderMode` / `EndShaderMode`. Scanlines only look good at 2× scale or above.
+
+**Suggested command-line flags** (both machines, added in their respective `Program.cs`):
+
+```
+--smooth              Enable bilinear texture filtering
+--scanlines <0..1>    Scanline intensity (0 = off, 0.5 = moderate, default 0)
+```
+
+**Runtime toggle**: check hotkeys in `PollEvents()` — e.g. `F11` cycles scanline intensity, `F10` toggles smooth. These are pure `RaylibHost` concerns; `IVideoSink` and the machine classes need no changes.
+
+**`DisplayOptions` record** (to avoid threading individual flags through constructors):
+
+```csharp
+record DisplayOptions(int Scale = 3, bool Smooth = false, float ScanlineIntensity = 0f);
+```
+
+Pass into `RaylibHost` instead of the bare `scale` int.
+
+### Acorn Electron machine (`Machines.Electron`)
+
+`docs/electron.md` has a full hardware reference but no implementation exists yet. The Electron shares the 6502 CPU and the same `IBus` / `AddressDecoder` composition pattern. Key chips to emulate: the Ferranti ULA (video, sound, ROM paging, interrupt controller) and the keyboard matrix.
