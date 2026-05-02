@@ -11,7 +11,6 @@ public sealed class Vic20TapeAdapter
     private int    _index       = 0;       // index of current (active) pulse
     private ulong  _pulseStart  = 0;       // absolute cycle when the current pulse began
     private bool   _motorOn     = false;
-    private ulong  _motorOnAt   = 0;
     private ulong  _pausedOffset = 0;      // cycles already consumed in the current pulse when motor turned off
 
     public bool SignalLevel { get; private set; }
@@ -24,13 +23,18 @@ public sealed class Vic20TapeAdapter
         _pulses       = pulses;
         _index        = 0;
         _motorOn      = false;
-        _motorOnAt    = 0;
         _pausedOffset = 0;
         _pulseStart   = 0;
         SignalLevel   = false;
     }
 
     public void LoadTap(Stream stream) => Load(TapParser.Parse(stream));
+
+    public ulong? GetNextEdgeCycle()
+    {
+        if (!_motorOn || _index >= _pulses.Length) return null;
+        return _pulseStart + (ulong)_pulses[_index];
+    }
 
     /// <summary>
     /// Cycle-accurate motor control.
@@ -43,7 +47,6 @@ public sealed class Vic20TapeAdapter
         if (on)
         {
             _motorOn    = true;
-            _motorOnAt  = currentCycle;
             // pulseStart is set such that (currentCycle - _pulseStart) == _pausedOffset
             _pulseStart = currentCycle - _pausedOffset;
         }
@@ -63,16 +66,21 @@ public sealed class Vic20TapeAdapter
     {
         if (!_motorOn || _index >= _pulses.Length) return false;
 
-        ulong pulseEnd = _pulseStart + (ulong)_pulses[_index];
-        if (currentCycle < pulseEnd) return false;
+        bool anyEdge = false;
+        while (_index < _pulses.Length)
+        {
+            ulong pulseEnd = _pulseStart + (ulong)_pulses[_index];
+            if (currentCycle < pulseEnd)
+                break;
 
-        // Edge fires
-        SignalLevel = !SignalLevel;
-        OnEdge?.Invoke(SignalLevel);
-        _index++;
-        _pulseStart = pulseEnd;
-        _pausedOffset = 0;
+            SignalLevel = !SignalLevel;
+            OnEdge?.Invoke(SignalLevel);
+            _index++;
+            _pulseStart = pulseEnd;
+            _pausedOffset = 0;
+            anyEdge = true;
+        }
 
-        return true;
+        return anyEdge;
     }
 }

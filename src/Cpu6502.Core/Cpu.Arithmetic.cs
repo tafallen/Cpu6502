@@ -3,16 +3,16 @@ namespace Cpu6502.Core;
 public sealed partial class Cpu
 {
     // ── ADC ───────────────────────────────────────────────────────────────────
-    private void ADC_Imm()  { DoADC(ReadByte(AddrImmediate()));                       TotalCycles += 2; }
-    private void ADC_Zp()   { DoADC(ReadByte(AddrZeroPage()));                        TotalCycles += 3; }
-    private void ADC_ZpX()  { DoADC(ReadByte(AddrZeroPageX()));                       TotalCycles += 4; }
-    private void ADC_Abs()  { DoADC(ReadByte(AddrAbsolute()));                        TotalCycles += 4; }
-    private void ADC_AbsX() { DoADC(ReadByte(AddrAbsoluteX()));                       TotalCycles += 4; }
-    private void ADC_AbsY() { DoADC(ReadByte(AddrAbsoluteY()));                       TotalCycles += 4; }
-    private void ADC_IndX() { DoADC(ReadByte(AddrIndexedIndirect()));                 TotalCycles += 6; }
-    private void ADC_IndY() { DoADC(ReadByte(AddrIndirectIndexed()));                 TotalCycles += 5; }
+    private void ADC_Imm()  { AdcCore(ReadByte(AddrImmediate()));                     TotalCycles += 2; }
+    private void ADC_Zp()   { AdcCore(ReadByte(AddrZeroPage()));                      TotalCycles += 3; }
+    private void ADC_ZpX()  { AdcCore(ReadByte(AddrZeroPageX()));                     TotalCycles += 4; }
+    private void ADC_Abs()  { AdcCore(ReadByte(AddrAbsolute()));                      TotalCycles += 4; }
+    private void ADC_AbsX() { AdcCore(ReadByte(AddrAbsoluteX()));                     TotalCycles += 4; }
+    private void ADC_AbsY() { AdcCore(ReadByte(AddrAbsoluteY()));                     TotalCycles += 4; }
+    private void ADC_IndX() { AdcCore(ReadByte(AddrIndexedIndirect()));               TotalCycles += 6; }
+    private void ADC_IndY() { AdcCore(ReadByte(AddrIndirectIndexed()));               TotalCycles += 5; }
 
-    private void DoADC(byte val)
+    private void AdcCore(byte val)
     {
         if (D)
         {
@@ -39,16 +39,16 @@ public sealed partial class Cpu
     }
 
     // ── SBC ───────────────────────────────────────────────────────────────────
-    private void SBC_Imm()  { DoSBC(ReadByte(AddrImmediate()));                       TotalCycles += 2; }
-    private void SBC_Zp()   { DoSBC(ReadByte(AddrZeroPage()));                        TotalCycles += 3; }
-    private void SBC_ZpX()  { DoSBC(ReadByte(AddrZeroPageX()));                       TotalCycles += 4; }
-    private void SBC_Abs()  { DoSBC(ReadByte(AddrAbsolute()));                        TotalCycles += 4; }
-    private void SBC_AbsX() { DoSBC(ReadByte(AddrAbsoluteX()));                       TotalCycles += 4; }
-    private void SBC_AbsY() { DoSBC(ReadByte(AddrAbsoluteY()));                       TotalCycles += 4; }
-    private void SBC_IndX() { DoSBC(ReadByte(AddrIndexedIndirect()));                 TotalCycles += 6; }
-    private void SBC_IndY() { DoSBC(ReadByte(AddrIndirectIndexed()));                 TotalCycles += 5; }
+    private void SBC_Imm()  { SbcCore(ReadByte(AddrImmediate()));                     TotalCycles += 2; }
+    private void SBC_Zp()   { SbcCore(ReadByte(AddrZeroPage()));                      TotalCycles += 3; }
+    private void SBC_ZpX()  { SbcCore(ReadByte(AddrZeroPageX()));                     TotalCycles += 4; }
+    private void SBC_Abs()  { SbcCore(ReadByte(AddrAbsolute()));                      TotalCycles += 4; }
+    private void SBC_AbsX() { SbcCore(ReadByte(AddrAbsoluteX()));                     TotalCycles += 4; }
+    private void SBC_AbsY() { SbcCore(ReadByte(AddrAbsoluteY()));                     TotalCycles += 4; }
+    private void SBC_IndX() { SbcCore(ReadByte(AddrIndexedIndirect()));               TotalCycles += 6; }
+    private void SBC_IndY() { SbcCore(ReadByte(AddrIndirectIndexed()));               TotalCycles += 5; }
 
-    private void DoSBC(byte val)
+    private void SbcCore(byte val)
     {
         if (D)
         {
@@ -66,7 +66,7 @@ public sealed partial class Cpu
         else
         {
             // SBC is ADC with the operand inverted
-            DoADC((byte)~val);
+            AdcCore((byte)~val);
         }
     }
 

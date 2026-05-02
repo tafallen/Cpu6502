@@ -112,6 +112,21 @@ public class Vic20TapeAdapterTests
         Assert.Equal([true, false], levels);
     }
 
+    [Fact]
+    public void Tick_CatchesUp_AllEdges_WhenCycleJumpSpansMultiplePulses()
+    {
+        var levels = new List<bool>();
+        var adapter = AdapterWith(1, 1);
+        adapter.OnEdge = level => levels.Add(level);
+        adapter.SetMotor(true, 0);
+
+        bool edge = adapter.Tick(2); // crosses both pulse boundaries
+
+        Assert.True(edge);
+        Assert.Equal([true, false], levels);
+        Assert.False(adapter.SignalLevel);
+    }
+
     // ── past end of tape ──────────────────────────────────────────────────────
 
     [Fact]

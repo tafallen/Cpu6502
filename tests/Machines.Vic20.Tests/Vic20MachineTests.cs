@@ -191,4 +191,25 @@ public class Vic20MachineTests
         var m = Make();
         Assert.Null(m.Tape);
     }
+
+    [Fact]
+    public void Tape_MultipleEdgesBetweenSteps_AreNotLost()
+    {
+        var tape = new Vic20TapeAdapter();
+        tape.Load([1, 1]);
+        var m = Make(tape: tape);
+        m.Reset();
+
+        // Keep motor relay on via VIA1 Port B bit 3.
+        m.Bus.Write(0x9110, 0x08);
+
+        // Execute two NOPs (2 cycles each): second step advances far enough
+        // that both 1-cycle pulses should be consumed.
+        m.Ram.Write(0x0400, 0xEA);
+        m.Ram.Write(0x0401, 0xEA);
+        m.Step();
+        m.Step();
+
+        Assert.False(tape.SignalLevel); // two transitions => back to low
+    }
 }

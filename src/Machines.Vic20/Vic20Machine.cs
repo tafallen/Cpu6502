@@ -44,6 +44,9 @@ public sealed class Vic20Machine
     private readonly Ram       _colorRam;          // 1KB at $8000
     private readonly byte[]    _charRom;           // 4KB, VIC-only — not on CPU bus
     private readonly AddressDecoder _bus;
+    private readonly MachineClock _clock = new();
+    private readonly TimingScheduler _scheduler;
+    private ulong? _armedTapeEdgeCycle;
     private bool _irqWasActive;
 
     // Frames: PAL VIC-20 runs at 1,108,405 Hz / 50 Hz = 22,168 cycles/frame
@@ -99,16 +102,26 @@ public sealed class Vic20Machine
 
         Bus = _bus;
         Cpu = new Cpu(_bus);
+        _scheduler = new TimingScheduler(_clock);
+        Cpu.OnCyclesConsumed = AdvanceTiming;
     }
 
-    public void Reset() => Cpu.Reset();
+    public void Reset()
+    {
+        Cpu.Reset();
+        _clock.Set(Cpu.TotalCycles);
+        _armedTapeEdgeCycle = null;
+    }
 
     public void Step()
     {
-        ulong before = Cpu.TotalCycles;
         Cpu.Step();
-        int cycles = (int)(Cpu.TotalCycles - before);
+    }
 
+    private void AdvanceTiming(int cycles)
+    {
+        _clock.Advance(cycles);
+        _scheduler.RunDue(_clock.Now);
         Via1.Tick(cycles);
         Via2.Tick(cycles);
 
@@ -122,15 +135,24 @@ public sealed class Vic20Machine
         if (Tape is not null)
         {
             bool motorOn = (Via1.PortBLatch & 0x08) != 0;
-            Tape.SetMotor(motorOn, Cpu.TotalCycles);
-            Tape.Tick(Cpu.TotalCycles);
+            ulong? before = Tape.GetNextEdgeCycle();
+            Tape.SetMotor(motorOn, _clock.Now);
+
+            if (!motorOn)
+            {
+                _armedTapeEdgeCycle = null;
+            }
+            else if (before is null)
+            {
+                ArmTapeEdge();
+            }
         }
     }
 
     public void RunFrame()
     {
-        ulong target = Cpu.TotalCycles + CyclesPerFrame;
-        while (Cpu.TotalCycles < target)
+        ulong target = _clock.Now + CyclesPerFrame;
+        while (_clock.Now < target)
             Step();
     }
 
@@ -159,5 +181,26 @@ public sealed class Vic20Machine
 
         // VIC $2000–$3FFF → CPU $0000–$1FFF
         return _bus.Read((ushort)(vicAddr - 0x2000));
+    }
+
+    private void ArmTapeEdge()
+    {
+        if (Tape is null) return;
+        ulong? next = Tape.GetNextEdgeCycle();
+        if (!next.HasValue) return;
+        if (_armedTapeEdgeCycle == next.Value) return;
+
+        _armedTapeEdgeCycle = next.Value;
+        _scheduler.ScheduleAt(next.Value, ProcessTapeEdges);
+    }
+
+    private void ProcessTapeEdges()
+    {
+        if (Tape is null || !_armedTapeEdgeCycle.HasValue) return;
+        if (_clock.Now < _armedTapeEdgeCycle.Value) return;
+
+        _armedTapeEdgeCycle = null;
+        Tape.Tick(_clock.Now); // catch up all due edges at/under current cycle
+        ArmTapeEdge();
     }
 }

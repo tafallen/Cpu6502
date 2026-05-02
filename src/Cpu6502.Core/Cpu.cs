@@ -68,12 +68,21 @@ public sealed partial class Cpu
     /// <summary>Executes one instruction (fetches opcode, dispatches, updates cycles).</summary>
     public void Step()
     {
-        // Service interrupts before executing the next instruction
-        if (_nmiPending)  { ServiceNmi(); return; }
-        if (_irqPending && !I) { ServiceIrq(); return; }
+        ulong before = TotalCycles;
 
-        byte opcode = Fetch();
-        _ops[opcode]();
+        // Service interrupts before executing the next instruction
+        if (_nmiPending)
+            ServiceNmi();
+        else if (_irqPending && !I)
+            ServiceIrq();
+        else
+        {
+            byte opcode = Fetch();
+            _ops[opcode]();
+        }
+
+        int consumed = (int)(TotalCycles - before);
+        OnCyclesConsumed?.Invoke(consumed);
     }
 
     /// <summary>Request a maskable interrupt (IRQ). Serviced before next instruction if I=0.</summary>
@@ -84,6 +93,9 @@ public sealed partial class Cpu
 
     /// <summary>Request a non-maskable interrupt (NMI). Always serviced before next instruction.</summary>
     public void Nmi() => _nmiPending = true;
+
+    /// <summary>Called after each Step() with the exact number of cycles consumed by that step.</summary>
+    public Action<int>? OnCyclesConsumed { get; set; }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Status register helpers
@@ -413,7 +425,7 @@ public sealed partial class Cpu
         };
 
         // USBC ($EB) — SBC immediate (duplicate of $E9)
-        _ops[0xEB] = () => { DoSbc(Fetch()); TotalCycles += 2; };
+        _ops[0xEB] = () => { SbcCore(Fetch()); TotalCycles += 2; };
 
         // LAS/LAR ($BB) — (SP & mem) → A, X, SP; abs,Y
         _ops[0xBB] = () =>
@@ -466,7 +478,7 @@ public sealed partial class Cpu
         _ops[0x93] = () =>
         {
             byte zp       = Fetch();
-            ushort base16 = ReadWord(zp);
+            ushort base16 = ReadWordBug(zp);
             ushort ea     = (ushort)(base16 + Y);
             WriteByte(ea, (byte)(A & X & ((base16 >> 8) + 1)));
             TotalCycles += 6;

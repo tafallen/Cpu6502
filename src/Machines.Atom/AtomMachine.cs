@@ -37,6 +37,8 @@ public sealed class AtomMachine
     private readonly Mc6847            _vdg;
     private readonly AddressDecoder    _bus;
     private readonly AtomSoundAdapter? _sound;
+    private readonly MachineClock      _clock = new();
+    private readonly TimingScheduler   _scheduler;
 
     private byte _lastPortC;
     private bool _vbl;                  // true = vertical blank active (bit 7 of Port C = 0)
@@ -121,6 +123,8 @@ public sealed class AtomMachine
 
         Bus = _bus;
         Cpu = new Cpu(_bus);
+        _scheduler = new TimingScheduler(_clock);
+        Cpu.OnCyclesConsumed = OnCyclesConsumed;
 
         // Port C read bit layout (matches Atomulator / Acorn Atom hardware):
         //   bit 7: VBL — 0 during vertical blank, 1 during active display (active-low)
@@ -135,14 +139,18 @@ public sealed class AtomMachine
             if (_vbl)        val &= 0x7F; // bit 7 = 0 during VBL
             if (tape is not null)
             {
-                bool tone = tape.ReadBit(Cpu.TotalCycles);
+                bool tone = tape.ReadBit(_clock.Now);
                 if (tone) val &= 0xDF; // bit 5 = 0 when tone present
             }
             return val;
         };
     }
 
-    public void Reset() => Cpu.Reset();
+    public void Reset()
+    {
+        Cpu.Reset();
+        _clock.Set(Cpu.TotalCycles);
+    }
 
     private static byte[] MakeRtsStubs(int size)
     {
@@ -164,11 +172,11 @@ public sealed class AtomMachine
             // PC5 = cassette motor relay
             bool motorOn    = (portC      & 0x20) != 0;
             bool motorWasOn = (_lastPortC & 0x20) != 0;
-            if (motorOn && !motorWasOn)  Tape.MotorOn(Cpu.TotalCycles);
-            if (!motorOn && motorWasOn)  Tape.MotorOff(Cpu.TotalCycles);
+            if (motorOn && !motorWasOn)  Tape.MotorOn(_clock.Now);
+            if (!motorOn && motorWasOn)  Tape.MotorOff(_clock.Now);
         }
 
-        _sound?.NotifyPortC(portC, Cpu.TotalCycles);
+        _sound?.NotifyPortC(portC, _clock.Now);
         _lastPortC = portC;
     }
 
@@ -178,25 +186,22 @@ public sealed class AtomMachine
     /// </summary>
     public void RunFrame()
     {
-        _frameStartCycles = Cpu.TotalCycles;
+        _frameStartCycles = _clock.Now;
         ulong target      = _frameStartCycles + AtomSoundAdapter.CyclesPerFrame;
-        ulong vblEnd = _frameStartCycles + VblCycles; // VBL is active at the start of the frame
+        ulong vblEnd      = _frameStartCycles + VblCycles;
 
         // MC6847 /FS (field sync) fires at the start of vertical blank, wired to the 6502 IRQ.
         // VBL is active for the first ~800 cycles, matching real hardware timing so the OS
         // cursor-blink routine (which waits for VBL before toggling) fires promptly.
         _vbl = true;
+        _scheduler.ScheduleAt(vblEnd, () => _vbl = false);
         Cpu.Irq();
 
-        _sound?.BeginFrame(Cpu.TotalCycles);
-        while (Cpu.TotalCycles < target)
-        {
-            if (_vbl && Cpu.TotalCycles >= vblEnd)
-                _vbl = false;
+        _sound?.BeginFrame(_clock.Now);
+        while (_clock.Now < target)
             Step();
-        }
         _vbl = false;
-        _sound?.EndFrame(Cpu.TotalCycles);
+        _sound?.EndFrame(_clock.Now);
     }
 
     /// <summary>Render the current video frame to the given sink.</summary>
@@ -213,5 +218,11 @@ public sealed class AtomMachine
             ((portC << 0) & 0x10)    // PC4 → CSS  (bit 4, upper nibble input)
         );
         _vdg.RenderFrame(sink);
+    }
+
+    private void OnCyclesConsumed(int cycles)
+    {
+        _clock.Advance(cycles);
+        _scheduler.RunDue(_clock.Now);
     }
 }

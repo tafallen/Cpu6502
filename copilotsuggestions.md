@@ -5,6 +5,7 @@ This document turns the previously identified **risky areas** and **architectura
 ## Risk mitigation plans
 
 ### 1) Risk: `AddressDecoder` linear scan per access
+**Status:** ✅ Complete  
 **Current concern:** `AddressDecoder.ResolveWithBase` does a reverse list scan on every read/write.  
 **Goal:** Remove lookup cost growth as machine complexity increases.
 
@@ -22,6 +23,7 @@ This document turns the previously identified **risky areas** and **architectura
 ---
 
 ### 2) Risk: Instruction-granular timing model
+**Status:** ✅ Complete  
 **Current concern:** Devices advance per instruction, not per bus cycle/event.  
 **Goal:** Enable cycle-exact interactions (IRQ edges, tape pulses, contention).
 
@@ -39,6 +41,7 @@ This document turns the previously identified **risky areas** and **architectura
 ---
 
 ### 3) Risk: Duplicated ADC/SBC logic paths
+**Status:** ✅ Complete  
 **Current concern:** Separate arithmetic paths exist in legal and illegal opcode implementations.  
 **Goal:** Single arithmetic truth source to reduce divergence risk.
 
