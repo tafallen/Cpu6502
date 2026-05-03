@@ -75,6 +75,7 @@ Cpu  →  IBus
 | File | Content |
 |---|---|
 | `Cpu.cs` | Registers, flags, `Reset`/`Step`/`Irq`/`Nmi`, status byte helpers, dispatch table builder |
+| `Cpu.CycleMetadata.cs` | Cycle timing table: 11 addressing modes × 3 access types → base cycles + page-cross penalty flag |
 | `Cpu.AddressingModes.cs` | All 11 addressing modes as `private` methods returning `ushort` effective address |
 | `Cpu.LoadStore.cs` | LDA/LDX/LDY/STA/STX/STY |
 | `Cpu.Arithmetic.cs` | ADC/SBC/INC/DEC/INX/INY/DEX/DEY (includes BCD mode) |
@@ -85,8 +86,9 @@ Cpu  →  IBus
 | `Cpu.Jumps.cs` | JMP/JSR/RTS/BRK/RTI |
 | `Cpu.Transfer.cs` | TAX/TAY/TXA/TYA/TSX/TXS/PHA/PLA/PHP/PLP |
 | `Cpu.Flags.cs` | CLC/SEC/CLI/SEI/CLD/SED/CLV/NOP |
+| `Cpu.Illegal.cs` | Undocumented NMOS 6502 opcodes (LAX, SAX, DCP, ISB, etc.) |
 
-Opcodes are dispatched via `Action[] _ops` (256 slots). Unimplemented opcodes throw `InvalidOperationException`. Each instruction method adds its own base cycle count directly to `TotalCycles`; the addressing mode helpers add the page-cross `+1` penalty inline.
+Opcodes are dispatched via `Action[] _ops` (256 slots). Unimplemented opcodes throw `InvalidOperationException`. All cycle accounting uses `GetCycleInfo(AddressingMode, AccessType)` lookups from the central cycle table.
 
 ### Undocumented (illegal) NMOS 6502 opcodes
 
@@ -118,9 +120,70 @@ The full NMOS 6502 undocumented opcode set is implemented in `Cpu.Illegal.cs` an
 
 KIL/JAM opcodes (`$02 $12 $22 $32 $42 $52 $62 $72 $92 $B2 $D2 $F2`) are **not** implemented; they throw `InvalidOperationException` because hitting one always indicates the CPU has gone off the rails.
 
-### Cycle counting rule for write and RMW instructions
+### Cycle accounting metadata table
 
-Read instructions pay `+1` only when a page boundary is crossed (`AddrAbsoluteX()` / `AddrAbsoluteY()` default). Write and read-modify-write instructions **always** pay the same cycle count regardless of page crossing — pass no `alwaysAddCycle` argument and bake the full count into the base (`TotalCycles += 5` for STA abs,X; `TotalCycles += 7` for INC abs,X). Using `alwaysAddCycle: true` adds an *extra* cycle on top, which is wrong for these cases.
+Cycle timing is centralized in `Cpu.CycleMetadata.cs` via a static `CycleTable` dictionary. This eliminates scattered hardcoded cycle counts and makes timing properties auditable:
+
+**Cycle table structure:**
+- Key: `(AddressingMode, AccessType)` tuple
+- Value: `CycleInfo` record with `BaseCycles` and `PageCrossPenalty` flag
+- 11 addressing modes × 3 access types = 33 table entries covering all instruction patterns
+
+**Addressing modes:** Immediate, ZeroPage, ZeroPageX, ZeroPageY, Absolute, AbsoluteX, AbsoluteY, IndirectX, IndirectY, Indirect, Relative
+
+**Access types:**
+- **Read**: Reads data from memory; page-cross penalty applies on read (e.g., `LDA $1234,X`)
+- **Write**: Writes data to memory; no page-cross penalty (cost baked into base)
+- **Rmw**: Read-Modify-Write (e.g., `INC $1234,X`); no page-cross penalty (cost baked into base)
+
+**Lookup pattern:**
+
+```csharp
+// In Load/Store/Arithmetic/Logic/Compare/Shifts instruction methods:
+private void LDA_AbsX()
+{
+    A = ReadByte(AddrAbsoluteX());
+    TotalCycles += (ulong)GetCycleInfo(AddressingMode.AbsoluteX, AccessType.Read).BaseCycles;
+}
+```
+
+The `GetCycleInfo()` method returns the cycle metadata; the addressing mode helper (`AddrAbsoluteX()`) already adds the page-cross penalty inline if needed, so the returned base cycles include any conditional additions.
+
+**Cycle table design principles:**
+
+1. **Immediate & ZeroPage modes:** No page-cross penalty possible; `PageCrossPenalty = false`
+2. **Absolute,X / Absolute,Y reads:** `PageCrossPenalty = true`; base = 4, +1 if page cross
+3. **Absolute,X / Absolute,Y writes:** `PageCrossPenalty = false`; base = 5 (includes page-cross overhead)
+4. **RMW instructions:** `PageCrossPenalty = false`; base includes full cost (6 for ZeroPage, 7 for AbsoluteX)
+5. **Branch instructions (Relative):** `PageCrossPenalty = true`; base = 2, +1 if taken, +1 if page cross on branch
+6. **Indirect indexed reads:** `PageCrossPenalty = true` for IndirectY, false for IndirectX
+
+**Adding a custom instruction with cycle metadata:**
+
+```csharp
+// New instruction using cycle table:
+private void MyInstruction()
+{
+    // Fetch operand using addressing mode
+    byte val = ReadByte(AddrAbsoluteX());
+    // Do operation
+    A |= val;
+    SetZN(A);
+    // Add cycles from table
+    TotalCycles += (ulong)GetCycleInfo(AddressingMode.AbsoluteX, AccessType.Read).BaseCycles;
+}
+```
+
+**Testing cycle correctness:**
+
+- `CycleMetadataTests.cs` validates all addressing modes and access types
+- Each test loads an instruction, steps the CPU, and asserts both state and cycle count
+- Page-cross detection tested with specific address pairs (e.g., $12FF + 0x02 crosses; $1234 + 0x05 does not)
+- All 727 tests pass; Klaus Dörmann functional test validates cycle accuracy against real hardware
+
+### Cycle counting rule for write and RMW instructions (legacy)
+
+This is now enforced by the cycle table: Read instructions pay `+1` only when a page boundary is crossed. Write and read-modify-write instructions **always** pay the same cycle count regardless of page crossing — the cost is baked into the `BaseCycles` entry in `CycleTable`.
 
 ### Acorn Atom machine (Machines.Atom)
 
