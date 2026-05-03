@@ -3,14 +3,14 @@ namespace Cpu6502.Core;
 public sealed partial class Cpu
 {
     // ── ADC ───────────────────────────────────────────────────────────────────
-    private void ADC_Imm()  { AdcCore(ReadByte(AddrImmediate()));                     TotalCycles += 2; }
-    private void ADC_Zp()   { AdcCore(ReadByte(AddrZeroPage()));                      TotalCycles += 3; }
-    private void ADC_ZpX()  { AdcCore(ReadByte(AddrZeroPageX()));                     TotalCycles += 4; }
-    private void ADC_Abs()  { AdcCore(ReadByte(AddrAbsolute()));                      TotalCycles += 4; }
-    private void ADC_AbsX() { AdcCore(ReadByte(AddrAbsoluteX()));                     TotalCycles += 4; }
-    private void ADC_AbsY() { AdcCore(ReadByte(AddrAbsoluteY()));                     TotalCycles += 4; }
-    private void ADC_IndX() { AdcCore(ReadByte(AddrIndexedIndirect()));               TotalCycles += 6; }
-    private void ADC_IndY() { AdcCore(ReadByte(AddrIndirectIndexed()));               TotalCycles += 5; }
+    private void ADC_Imm()  { AdcCore(ReadByte(AddrImmediate()));                     TotalCycles += (ulong)GetCycleInfo(AddressingMode.Immediate, AccessType.Read).BaseCycles; }
+    private void ADC_Zp()   { AdcCore(ReadByte(AddrZeroPage()));                      TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPage, AccessType.Read).BaseCycles; }
+    private void ADC_ZpX()  { AdcCore(ReadByte(AddrZeroPageX()));                     TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPageX, AccessType.Read).BaseCycles; }
+    private void ADC_Abs()  { AdcCore(ReadByte(AddrAbsolute()));                      TotalCycles += (ulong)GetCycleInfo(AddressingMode.Absolute, AccessType.Read).BaseCycles; }
+    private void ADC_AbsX() { AdcCore(ReadByte(AddrAbsoluteX()));                     TotalCycles += (ulong)GetCycleInfo(AddressingMode.AbsoluteX, AccessType.Read).BaseCycles; }
+    private void ADC_AbsY() { AdcCore(ReadByte(AddrAbsoluteY()));                     TotalCycles += (ulong)GetCycleInfo(AddressingMode.AbsoluteY, AccessType.Read).BaseCycles; }
+    private void ADC_IndX() { AdcCore(ReadByte(AddrIndexedIndirect()));               TotalCycles += (ulong)GetCycleInfo(AddressingMode.IndirectX, AccessType.Read).BaseCycles; }
+    private void ADC_IndY() { AdcCore(ReadByte(AddrIndirectIndexed()));               TotalCycles += (ulong)GetCycleInfo(AddressingMode.IndirectY, AccessType.Read).BaseCycles; }
 
     private void AdcCore(byte val)
     {
@@ -39,14 +39,14 @@ public sealed partial class Cpu
     }
 
     // ── SBC ───────────────────────────────────────────────────────────────────
-    private void SBC_Imm()  { SbcCore(ReadByte(AddrImmediate()));                     TotalCycles += 2; }
-    private void SBC_Zp()   { SbcCore(ReadByte(AddrZeroPage()));                      TotalCycles += 3; }
-    private void SBC_ZpX()  { SbcCore(ReadByte(AddrZeroPageX()));                     TotalCycles += 4; }
-    private void SBC_Abs()  { SbcCore(ReadByte(AddrAbsolute()));                      TotalCycles += 4; }
-    private void SBC_AbsX() { SbcCore(ReadByte(AddrAbsoluteX()));                     TotalCycles += 4; }
-    private void SBC_AbsY() { SbcCore(ReadByte(AddrAbsoluteY()));                     TotalCycles += 4; }
-    private void SBC_IndX() { SbcCore(ReadByte(AddrIndexedIndirect()));               TotalCycles += 6; }
-    private void SBC_IndY() { SbcCore(ReadByte(AddrIndirectIndexed()));               TotalCycles += 5; }
+    private void SBC_Imm()  { SbcCore(ReadByte(AddrImmediate()));                     TotalCycles += (ulong)GetCycleInfo(AddressingMode.Immediate, AccessType.Read).BaseCycles; }
+    private void SBC_Zp()   { SbcCore(ReadByte(AddrZeroPage()));                      TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPage, AccessType.Read).BaseCycles; }
+    private void SBC_ZpX()  { SbcCore(ReadByte(AddrZeroPageX()));                     TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPageX, AccessType.Read).BaseCycles; }
+    private void SBC_Abs()  { SbcCore(ReadByte(AddrAbsolute()));                      TotalCycles += (ulong)GetCycleInfo(AddressingMode.Absolute, AccessType.Read).BaseCycles; }
+    private void SBC_AbsX() { SbcCore(ReadByte(AddrAbsoluteX()));                     TotalCycles += (ulong)GetCycleInfo(AddressingMode.AbsoluteX, AccessType.Read).BaseCycles; }
+    private void SBC_AbsY() { SbcCore(ReadByte(AddrAbsoluteY()));                     TotalCycles += (ulong)GetCycleInfo(AddressingMode.AbsoluteY, AccessType.Read).BaseCycles; }
+    private void SBC_IndX() { SbcCore(ReadByte(AddrIndexedIndirect()));               TotalCycles += (ulong)GetCycleInfo(AddressingMode.IndirectX, AccessType.Read).BaseCycles; }
+    private void SBC_IndY() { SbcCore(ReadByte(AddrIndirectIndexed()));               TotalCycles += (ulong)GetCycleInfo(AddressingMode.IndirectY, AccessType.Read).BaseCycles; }
 
     private void SbcCore(byte val)
     {
@@ -71,15 +71,15 @@ public sealed partial class Cpu
     }
 
     // ── INC / DEC (memory) ────────────────────────────────────────────────────
-    private void INC_Zp()   { var a = AddrZeroPage();              RMW(a, v => ++v); TotalCycles += 5; }
-    private void INC_ZpX()  { var a = AddrZeroPageX();             RMW(a, v => ++v); TotalCycles += 6; }
-    private void INC_Abs()  { var a = AddrAbsolute();              RMW(a, v => ++v); TotalCycles += 6; }
-    private void INC_AbsX() { var a = AddrAbsoluteX(); RMW(a, v => ++v); TotalCycles += 7; }
+    private void INC_Zp()   { var a = AddrZeroPage();              RMW(a, v => ++v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPage, AccessType.Rmw).BaseCycles; }
+    private void INC_ZpX()  { var a = AddrZeroPageX();             RMW(a, v => ++v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPageX, AccessType.Rmw).BaseCycles; }
+    private void INC_Abs()  { var a = AddrAbsolute();              RMW(a, v => ++v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.Absolute, AccessType.Rmw).BaseCycles; }
+    private void INC_AbsX() { var a = AddrAbsoluteX(); RMW(a, v => ++v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.AbsoluteX, AccessType.Rmw).BaseCycles; }
 
-    private void DEC_Zp()   { var a = AddrZeroPage();              RMW(a, v => --v); TotalCycles += 5; }
-    private void DEC_ZpX()  { var a = AddrZeroPageX();             RMW(a, v => --v); TotalCycles += 6; }
-    private void DEC_Abs()  { var a = AddrAbsolute();              RMW(a, v => --v); TotalCycles += 6; }
-    private void DEC_AbsX() { var a = AddrAbsoluteX(); RMW(a, v => --v); TotalCycles += 7; }
+    private void DEC_Zp()   { var a = AddrZeroPage();              RMW(a, v => --v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPage, AccessType.Rmw).BaseCycles; }
+    private void DEC_ZpX()  { var a = AddrZeroPageX();             RMW(a, v => --v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPageX, AccessType.Rmw).BaseCycles; }
+    private void DEC_Abs()  { var a = AddrAbsolute();              RMW(a, v => --v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.Absolute, AccessType.Rmw).BaseCycles; }
+    private void DEC_AbsX() { var a = AddrAbsoluteX(); RMW(a, v => --v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.AbsoluteX, AccessType.Rmw).BaseCycles; }
 
     private void RMW(ushort address, Func<byte, byte> op)
     {
