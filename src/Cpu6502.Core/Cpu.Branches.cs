@@ -14,7 +14,7 @@ public sealed partial class Cpu
     private void Branch(bool condition)
     {
         sbyte offset = (sbyte)Fetch();  // signed relative offset
-        TotalCycles += 2;
+        TotalCycles += (ulong)GetCycleInfo(AddressingMode.Relative, AccessType.Read).BaseCycles;
 
         if (!condition) return;
 
