@@ -46,8 +46,8 @@ public sealed class Vic20Machine : IComponent
     private readonly AddressDecoder _bus;
     private readonly MachineClock _clock = new();
     private readonly TimingScheduler _scheduler;
+    private readonly InterruptEdgeDetector _irqEdge = new();
     private ulong? _armedTapeEdgeCycle;
-    private bool _irqWasActive;
 
     // Frames: PAL VIC-20 runs at 1,108,405 Hz / 50 Hz = 22,168 cycles/frame
     private const int CyclesPerFrame = 22_168;
@@ -133,11 +133,12 @@ public sealed class Vic20Machine : IComponent
         Via1.Tick(cycles);
         Via2.Tick(cycles);
 
-        // Level-sensitive IRQ: only notify the CPU on the low-going edge (false→true).
-        bool irqNow = Via1.Irq || Via2.Irq;
-        if (irqNow && !_irqWasActive)
+        // Level-sensitive IRQ: only notify the CPU on the rising edge.
+        // The 6522 VIA Timer 1 holds IRQ high continuously, but the 6502
+        // only services an interrupt once per edge transition.
+        bool irqActive = Via1.Irq || Via2.Irq;
+        if (_irqEdge.Detect(irqActive))
             Cpu.Irq();
-        _irqWasActive = irqNow;
 
         // Tape motor: VIA 1 Port B bit 3 (CB2 relay on real hardware)
         if (Tape is not null)
