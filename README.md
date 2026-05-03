@@ -119,6 +119,14 @@ See [docs/vic20.md](docs/vic20.md) for the full address map and chip documentati
 
 Drop `6502_functional_test.bin` from [Klaus Dörmann's test suite](https://github.com/Klaus2m5/6502_65C02_functional_tests) into `tests/Cpu6502.Tests/TestData/` and run `dotnet test`. The integration test will confirm the CPU runs the suite to completion at PC=`$3469`.
 
+By default, this integration test is permissive when the asset is missing (to keep local setup friction low). To require integration assets, set:
+
+```
+CPU6502_REQUIRE_INTEGRATION_ASSETS=1
+```
+
+When strict mode is enabled, missing assets fail the test with a clear error message.
+
 ## Contributor checklist
 
 When changing emulator behavior, update docs in the same PR:
@@ -126,3 +134,4 @@ When changing emulator behavior, update docs in the same PR:
 1. Address map/wiring changes: update `docs/atom.md` or `docs/vic20.md` and any XML comments on constructors/machine maps.
 2. Timing/interrupt scheduling changes: update the machine docs where timing behavior is described.
 3. Host CLI changes: update host usage text and command-line options tables in docs.
+4. Integration tests with external assets: document required files and strict-mode behavior.

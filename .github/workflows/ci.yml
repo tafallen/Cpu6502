@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Run full test suite
+        run: dotnet test --nologo
+
+  strict-integration-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Prepare Klaus functional test asset
+        run: |
+          mkdir -p tests/Cpu6502.Tests/TestData
+          curl -L --fail \
+            -o tests/Cpu6502.Tests/TestData/6502_functional_test.bin \
+            https://raw.githubusercontent.com/Klaus2m5/6502_65C02_functional_tests/master/bin_files/6502_functional_test.bin
+
+      - name: Run strict integration test
+        env:
+          CPU6502_REQUIRE_INTEGRATION_ASSETS: "1"
+        run: >
+          dotnet test tests/Cpu6502.Tests/Cpu6502.Tests.csproj
+          --nologo
+          /p:CollectCoverage=false
+          --filter "FullyQualifiedName~KlausDormann_FunctionalTest_RunsToCompletion"

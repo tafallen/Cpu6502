@@ -109,6 +109,7 @@ This document turns the previously identified **risky areas** and **architectura
 ---
 
 ### 7) Risk: Optional integration tests can pass vacuously
+**Status:** ✅ Complete  
 **Current concern:** Missing external test ROM can still produce green builds.  
 **Goal:** Preserve developer convenience while strengthening CI confidence.
 

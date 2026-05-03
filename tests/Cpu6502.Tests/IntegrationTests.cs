@@ -14,7 +14,10 @@ namespace Cpu6502.Tests;
 /// </summary>
 public class IntegrationTests
 {
-    private const string BinPath = "TestData/6502_functional_test.bin";
+    private const string BinFileName = "6502_functional_test.bin";
+    private const string BinHint =
+        "Download 6502_functional_test.bin from https://github.com/Klaus2m5/6502_65C02_functional_tests " +
+        "and place it in tests/Cpu6502.Tests/TestData/.";
     private const ushort EntryPoint   = 0x0400;
     private const ushort SuccessPC    = 0x3469;
     private const int    MaxSteps     = 100_000_000;  // plenty for the full suite
@@ -22,14 +25,12 @@ public class IntegrationTests
     [Fact]
     public void KlausDormann_FunctionalTest_RunsToCompletion()
     {
-        if (!File.Exists(BinPath))
-        {
-            // Binary not present — test is vacuously green.
-            // To run: place 6502_functional_test.bin in tests/Cpu6502.Tests/TestData/
-            return;
-        }
+        string binPath = IntegrationAssetPolicy.ResolveAssetPathByFileName(BinFileName);
 
-        byte[] program = File.ReadAllBytes(BinPath);
+        if (!IntegrationAssetPolicy.ShouldRunAssetBackedTest(binPath, BinHint))
+            return;
+
+        byte[] program = File.ReadAllBytes(binPath);
 
         var ram = new Ram(0x10000);
         ram.Load(0x0000, program);
