@@ -4,7 +4,7 @@ using Machines.Common;
 namespace Machines.Atom;
 
 /// <summary>
-/// Acorn Atom machine compositor — accurate address map.
+/// Acorn Atom machine compositor — accurate address map, implements IComponent for lifecycle validation.
 ///
 /// Address map:
 ///   $0000–$7FFF  Main RAM (up to 32KB; real hardware had 2KB standard, 12KB max on-board)
@@ -25,7 +25,7 @@ namespace Machines.Atom;
 ///       machine.RenderFrame(host);   // renders video
 ///   }
 /// </summary>
-public sealed class AtomMachine
+public sealed class AtomMachine : IComponent
 {
     public Cpu              Cpu      { get; }
     public IBus             Bus      { get; }
@@ -144,12 +144,20 @@ public sealed class AtomMachine
             }
             return val;
         };
+
+        ValidateInitialization();
     }
 
     public void Reset()
     {
         Cpu.Reset();
         _clock.Set(Cpu.TotalCycles);
+    }
+
+    public void ValidateInitialization()
+    {
+        // Keyboard is optional for headless/test use, so no validation needed.
+        // Future extensions can validate other component wiring as needed.
     }
 
     private static byte[] MakeRtsStubs(int size)

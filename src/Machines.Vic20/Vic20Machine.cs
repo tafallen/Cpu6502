@@ -29,7 +29,7 @@ namespace Machines.Vic20;
 ///       machine.RenderFrame(host);
 ///   }
 /// </summary>
-public sealed class Vic20Machine
+public sealed class Vic20Machine : IComponent
 {
     // ── public hardware ──────────────────────────────────────────────────────
 
@@ -104,6 +104,8 @@ public sealed class Vic20Machine
         Cpu = new Cpu(_bus);
         _scheduler = new TimingScheduler(_clock);
         Cpu.OnCyclesConsumed = AdvanceTiming;
+
+        ValidateInitialization();
     }
 
     public void Reset()
@@ -111,6 +113,12 @@ public sealed class Vic20Machine
         Cpu.Reset();
         _clock.Set(Cpu.TotalCycles);
         _armedTapeEdgeCycle = null;
+    }
+
+    public void ValidateInitialization()
+    {
+        // Keyboard is optional for headless/test use, so no validation needed.
+        // Future extensions can validate other component wiring as needed.
     }
 
     public void Step()
