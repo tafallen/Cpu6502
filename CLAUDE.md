@@ -37,7 +37,7 @@ Coverage reports are written to `tests/*/coverage/coverage.cobertura.xml` after 
 ```
 src/
   Cpu6502.Core/       — 6502 CPU, Ram, Rom, AddressDecoder (IBus primitives)
-  Machines.Common/    — Shared interfaces: IBus, IVideoSink, IAudioSink, IPhysicalKeyboard, ITapeDevice
+  Machines.Common/    — Shared interfaces: IBus, IVideoSink, IAudioSink, IPhysicalKeyboard, ITapeDevice; components: InterruptEdgeDetector, IComponent, MachineClock, TimingScheduler
   Machines.Atom/      — Acorn Atom hardware emulation
   Adapters.Raylib/    — RaylibHost: window, input, audio (IVideoSink + IPhysicalKeyboard + IAudioSink)
   Host.Atom/          — Console entry point; --basic, --os, --tape, --float, --ext, --scale flags
@@ -178,6 +178,23 @@ Every test asserts **both** the observable state (registers/flags/memory) **and*
 - **BRK skips the padding byte**: BRK is effectively a 2-byte instruction; RTI returns to `PC+2` of the BRK.
 - **Zero-page indexed addressing wraps**: `$FF + X=1` → `$00`, not `$0100`.
 - **BCD mode**: implemented in `DoADC` / `DoSBC`; overflow flag is undefined in BCD on NMOS 6502 and is not set.
+
+### Interrupt edge detection: level-sensitive pins, edge-triggered CPU
+
+The 6502's IRQ and NMI inputs are **level-sensitive**: they are sampled at each CPU cycle, and if held HIGH, the CPU will service the interrupt. However, **the CPU only acknowledges one interrupt per signal edge** (transition from LOW to HIGH). Without edge detection, a VIA timer that holds IRQ continuously would cause immediate re-entry after every RTI, corrupting the stack.
+
+Machines handle this via the `InterruptEdgeDetector` component in `Machines.Common`:
+
+```csharp
+private readonly InterruptEdgeDetector _irqEdge = new();
+
+// In Step() or RunFrame()
+bool irqActive = via1.IrqLine || via2.IrqLine;
+if (_irqEdge.Detect(irqActive))
+    Cpu.Irq();  // Only called on rising edge (LOW → HIGH)
+```
+
+The detector maintains internal state (`_lineWasActive`) and returns true only when the line transitions from false to true. This converts level-sensitive hardware into the edge-triggered semantics the 6502 requires.
 
 ---
 
