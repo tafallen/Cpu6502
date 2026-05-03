@@ -179,6 +179,56 @@ Every test asserts **both** the observable state (registers/flags/memory) **and*
 - **Zero-page indexed addressing wraps**: `$FF + X=1` → `$00`, not `$0100`.
 - **BCD mode**: implemented in `DoADC` / `DoSBC`; overflow flag is undefined in BCD on NMOS 6502 and is not set.
 
+### Bus error handling: optional validation via IBusValidator
+
+Address mapping misconfigurations (oversized ROM, undersized RAM, overlap bugs) are difficult to debug — they manifest as crashes or silent memory corruption. The `IBusValidator` interface provides optional device-level validation in DEBUG builds only:
+
+```csharp
+public interface IBusValidator : IBus
+{
+    /// <summary>Validate that an offset is within the device's addressable range. 
+    /// Throws InvalidOperationException if validation fails.</summary>
+    void ValidateAddress(ushort address);
+}
+```
+
+**Usage pattern:**
+
+1. Device implements `IBusValidator` (e.g., `Ram`, `Rom`):
+```csharp
+public sealed class Ram : IBusValidator
+{
+    private int _size;
+    public void ValidateAddress(ushort address)
+    {
+        if (address >= _size)
+            throw new InvalidOperationException(
+                $"Ram access at 0x{address:X4} exceeds size 0x{_size:X4}");
+    }
+}
+```
+
+2. `AddressDecoder` calls validators in DEBUG mode:
+```csharp
+#if DEBUG
+if (device is IBusValidator validator)
+    validator.ValidateAddress(offset);  // offset is zero-based within device
+#endif
+```
+
+**Key properties:**
+
+- **Optional**: Not all devices need implement `IBusValidator` (e.g., 6522 VIA, 6847 VDG)
+- **DEBUG-only**: Validation compiles away in RELEASE builds → zero performance overhead
+- **Centralized**: `AddressDecoder` controls validation policy; devices are clean
+- **Zero-based addressing**: Validator receives offset from device base, not CPU bus address
+
+**Example misconfigurations caught:**
+
+- Mapping `Rom(0x4000)` to range `$E000–$FFFF` (8 KB address space) — exception on $E000+0x4000 read
+- Mapping `Ram(0x2000)` to range `$0000–$7FFF` (32 KB address space) — exception on $0000+0x2000+ write
+- Typos in address ranges causing memory stomping
+
 ### Interrupt edge detection: level-sensitive pins, edge-triggered CPU
 
 The 6502's IRQ and NMI inputs are **level-sensitive**: they are sampled at each CPU cycle, and if held HIGH, the CPU will service the interrupt. However, **the CPU only acknowledges one interrupt per signal edge** (transition from LOW to HIGH). Without edge detection, a VIA timer that holds IRQ continuously would cause immediate re-entry after every RTI, corrupting the stack.

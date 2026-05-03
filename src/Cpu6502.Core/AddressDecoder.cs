@@ -38,7 +38,16 @@ public sealed class AddressDecoder : IBus
 #if DEBUG
         ValidateRoute(address, device, from);
 #endif
-        return device is not null ? device.Read((ushort)(address - from)) : (byte)0xFF;
+        if (device is not null)
+        {
+            ushort offset = (ushort)(address - from);
+#if DEBUG
+            if (device is IBusValidator validator)
+                validator.ValidateAddress(offset);
+#endif
+            return device.Read(offset);
+        }
+        return 0xFF;
     }
 
     public void Write(ushort address, byte value)
@@ -47,7 +56,15 @@ public sealed class AddressDecoder : IBus
 #if DEBUG
         ValidateRoute(address, device, from);
 #endif
-        device?.Write((ushort)(address - from), value);
+        if (device is not null)
+        {
+            ushort offset = (ushort)(address - from);
+#if DEBUG
+            if (device is IBusValidator validator)
+                validator.ValidateAddress(offset);
+#endif
+            device.Write(offset, value);
+        }
     }
 
 #if DEBUG
