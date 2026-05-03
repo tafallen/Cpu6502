@@ -29,6 +29,7 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     private readonly int _frameWidth;
     private readonly int _frameHeight;
     private readonly bool _logKeypresses;
+    private readonly IRaylibBackend _backend;
     private Texture2D   _texture;
     private AudioStream _audioStream;
     private readonly uint[]  _rgbaBuffer;
@@ -42,40 +43,42 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
         int frameHeight = 192,
         bool logKeypresses = false,
         int targetFps = DefaultFrameRate,
-        int audioSampleRate = DefaultAudioSampleRate)
+        int audioSampleRate = DefaultAudioSampleRate,
+        IRaylibBackend? backend = null)
     {
         _scale       = scale;
         _frameWidth  = frameWidth;
         _frameHeight = frameHeight;
         _logKeypresses = logKeypresses;
-        Raylib_cs.Raylib.InitWindow(frameWidth * scale, frameHeight * scale, title);
-        Raylib_cs.Raylib.SetTargetFPS(targetFps);
+        _backend = backend ?? new RaylibBackend();
+        _backend.InitWindow(frameWidth * scale, frameHeight * scale, title);
+        _backend.SetTargetFps(targetFps);
 
         // Video texture
-        var img = Raylib_cs.Raylib.GenImageColor(frameWidth, frameHeight, Color.Black);
-        _texture = Raylib_cs.Raylib.LoadTextureFromImage(img);
-        Raylib_cs.Raylib.UnloadImage(img);
+        var img = _backend.GenImageColor(frameWidth, frameHeight, Color.Black);
+        _texture = _backend.LoadTextureFromImage(img);
+        _backend.UnloadImage(img);
 
         // Audio: mono, 16-bit PCM
-        Raylib_cs.Raylib.InitAudioDevice();
-        _audioStream = Raylib_cs.Raylib.LoadAudioStream((uint)audioSampleRate, 16, 1);
-        Raylib_cs.Raylib.PlayAudioStream(_audioStream);
+        _backend.InitAudioDevice();
+        _audioStream = _backend.LoadAudioStream((uint)audioSampleRate, 16, 1);
+        _backend.PlayAudioStream(_audioStream);
 
         _rgbaBuffer  = new uint[frameWidth * frameHeight];
         _audioBuffer = [];
     }
 
-    public bool IsRunning => !Raylib_cs.Raylib.WindowShouldClose();
+    public bool IsRunning => !_backend.WindowShouldClose();
 
     /// <summary>Process OS events and update key state. Call once per emulator iteration.</summary>
     public void PollEvents()
     {
-        Raylib_cs.Raylib.PollInputEvents();
+        _backend.PollInputEvents();
         if (!_logKeypresses) return;
 
         // Optional verbose key logging for input debugging.
         int kp;
-        while ((kp = (int)Raylib_cs.Raylib.GetKeyPressed()) != 0)
+        while ((kp = _backend.GetKeyPressed()) != 0)
             Console.WriteLine($"[key] Raylib saw keypress: {(KeyboardKey)kp} ({kp})");
     }
 
@@ -85,7 +88,7 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     /// Converts the ARGB32 pixel buffer to RGBA32 (Raylib's native format),
     /// uploads it to the GPU texture, and draws it scaled to the window.
     /// </summary>
-    public unsafe void SubmitFrame(ReadOnlySpan<uint> pixels, int width, int height)
+    public void SubmitFrame(ReadOnlySpan<uint> pixels, int width, int height)
     {
         // Convert ARGB32 (0xAARRGGBB) → RGBA32 (memory: R G B A = 0xAABBGGRR as uint)
         int count = Math.Min(pixels.Length, _rgbaBuffer.Length);
@@ -99,18 +102,17 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
             _rgbaBuffer[i] = r | (g << 8) | (b << 16) | (a << 24);
         }
 
-        fixed (uint* ptr = _rgbaBuffer)
-            Raylib_cs.Raylib.UpdateTexture(_texture, ptr);
+        _backend.UpdateTexture(_texture, _rgbaBuffer);
 
-        Raylib_cs.Raylib.BeginDrawing();
-        Raylib_cs.Raylib.ClearBackground(Color.Black);
-        Raylib_cs.Raylib.DrawTextureEx(
+        _backend.BeginDrawing();
+        _backend.ClearBackground(Color.Black);
+        _backend.DrawTextureEx(
             _texture,
             Vector2.Zero,
             rotation: 0f,
             scale: _scale,
             Color.White);
-        Raylib_cs.Raylib.EndDrawing();
+        _backend.EndDrawing();
     }
 
     // ── IAudioSink ────────────────────────────────────────────────────────────
@@ -120,15 +122,14 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     /// If the stream is still playing the previous buffer, the frame is silently dropped
     /// (preferable to stalling the emulator loop).
     /// </summary>
-    public unsafe void SubmitSamples(ReadOnlySpan<short> samples, int sampleRate)
+    public void SubmitSamples(ReadOnlySpan<short> samples, int sampleRate)
     {
-        if (!Raylib_cs.Raylib.IsAudioStreamProcessed(_audioStream)) return;
+        if (!_backend.IsAudioStreamProcessed(_audioStream)) return;
 
         int count = samples.Length;
         EnsureAudioCapacity(count);
         samples[..count].CopyTo(_audioBuffer);
-        fixed (short* ptr = _audioBuffer)
-            Raylib_cs.Raylib.UpdateAudioStream(_audioStream, ptr, count);
+        _backend.UpdateAudioStream(_audioStream, _audioBuffer, count);
     }
 
     private void EnsureAudioCapacity(int sampleCount)
@@ -140,7 +141,7 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     // ── IPhysicalKeyboard ─────────────────────────────────────────────────────
 
     public bool IsKeyDown(PhysicalKey key) =>
-        RaylibKeyMap.TryGet(key, out var rk) && Raylib_cs.Raylib.IsKeyDown(rk);
+        RaylibKeyMap.TryGet(key, out var rk) && _backend.IsKeyDown(rk);
 
     // ── IDisposable ───────────────────────────────────────────────────────────
 
@@ -148,9 +149,9 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     {
         if (_disposed) return;
         _disposed = true;
-        Raylib_cs.Raylib.UnloadTexture(_texture);
-        Raylib_cs.Raylib.UnloadAudioStream(_audioStream);
-        Raylib_cs.Raylib.CloseAudioDevice();
-        Raylib_cs.Raylib.CloseWindow();
+        _backend.UnloadTexture(_texture);
+        _backend.UnloadAudioStream(_audioStream);
+        _backend.CloseAudioDevice();
+        _backend.CloseWindow();
     }
 }

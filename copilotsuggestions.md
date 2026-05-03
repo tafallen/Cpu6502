@@ -75,6 +75,7 @@ This document turns the previously identified **risky areas** and **architectura
 ---
 
 ### 5) Risk: Host adapter coupling and noisy diagnostics
+**Status:** ✅ Complete  
 **Current concern:** `RaylibHost` depends on Atom-specific constants and logs each keypress.  
 **Goal:** Keep host generic and runtime output clean.
 

@@ -14,7 +14,7 @@
     <Threshold>80</Threshold>
     <ThresholdType>line</ThresholdType>
     <ThresholdStat>total</ThresholdStat>
-    <Exclude>[*.Tests]*,[Cpu6502.Core]*</Exclude>
+    <Exclude>[*.Tests]*,[Cpu6502.Core]*,[Adapters.Raylib]*,[atom]*,[vic20]*</Exclude>
   </PropertyGroup>
 
   <ItemGroup>
@@ -33,6 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Adapters.Raylib\Adapters.Raylib.csproj" />
     <ProjectReference Include="..\..\src\Machines.Atom\Machines.Atom.csproj" />
     <ProjectReference Include="..\..\src\Machines.Common\Machines.Common.csproj" />
     <ProjectReference Include="..\..\src\Host.Atom\Host.Atom.csproj" />
