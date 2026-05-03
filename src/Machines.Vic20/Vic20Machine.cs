@@ -8,8 +8,8 @@ namespace Machines.Vic20;
 ///
 /// Address map:
 ///   $0000–$00FF  Zero page (RAM)
-///   $0100–$03FF  Stack + system area (RAM)
-///   $0400–$0FFF  Unmapped (open bus / $FF)
+///   $0100–$01FF  Stack (RAM)
+///   $0200–$0FFF  System/work RAM
 ///   $1000–$1FFF  Main RAM (4KB, unexpanded)
 ///   $2000–$7FFF  Expansion RAM area (unmapped → $FF)
 ///   $8000–$8FFF  Colour RAM (4-bit nibbles, 1KB usable; upper nibble open)
@@ -52,7 +52,7 @@ public sealed class Vic20Machine
     // Frames: PAL VIC-20 runs at 1,108,405 Hz / 50 Hz = 22,168 cycles/frame
     private const int CyclesPerFrame = 22_168;
 
-    /// <param name="basicRom">8KB BASIC ROM image (mapped at $A000–$BFFF).</param>
+    /// <param name="basicRom">8KB BASIC ROM image (mapped at $C000–$DFFF).</param>
     /// <param name="kernalRom">8KB Kernal ROM image (mapped at $E000–$FFFF).</param>
     /// <param name="charRom">Optional 4KB character ROM (VIC-I address space $8000–$8FFF).</param>
     /// <param name="keyboard">Physical keyboard source. Pass null for headless/test use.</param>

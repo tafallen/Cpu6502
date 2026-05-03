@@ -20,6 +20,7 @@ All `--` flags:
 | `--ext <path>` | No | 4 KB utility ROM for socket #A (`axr1.rom`) |
 | `--char <path>` | No | 768-byte MC6847 character ROM (64 chars × 12 rows) |
 | `--scale <n>` | No | Window scale factor (default: 3 → 768×576) |
+| `--debug-keys` | No | Log raw keypresses from Raylib (debug only) |
 
 ---
 

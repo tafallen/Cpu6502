@@ -30,6 +30,7 @@ The character ROM is optional — if omitted the screen will show blank glyphs.
 | `--char <path>` | — | 4 KB character ROM |
 | `--tape <path>` | — | Commodore TAP tape image |
 | `--scale <n>` | 3 | Window scale factor |
+| `--debug-keys` | off | Log raw keypresses from Raylib (debug only) |
 
 ## Address map
 
@@ -37,8 +38,7 @@ The character ROM is optional — if omitted the screen will show blank glyphs.
 |-------|--------|-------|
 | `$0000–$00FF` | RAM | Zero page |
 | `$0100–$01FF` | RAM | Stack |
-| `$0200–$03FF` | RAM | System area |
-| `$0400–$0FFF` | Open bus | Returns $FF |
+| `$0200–$0FFF` | RAM | System/work area |
 | `$1000–$1FFF` | RAM | 4 KB main RAM (unexpanded) |
 | `$2000–$7FFF` | Open bus | Expansion RAM area |
 | `$8000–$83FF` | Colour RAM | 4-bit per cell, CPU read/write |
@@ -96,24 +96,23 @@ private byte ReadVicMemory(ushort vicAddr)
     if (vicAddr <= 0x0FFF || (vicAddr >= 0x3000 && vicAddr <= 0x3FFF))
         return _charRom[vicAddr & 0x0FFF];
 
-    ushort cpuAddr = vicAddr switch
-    {
-        >= 0x1000 and <= 0x1FFF => vicAddr,                    // main RAM
-        >= 0x2000 and <= 0x2FFF => (ushort)(vicAddr & 0x0FFF), // zero-page mirror
-        _                       => vicAddr,
-    };
-    return _bus.Read(cpuAddr);
+    // VIC $2000-$3FFF maps onto CPU $0000-$1FFF
+    if (vicAddr >= 0x2000)
+        return _bus.Read((ushort)(vicAddr - 0x2000));
+
+    // VIC $1000-$1FFF corresponds to CPU I/O space, not RAM
+    return 0xFF;
 }
 ```
 
-For all other VIC address ranges the callback translates the VIC address to the equivalent CPU address and reads through the normal `AddressDecoder`, so screen RAM and zero-page mirrors work correctly.
+For VIC `$2000–$3FFF`, the callback translates to CPU `$0000–$1FFF` through the normal `AddressDecoder`, so screen RAM and low-memory mirrors work correctly.
 
 ### VIC-I address translation table
 
 | VIC address | Mapped to | Contents |
 |-------------|-----------|----------|
 | `$0000–$0FFF` | `_charRom[addr]` | Character ROM (VIC-only) |
-| `$1000–$1FFF` | CPU `$1000–$1FFF` | Main RAM — screen data lives here |
+| `$1000–$1FFF` | `0xFF` | Open bus for VIC reads (CPU I/O region) |
 | `$2000–$2FFF` | CPU `$0000–$0FFF` | Zero page / stack mirror |
 | `$3000–$3FFF` | `_charRom[addr & 0x0FFF]` | Character ROM mirror |
 

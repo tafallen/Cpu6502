@@ -130,7 +130,7 @@ public sealed class AtomMachine
         //   bit 7: VBL — 0 during vertical blank, 1 during active display (active-low)
         //   bit 6: RPT key (unused here; stays 1)
         //   bit 5: tape data in (0 = tone present, 1 = silence)
-        //   bit 4: intone (unused here; stays 0)
+        //   bit 4: intone (unused here; stays 1)
         //   bit 3: CSS (VDG colour select — driven by Port C out, reflected back)
         //   bit 2: speaker output (reflected from Port C out)
         Ppi.ReadPortC = () =>

@@ -55,6 +55,14 @@ public class Vic20MachineTests
         Assert.Equal(0x55, m.Ram.Read(0x1000));
     }
 
+    [Fact]
+    public void Ram_SystemArea_ReadWrite_At0400()
+    {
+        var m = Make();
+        m.Bus.Write(0x0400, 0x5A);
+        Assert.Equal(0x5A, m.Bus.Read(0x0400));
+    }
+
     // ── ROM ──────────────────────────────────────────────────────────────────
 
     [Fact]
