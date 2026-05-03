@@ -1,53 +1,36 @@
 using Adapters.Raylib;
+using Host.Vic20;
 using Machines.Vic20;
 
-// ── argument parsing ──────────────────────────────────────────────────────────
-string? basicPath  = null;
-string? kernalPath = null;
-string? charPath   = null;
-string? tapePath   = null;
-int     scale      = 3;
-
-for (int i = 0; i < args.Length; i++)
+Vic20Options options;
+try
 {
-    switch (args[i])
-    {
-        case "--basic":  basicPath  = args[++i]; break;
-        case "--kernal": kernalPath = args[++i]; break;
-        case "--char":   charPath   = args[++i]; break;
-        case "--tape":   tapePath   = args[++i]; break;
-        case "--scale":  scale      = int.Parse(args[++i]); break;
-        default:
-            Console.Error.WriteLine($"Unknown argument: {args[i]}");
-            PrintUsage();
-            return 1;
-    }
+    options = Vic20CommandLine.Parse(args);
 }
-
-if (basicPath is null || kernalPath is null)
+catch (ArgumentException ex)
 {
-    Console.Error.WriteLine("--basic and --kernal are required.");
+    Console.Error.WriteLine(ex.Message);
     PrintUsage();
     return 1;
 }
 
 // ── load ROMs ─────────────────────────────────────────────────────────────────
-byte[] basicRom  = File.ReadAllBytes(basicPath);
-byte[] kernalRom = File.ReadAllBytes(kernalPath);
-byte[]? charRom  = charPath is not null ? File.ReadAllBytes(charPath) : null;
+byte[] basicRom  = File.ReadAllBytes(options.BasicPath);
+byte[] kernalRom = File.ReadAllBytes(options.KernalPath);
+byte[]? charRom  = options.CharPath is not null ? File.ReadAllBytes(options.CharPath) : null;
 
 // ── tape ──────────────────────────────────────────────────────────────────────
 Vic20TapeAdapter? tape = null;
-if (tapePath is not null)
+if (options.TapePath is not null)
 {
     tape = new Vic20TapeAdapter();
-    using var fs = File.OpenRead(tapePath);
+    using var fs = File.OpenRead(options.TapePath);
     tape.LoadTap(fs);
-    Console.WriteLine($"Tape loaded: {Path.GetFileName(tapePath)}");
+    Console.WriteLine($"Tape loaded: {Path.GetFileName(options.TapePath)}");
 }
 
 // ── build machine and host ────────────────────────────────────────────────────
-using var host = new RaylibHost("Commodore VIC-20", scale, VicI.FrameWidth, VicI.FrameHeight);
+using var host = new RaylibHost("Commodore VIC-20", options.Scale, VicI.FrameWidth, VicI.FrameHeight, logKeypresses: options.DebugKeys);
 
 var machine = new Vic20Machine(
     basicRom, kernalRom,
@@ -77,5 +60,6 @@ static void PrintUsage()
           --char  <path>   Character ROM image (4KB)
           --tape  <path>   TAP tape image
           --scale <n>      Window scale factor (default: 3)
+          --debug-keys     Log raw keypresses from Raylib (debug only)
         """);
 }

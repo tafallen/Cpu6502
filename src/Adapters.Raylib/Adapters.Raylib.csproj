@@ -13,7 +13,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Machines.Common\Machines.Common.csproj" />
-    <ProjectReference Include="..\Machines.Atom\Machines.Atom.csproj" />
   </ItemGroup>
 
 </Project>

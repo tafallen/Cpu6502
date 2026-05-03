@@ -1,4 +1,3 @@
-using Machines.Atom;
 using Machines.Common;
 using Raylib_cs;
 using System.Numerics;
@@ -23,35 +22,47 @@ namespace Adapters.Raylib;
 /// </summary>
 public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDisposable
 {
+    private const int DefaultFrameRate = 50;
+    private const int DefaultAudioSampleRate = 44100;
+
     private readonly int _scale;
     private readonly int _frameWidth;
     private readonly int _frameHeight;
+    private readonly bool _logKeypresses;
     private Texture2D   _texture;
     private AudioStream _audioStream;
     private readonly uint[]  _rgbaBuffer;
-    private readonly short[] _audioBuffer;
+    private short[] _audioBuffer;
     private bool _disposed;
 
-    public RaylibHost(string title = "Acorn Atom", int scale = 3, int frameWidth = 256, int frameHeight = 192)
+    public RaylibHost(
+        string title = "Acorn Atom",
+        int scale = 3,
+        int frameWidth = 256,
+        int frameHeight = 192,
+        bool logKeypresses = false,
+        int targetFps = DefaultFrameRate,
+        int audioSampleRate = DefaultAudioSampleRate)
     {
         _scale       = scale;
         _frameWidth  = frameWidth;
         _frameHeight = frameHeight;
+        _logKeypresses = logKeypresses;
         Raylib_cs.Raylib.InitWindow(frameWidth * scale, frameHeight * scale, title);
-        Raylib_cs.Raylib.SetTargetFPS(50);
+        Raylib_cs.Raylib.SetTargetFPS(targetFps);
 
         // Video texture
         var img = Raylib_cs.Raylib.GenImageColor(frameWidth, frameHeight, Color.Black);
         _texture = Raylib_cs.Raylib.LoadTextureFromImage(img);
         Raylib_cs.Raylib.UnloadImage(img);
 
-        // Audio: mono, 16-bit, 44100 Hz
+        // Audio: mono, 16-bit PCM
         Raylib_cs.Raylib.InitAudioDevice();
-        _audioStream = Raylib_cs.Raylib.LoadAudioStream(44100, 16, 1);
+        _audioStream = Raylib_cs.Raylib.LoadAudioStream((uint)audioSampleRate, 16, 1);
         Raylib_cs.Raylib.PlayAudioStream(_audioStream);
 
         _rgbaBuffer  = new uint[frameWidth * frameHeight];
-        _audioBuffer = new short[AtomSoundAdapter.SamplesPerFrame];
+        _audioBuffer = [];
     }
 
     public bool IsRunning => !Raylib_cs.Raylib.WindowShouldClose();
@@ -60,7 +71,9 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     public void PollEvents()
     {
         Raylib_cs.Raylib.PollInputEvents();
-        // Log any key pressed this frame so we can verify Raylib is receiving input
+        if (!_logKeypresses) return;
+
+        // Optional verbose key logging for input debugging.
         int kp;
         while ((kp = (int)Raylib_cs.Raylib.GetKeyPressed()) != 0)
             Console.WriteLine($"[key] Raylib saw keypress: {(KeyboardKey)kp} ({kp})");
@@ -110,10 +123,18 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     public unsafe void SubmitSamples(ReadOnlySpan<short> samples, int sampleRate)
     {
         if (!Raylib_cs.Raylib.IsAudioStreamProcessed(_audioStream)) return;
-        int count = Math.Min(samples.Length, _audioBuffer.Length);
+
+        int count = samples.Length;
+        EnsureAudioCapacity(count);
         samples[..count].CopyTo(_audioBuffer);
         fixed (short* ptr = _audioBuffer)
             Raylib_cs.Raylib.UpdateAudioStream(_audioStream, ptr, count);
+    }
+
+    private void EnsureAudioCapacity(int sampleCount)
+    {
+        if (sampleCount <= _audioBuffer.Length) return;
+        Array.Resize(ref _audioBuffer, sampleCount);
     }
 
     // ── IPhysicalKeyboard ─────────────────────────────────────────────────────

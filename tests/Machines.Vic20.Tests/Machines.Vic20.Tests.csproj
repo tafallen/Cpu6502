@@ -34,6 +34,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Machines.Vic20\Machines.Vic20.csproj" />
+    <ProjectReference Include="..\..\src\Host.Vic20\Host.Vic20.csproj" />
   </ItemGroup>
 
 </Project>

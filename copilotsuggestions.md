@@ -58,6 +58,7 @@ This document turns the previously identified **risky areas** and **architectura
 ---
 
 ### 4) Risk: VIC tape edge loss on long instruction gaps
+**Status:** ✅ Complete  
 **Current concern:** Tape ticking may miss multiple pulse transitions if many cycles elapsed.  
 **Goal:** Consume all elapsed edges reliably.
 

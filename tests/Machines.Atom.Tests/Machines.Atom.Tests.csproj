@@ -35,6 +35,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Machines.Atom\Machines.Atom.csproj" />
     <ProjectReference Include="..\..\src\Machines.Common\Machines.Common.csproj" />
+    <ProjectReference Include="..\..\src\Host.Atom\Host.Atom.csproj" />
   </ItemGroup>
 
 </Project>

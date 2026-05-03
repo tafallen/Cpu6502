@@ -1,58 +1,35 @@
 using Adapters.Raylib;
+using Host.Atom;
 using Machines.Atom;
 
-// ── argument parsing ──────────────────────────────────────────────────────────
-string? basicPath = null;
-string? osPath    = null;
-string? tapePath  = null;
-string? floatPath = null;
-string? dosPath   = null;
-string? extPath   = null;
-string? charPath  = null;
-int     scale     = 3;
-
-for (int i = 0; i < args.Length; i++)
+AtomOptions options;
+try
 {
-    switch (args[i])
-    {
-        case "--basic": basicPath = args[++i]; break;
-        case "--os":    osPath    = args[++i]; break;
-        case "--tape":  tapePath  = args[++i]; break;
-        case "--float": floatPath = args[++i]; break;
-        case "--dos":   dosPath   = args[++i]; break;
-        case "--ext":   extPath   = args[++i]; break;
-        case "--char":  charPath  = args[++i]; break;
-        case "--scale": scale     = int.Parse(args[++i]); break;
-        default:
-            Console.Error.WriteLine($"Unknown argument: {args[i]}");
-            PrintUsage();
-            return 1;
-    }
+    options = AtomCommandLine.Parse(args);
 }
-
-if (basicPath is null || osPath is null)
+catch (ArgumentException ex)
 {
-    Console.Error.WriteLine("--basic and --os are required.");
+    Console.Error.WriteLine(ex.Message);
     PrintUsage();
     return 1;
 }
 
 // ── load ROMs ─────────────────────────────────────────────────────────────────
-byte[] basicRom  = File.ReadAllBytes(basicPath);
-byte[] osRom     = File.ReadAllBytes(osPath);
-byte[]? floatRom = floatPath is not null ? File.ReadAllBytes(floatPath) : null;
-byte[]? dosRom   = dosPath   is not null ? File.ReadAllBytes(dosPath)   : null;
-byte[]? extRom   = extPath   is not null ? File.ReadAllBytes(extPath)   : null;
-byte[]? charRom  = charPath  is not null ? File.ReadAllBytes(charPath)  : null;
+byte[] basicRom  = File.ReadAllBytes(options.BasicPath);
+byte[] osRom     = File.ReadAllBytes(options.OsPath);
+byte[]? floatRom = options.FloatPath is not null ? File.ReadAllBytes(options.FloatPath) : null;
+byte[]? dosRom   = options.DosPath   is not null ? File.ReadAllBytes(options.DosPath)   : null;
+byte[]? extRom   = options.ExtPath   is not null ? File.ReadAllBytes(options.ExtPath)   : null;
+byte[]? charRom  = options.CharPath  is not null ? File.ReadAllBytes(options.CharPath)  : null;
 
 // ── tape ──────────────────────────────────────────────────────────────────────
 AtomTapeAdapter? tape = null;
-if (tapePath is not null)
+if (options.TapePath is not null)
 {
     tape = new AtomTapeAdapter();
-    using var fs = File.OpenRead(tapePath);
+    using var fs = File.OpenRead(options.TapePath);
     tape.LoadUef(fs);
-    Console.WriteLine($"Tape loaded: {Path.GetFileName(tapePath)}");
+    Console.WriteLine($"Tape loaded: {Path.GetFileName(options.TapePath)}");
 }
 
 // ── diagnostics ───────────────────────────────────────────────────────────────
@@ -75,7 +52,7 @@ else
 }
 
 // ── build machine and host ────────────────────────────────────────────────────
-using var host = new RaylibHost("Acorn Atom", scale);
+using var host = new RaylibHost("Acorn Atom", options.Scale, logKeypresses: options.DebugKeys);
 
 var machine = new AtomMachine(
     basicRom, osRom,
@@ -119,5 +96,6 @@ static void PrintUsage()
           --ext   <path>   Utility ROM (#A socket, axr1.rom) — $A000-$AFFF
           --char  <path>   MC6847 character ROM (768 bytes; built-in default used if omitted)
           --scale <n>      Window scale factor (default: 3)
+          --debug-keys     Log raw keypresses from Raylib (debug only)
         """);
 }
