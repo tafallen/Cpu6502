@@ -117,8 +117,20 @@ public sealed class Vic20Machine : IComponent
 
     public void ValidateInitialization()
     {
+        if (Cpu == null)
+            throw new InvalidOperationException("CPU not initialized");
+        
+        if (Ram == null || Ram.RawBytes.Length == 0)
+            throw new InvalidOperationException("RAM not initialized");
+        
+        if (Via1 == null)
+            throw new InvalidOperationException("VIA 1 not initialized");
+        
+        if (Via2 == null)
+            throw new InvalidOperationException("VIA 2 not initialized");
+        
         // Keyboard is optional for headless/test use, so no validation needed.
-        // Future extensions can validate other component wiring as needed.
+        // Tape is optional for headless/test use, so no validation needed.
     }
 
     public void Step()

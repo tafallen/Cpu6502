@@ -215,7 +215,46 @@ See [docs/vic20.md](docs/vic20.md) for the full hardware reference. Key classes:
 
 **Critical address map note:** BASIC ROM (`$C000–$DFFF`) must NOT be mapped at `$A000–$BFFF`. The `$A000–$BFFF` range is the expansion cartridge area (Block 5), unmapped on an unexpanded VIC-20. Mapping BASIC at `$A000` causes the kernal to see open bus (`$FF`) at `$C002` during cold start, making `JMP ($C002)` jump to `$FFFF` instead of the BASIC entry point, which slowly overflows the stack.
 
-IRQ timing: the VIA1 Timer 1 drives the 50 Hz interrupt. The IRQ pin is level-sensitive on the 6502; only notify the CPU (`Cpu.Irq()`) on the false→true edge (`_irqWasActive` field in `Vic20Machine`). Calling `Cpu.Irq()` every step while the VIA IFR is set causes immediate re-entry after every RTI, overflowing the stack.
+IRQ timing: the VIA1 Timer 1 drives the 50 Hz interrupt. The IRQ pin is level-sensitive on the 6502; only notify the CPU (`Cpu.Irq()`) on the false→true edge. The `InterruptEdgeDetector` component handles edge detection and is called in `AdvanceTiming()` to service the interrupt only on rising edges, preventing stack overflow from immediate re-entry after every RTI.
+
+### Component Lifecycle & Initialization Validation
+
+Both `AtomMachine` and `Vic20Machine` implement `IComponent`, which provides lifecycle validation:
+
+```csharp
+public interface IComponent
+{
+    void ValidateInitialization();
+}
+```
+
+**Usage pattern:**
+
+```csharp
+var machine = new AtomMachine(basicRom, osRom);
+machine.ValidateInitialization();  // Throws InvalidOperationException if validation fails
+```
+
+Validation is **automatically called** at the end of each machine constructor, so machines fail fast with clear error messages if critical dependencies are not properly initialized:
+
+**AtomMachine validates:**
+- CPU is initialized (internal, always present)
+- Main RAM initialized (non-zero size)
+- Video RAM initialized (non-zero size)
+- PPI8255 chip initialized
+
+**Vic20Machine validates:**
+- CPU is initialized (internal, always present)
+- RAM initialized (non-zero size)
+- VIA 1 initialized
+- VIA 2 initialized
+
+**Optional components (not validated):**
+- Keyboard adapter (optional for headless/test use)
+- Tape adapter (optional for headless/test use)
+- Audio sink (optional for silent/test use)
+
+If validation fails, `InvalidOperationException` is thrown with a clear message. This catches wiring mistakes and configuration errors at startup, not during emulation.
 
 ### Test pattern (Cpu6502.Tests)
 

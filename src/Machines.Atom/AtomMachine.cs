@@ -156,8 +156,20 @@ public sealed class AtomMachine : IComponent
 
     public void ValidateInitialization()
     {
+        if (Cpu == null)
+            throw new InvalidOperationException("CPU not initialized");
+        
+        if (MainRam == null || MainRam.RawBytes.Length == 0)
+            throw new InvalidOperationException("Main RAM not initialized");
+        
+        if (VideoRam == null || VideoRam.RawBytes.Length == 0)
+            throw new InvalidOperationException("Video RAM not initialized");
+        
+        if (Ppi == null)
+            throw new InvalidOperationException("PPI8255 not initialized");
+        
         // Keyboard is optional for headless/test use, so no validation needed.
-        // Future extensions can validate other component wiring as needed.
+        // Tape is optional for headless/test use, so no validation needed.
     }
 
     private static byte[] MakeRtsStubs(int size)

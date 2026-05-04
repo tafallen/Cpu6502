@@ -14,10 +14,39 @@ public class Vic20MachineInitializationTests
     }
 
     [Fact]
-    public void ValidateInitialization_Succeeds()
+    public void ValidateInitialization_HappyPath_Succeeds()
     {
         var m = new Vic20Machine(MakeRom(), MakeRom());
         m.ValidateInitialization(); // should not throw
+    }
+
+    [Fact]
+    public void ValidateInitialization_ChecksCpu()
+    {
+        var m = new Vic20Machine(MakeRom(), MakeRom());
+        Assert.NotNull(m.Cpu);
+    }
+
+    [Fact]
+    public void ValidateInitialization_ChecksRam()
+    {
+        var m = new Vic20Machine(MakeRom(), MakeRom());
+        Assert.NotNull(m.Ram);
+        Assert.NotEmpty(m.Ram.RawBytes);
+    }
+
+    [Fact]
+    public void ValidateInitialization_ChecksVia1()
+    {
+        var m = new Vic20Machine(MakeRom(), MakeRom());
+        Assert.NotNull(m.Via1);
+    }
+
+    [Fact]
+    public void ValidateInitialization_ChecksVia2()
+    {
+        var m = new Vic20Machine(MakeRom(), MakeRom());
+        Assert.NotNull(m.Via2);
     }
 
 }
