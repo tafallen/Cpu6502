@@ -24,7 +24,11 @@ public interface IExecutionTrace
     /// Allows memory breakpoints, access logging, page-table visualization.
     /// Called for all bus reads/writes: fetch, data read, data write, stack ops, etc.
     /// </summary>
-    void OnMemoryAccess(ushort address, byte value, bool isWrite);
+    /// <param name="address">Memory address being accessed</param>
+    /// <param name="value">Byte value being read or written</param>
+    /// <param name="isWrite">True for write, false for read</param>
+    /// <param name="cycles">CPU cycle count at time of access (for correlation)</param>
+    void OnMemoryAccess(ushort address, byte value, bool isWrite, ulong cycles);
 
     /// <summary>
     /// Called when an interrupt (IRQ or NMI) is being serviced.
@@ -32,6 +36,22 @@ public interface IExecutionTrace
     /// Allows interrupt breakpoints and interrupt vector verification.
     /// </summary>
     void OnInterrupt(InterruptType type, ushort handlerAddress);
+
+    /// <summary>
+    /// Optional filter to control which memory accesses are recorded.
+    /// Return false to skip recording this access (useful for high-volume memory ranges).
+    /// Default implementation (if not overridden) accepts all accesses.
+    /// </summary>
+    /// <param name="address">Memory address being accessed</param>
+    /// <param name="isWrite">True for write, false for read</param>
+    /// <returns>True to record this access, false to skip</returns>
+    bool ShouldRecordMemoryAccess(ushort address, bool isWrite) => true;
+
+    /// <summary>
+    /// Optional sample rate for memory access recording (1 = record all, 2 = record every other, etc).
+    /// Default is 1 (record all). Can be overridden for high-frequency tracing.
+    /// </summary>
+    int MemoryAccessSampleRate => 1;
 }
 
 /// <summary>

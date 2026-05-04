@@ -22,7 +22,8 @@ public sealed class RecordingTrace : IExecutionTrace
     public sealed record MemoryAccessEvent(
         ushort Address,
         byte Value,
-        bool IsWrite
+        bool IsWrite,
+        ulong Cycles  // Cycle count at time of access
     );
 
     /// <summary>Recorded interrupt event with resolved handler address.</summary>
@@ -40,9 +41,35 @@ public sealed class RecordingTrace : IExecutionTrace
     /// <summary>All interrupt events, in order.</summary>
     public List<InterruptEvent> Interrupts { get; } = new();
 
+    /// <summary>Optional address range filter: only record accesses in this range (null = no filter).</summary>
+    public (ushort Min, ushort Max)? AddressRangeFilter { get; set; }
+
+    /// <summary>Optional filter to record only writes (null = no filter).</summary>
+    public bool? WriteOnlyFilter { get; set; }
+
+    /// <summary>Sample rate for memory accesses (1 = all, 2 = every 2nd, etc).</summary>
+    public int MemoryAccessSampleRate { get; set; } = 1;
+
     public void OnInstructionFetched(ushort pc, byte opcode)
     {
         // Fetch events are not recorded; execution event captures full state
+    }
+
+    public bool ShouldRecordMemoryAccess(ushort address, bool isWrite)
+    {
+        // Check address range filter
+        if (AddressRangeFilter.HasValue)
+        {
+            var (min, max) = AddressRangeFilter.Value;
+            if (address < min || address > max)
+                return false;
+        }
+
+        // Check write-only filter
+        if (WriteOnlyFilter.HasValue && WriteOnlyFilter.Value && !isWrite)
+            return false;
+
+        return true;
     }
 
     public void OnInstructionExecuted(ushort pc, byte opcode, int cycles, byte aAfter, byte flags)
@@ -50,9 +77,9 @@ public sealed class RecordingTrace : IExecutionTrace
         Instructions.Add(new(pc, opcode, cycles, aAfter, flags));
     }
 
-    public void OnMemoryAccess(ushort address, byte value, bool isWrite)
+    public void OnMemoryAccess(ushort address, byte value, bool isWrite, ulong cycles)
     {
-        MemoryAccesses.Add(new(address, value, isWrite));
+        MemoryAccesses.Add(new(address, value, isWrite, cycles));
     }
 
     public void OnInterrupt(InterruptType type, ushort handlerAddress)
@@ -77,7 +104,8 @@ public sealed class RecordingTrace : IExecutionTrace
             {
                 m.Address,
                 m.Value,
-                m.IsWrite
+                m.IsWrite,
+                m.Cycles
             }).ToList(),
             Interrupts = Interrupts.Select(intr => new
             {

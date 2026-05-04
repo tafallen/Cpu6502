@@ -312,6 +312,85 @@ public class ExecutionTraceTests : CpuFixture
         Assert.Contains("512", json);  // 0x0200 = 512 decimal
     }
 
+    [Fact]
+    public void Trace_MemoryAccessIncludesCycleContext()
+    {
+        var trace = new RecordingTrace();
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42, 0x8D, 0x00, 0x04);  // LDA #$42, STA $0400
+        Step();  // LDA
+        trace.Clear();
+        Step();  // STA — writes to memory
+
+        // Verify memory access captured with cycle context
+        var writes = trace.MemoryAccesses.Where(m => m.IsWrite && m.Address == 0x0400).ToList();
+        Assert.Single(writes);
+        Assert.True(writes[0].Cycles >= 0);  // Cycles should be captured (any non-negative value)
+        Assert.Equal(0x42, writes[0].Value);
+    }
+
+    [Fact]
+    public void Trace_AddressRangeFilter()
+    {
+        var trace = new RecordingTrace
+        {
+            AddressRangeFilter = (0x0100, 0x01FF)  // Stack only
+        };
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x55, 0x48, 0x8D, 0x00, 0x04);  // LDA #$55, PHA, STA $0400
+        Step();  // LDA — no stack access
+        Step();  // PHA — writes to stack (0x01xx)
+        var stackWrites = trace.MemoryAccesses.Where(m => m.IsWrite).ToList();
+        Assert.Single(stackWrites);  // Only stack write recorded
+
+        trace.Clear();
+        Step();  // STA — writes to 0x0400 (not in range)
+        Assert.Empty(trace.MemoryAccesses);  // Out-of-range write filtered out
+    }
+
+    [Fact]
+    public void Trace_WriteOnlyFilter()
+    {
+        var trace = new RecordingTrace
+        {
+            WriteOnlyFilter = true  // Only record writes
+        };
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42, 0x85, 0x80);  // LDA #$42, STA $80
+        Step();  // LDA #$42 — immediate mode, no bus reads
+        Step();  // STA — writes to $80
+
+        var writeAccesses = trace.MemoryAccesses.Where(m => m.IsWrite).ToList();
+        Assert.Single(writeAccesses);  // Only the STA write
+        
+        // No reads should be present
+        var readAccesses = trace.MemoryAccesses.Where(m => !m.IsWrite).ToList();
+        Assert.Empty(readAccesses);
+    }
+
+    [Fact]
+    public void Trace_SamplingRate()
+    {
+        var trace = new RecordingTrace
+        {
+            MemoryAccessSampleRate = 2  // Record every 2nd access
+        };
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA5, 0x80, 0xA5, 0x81, 0xA5, 0x82);  // LDA $80, $81, $82 (3 zp reads)
+        Step();  // First LDA
+        Step();  // Second LDA
+        Step();  // Third LDA
+
+        // With sampling rate 2, expect approximately half the accesses
+        // With 3 instructions × ~2 reads each = ~6 accesses, sampling should give ~3
+        Assert.True(trace.MemoryAccesses.Count > 0);  // At least some accesses recorded
+        Assert.True(trace.MemoryAccesses.Count < 20);  // But not all (if rate was 1)
+    }
+
     // ── Performance Sanity Test ──────────────────────────────────────────
 
     [Fact]

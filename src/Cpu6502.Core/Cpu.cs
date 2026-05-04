@@ -36,6 +36,7 @@ public sealed partial class Cpu
 
     // ── Execution tracing ────────────────────────────────────────────────────
     private IExecutionTrace _trace = NullTrace.Instance;
+    private ulong _memoryAccessCount;  // Counter for sampling
 
     public Cpu(IBus bus)
     {
@@ -184,20 +185,24 @@ public sealed partial class Cpu
     private byte   Fetch()
     {
         byte value = _bus.Read(PC++);
-        _trace.OnMemoryAccess((ushort)(PC - 1), value, isWrite: false);
+        ushort fetchAddr = (ushort)(PC - 1);
+        if (_trace.ShouldRecordMemoryAccess(fetchAddr, isWrite: false) && ++_memoryAccessCount % (ulong)_trace.MemoryAccessSampleRate == 0)
+            _trace.OnMemoryAccess(fetchAddr, value, isWrite: false, cycles: TotalCycles);
         return value;
     }
 
     private byte   ReadByte(ushort a)
     {
         byte value = _bus.Read(a);
-        _trace.OnMemoryAccess(a, value, isWrite: false);
+        if (_trace.ShouldRecordMemoryAccess(a, isWrite: false) && ++_memoryAccessCount % (ulong)_trace.MemoryAccessSampleRate == 0)
+            _trace.OnMemoryAccess(a, value, isWrite: false, cycles: TotalCycles);
         return value;
     }
 
     private void   WriteByte(ushort a, byte v)
     {
-        _trace.OnMemoryAccess(a, v, isWrite: true);
+        if (_trace.ShouldRecordMemoryAccess(a, isWrite: true) && ++_memoryAccessCount % (ulong)_trace.MemoryAccessSampleRate == 0)
+            _trace.OnMemoryAccess(a, v, isWrite: true, cycles: TotalCycles);
         _bus.Write(a, v);
     }
 
