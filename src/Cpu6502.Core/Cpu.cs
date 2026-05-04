@@ -34,6 +34,9 @@ public sealed partial class Cpu
     private bool _nmiPending;
     private bool _irqPending;
 
+    // ── Execution tracing ────────────────────────────────────────────────────
+    private IExecutionTrace _trace = NullTrace.Instance;
+
     public Cpu(IBus bus)
     {
         _bus = bus;
@@ -77,12 +80,19 @@ public sealed partial class Cpu
             ServiceIrq();
         else
         {
+            ushort pcBefore = PC;
             byte opcode = Fetch();
+            
+            _trace.OnInstructionFetched(pcBefore, opcode);
+            
             _ops[opcode]();
+            
+            int consumed = (int)(TotalCycles - before);
+            _trace.OnInstructionExecuted(pcBefore, opcode, consumed, A, GetStatus());
         }
 
-        int consumed = (int)(TotalCycles - before);
-        OnCyclesConsumed?.Invoke(consumed);
+        int totalConsumed = (int)(TotalCycles - before);
+        OnCyclesConsumed?.Invoke(totalConsumed);
     }
 
     /// <summary>Request a maskable interrupt (IRQ). Serviced before next instruction if I=0.</summary>
@@ -96,6 +106,16 @@ public sealed partial class Cpu
 
     /// <summary>Called after each Step() with the exact number of cycles consumed by that step.</summary>
     public Action<int>? OnCyclesConsumed { get; set; }
+
+    /// <summary>
+    /// Execution trace sink for debugging, profiling, and test instrumentation.
+    /// Defaults to NullTrace (zero-cost no-op); set to custom IExecutionTrace to enable tracing.
+    /// </summary>
+    public IExecutionTrace Trace
+    {
+        get => _trace;
+        set => _trace = value ?? NullTrace.Instance;
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Status register helpers
@@ -138,7 +158,9 @@ public sealed partial class Cpu
         StackPushWord(PC);
         StackPush(GetStatus(breakFlag: false));
         I  = true;
-        PC = ReadWord(0xFFFA);
+        ushort handlerAddress = ReadWord(0xFFFA);
+        _trace.OnInterrupt(InterruptType.Nmi, handlerAddress);
+        PC = handlerAddress;
         TotalCycles += 7;
     }
 
@@ -149,7 +171,9 @@ public sealed partial class Cpu
         StackPushWord(PC);
         StackPush(GetStatus(breakFlag: false));
         I  = true;
-        PC = ReadWord(0xFFFE);
+        ushort handlerAddress = ReadWord(0xFFFE);
+        _trace.OnInterrupt(InterruptType.Irq, handlerAddress);
+        PC = handlerAddress;
         TotalCycles += 7;
     }
 
@@ -157,9 +181,25 @@ public sealed partial class Cpu
     // Bus helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    private byte   Fetch()           => _bus.Read(PC++);
-    private byte   ReadByte(ushort a)  => _bus.Read(a);
-    private void   WriteByte(ushort a, byte v) => _bus.Write(a, v);
+    private byte   Fetch()
+    {
+        byte value = _bus.Read(PC++);
+        _trace.OnMemoryAccess((ushort)(PC - 1), value, isWrite: false);
+        return value;
+    }
+
+    private byte   ReadByte(ushort a)
+    {
+        byte value = _bus.Read(a);
+        _trace.OnMemoryAccess(a, value, isWrite: false);
+        return value;
+    }
+
+    private void   WriteByte(ushort a, byte v)
+    {
+        _trace.OnMemoryAccess(a, v, isWrite: true);
+        _bus.Write(a, v);
+    }
 
     private ushort ReadWord(ushort a) =>
         (ushort)(_bus.Read(a) | (_bus.Read((ushort)(a + 1)) << 8));

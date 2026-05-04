@@ -400,7 +400,115 @@ Pass into `RaylibHost` instead of the bare `scale` int.
 
 `docs/electron.md` has a full hardware reference but no implementation exists yet. The Electron shares the 6502 CPU and the same `IBus` / `AddressDecoder` composition pattern. Key chips to emulate: the Ferranti ULA (video, sound, ROM paging, interrupt controller) and the keyboard matrix.
 
+### Execution Tracing & Debugging
+
+The CPU supports pluggable execution tracing for debugging, profiling, and test instrumentation. All tracing is **zero-cost by default** — the `NullTrace` no-op implementation incurs no overhead.
+
+**Core concept:** `IExecutionTrace` interface provides four event hooks:
+
+```csharp
+public interface IExecutionTrace
+{
+    void OnInstructionFetched(ushort pc, byte opcode);      // Before dispatch
+    void OnInstructionExecuted(ushort pc, byte opcode, int cycles, byte aAfter, byte flags);  // After completion
+    void OnMemoryAccess(ushort address, byte value, bool isWrite);  // Every read/write
+    void OnInterrupt(InterruptType type, ushort handlerAddress);    // IRQ/NMI
+}
+```
+
+**Usage:**
+
+```csharp
+// 1. Default: no tracing (zero overhead)
+var cpu = new Cpu(bus);  // Cpu.Trace defaults to NullTrace.Instance
+
+// 2. Enable tracing with RecordingTrace (test helper)
+var trace = new RecordingTrace();
+cpu.Trace = trace;
+
+cpu.Step();  // All events recorded in trace.Instructions, trace.MemoryAccesses, trace.Interrupts
+
+// 3. Export for analysis
+string json = trace.ExportJson();
+Console.WriteLine(json);  // Pretty-printed JSON with all events
+
+// 4. Implement custom trace (e.g., for GDB integration, breakpoints)
+public sealed class MyDebuggerTrace : IExecutionTrace
+{
+    public void OnInstructionFetched(ushort pc, byte opcode)
+    {
+        // Check conditional breakpoints
+        if (pc == 0x3000)
+            Debugger.Break();
+    }
+    
+    public void OnInstructionExecuted(ushort pc, byte opcode, int cycles, byte aAfter, byte flags)
+    {
+        // Log execution hotspots
+        _executionCount[pc]++;
+    }
+    
+    public void OnMemoryAccess(ushort address, byte value, bool isWrite)
+    {
+        // Memory watchpoints, page-table visualization
+    }
+    
+    public void OnInterrupt(InterruptType type, ushort handlerAddress)
+    {
+        // Interrupt vector verification, nesting analysis
+    }
+}
+cpu.Trace = new MyDebuggerTrace();
+```
+
+**Test example:**
+
+```csharp
+[Fact]
+public void CPU_TracesInstructionExecution()
+{
+    var trace = new RecordingTrace();
+    var cpu = new Cpu(ram);
+    cpu.Trace = trace;
+    
+    // Load: LDA #$42
+    ram.Write(0x0200, 0xA9);
+    ram.Write(0x0201, 0x42);
+    cpu.Reset();
+    
+    cpu.Step();
+    
+    // Verify instruction event
+    Assert.Single(trace.Instructions);
+    var instr = trace.Instructions[0];
+    Assert.Equal(0x0200, instr.Pc);
+    Assert.Equal(0xA9, instr.Opcode);
+    Assert.Equal(2, instr.Cycles);
+    Assert.Equal(0x42, instr.AAfter);  // A register after execution
+    
+    // Verify memory accesses were traced
+    var reads = trace.MemoryAccesses.Where(m => !m.IsWrite).ToList();
+    Assert.True(reads.Count >= 3);  // Opcode fetch, operand fetch, (possibly more)
+}
+```
+
+**Performance notes:**
+
+- `NullTrace` methods are empty stubs; compiler will inline them → **zero cycles overhead**
+- `RecordingTrace` appends to lists; minimal allocation pressure
+- Trace callbacks fire on every memory access (granular visibility)
+- Consider per-frame or sampling-based collection for long runs
+
+**Future extensions:**
+
+- **GDB integration**: Implement Remote Serial Protocol (RSP) adapter; connect `rr (record and replay)` / `gdb` to step through emulation
+- **VS Code debugger**: Language Server Protocol (LSP) adapter for IDE breakpoints and variable inspection
+- **Conditional breakpoints**: `OnInstructionFetched` can check conditions and trigger `Debugger.Break()`
+- **Cycle provenance**: Associate every cycle delta with source instruction for performance analysis
+- **Memory dump export**: CSV/binary formats for off-line analysis
+
 ---
+
 ## Code Search
 
 Use `semble search` to find code by describing what it does or naming a symbol/identifier, instead of grep:

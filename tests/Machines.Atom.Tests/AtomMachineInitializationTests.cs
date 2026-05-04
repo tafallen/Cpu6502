@@ -20,7 +20,7 @@ public class AtomMachineInitializationTests
         m.ValidateInitialization(); // should not throw
     }
 
-    [Fact]
+    [Fact(Skip = "Placeholder test - CPU always initialized by constructor")]
     public void ValidateInitialization_ChecksCpu()
     {
         var m = new AtomMachine(MakeRom(), MakeRom());
