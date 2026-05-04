@@ -212,45 +212,6 @@ public sealed partial class Cpu
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Cycle helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Read a byte with cycle accounting based on addressing mode and access type.
-    /// Applies base cycles and page-cross penalty if applicable.
-    /// </summary>
-    private byte ReadWithCycles(ushort address, AddressingMode mode, AccessType access = AccessType.Read)
-    {
-        var (baseCycles, hasPageCrossPenalty) = GetCycleInfo(mode, access);
-        TotalCycles += (ulong)baseCycles;
-        
-        // Page-cross penalty: if this addressing mode may incur page cross penalty,
-        // and we're reading (not writing), check if we crossed a page boundary.
-        // For absolute indexed modes, we need to detect the page cross.
-        // This is called AFTER the addressing mode helper has already set TotalCycles += 1
-        // for page cross, so we only add the base here.
-        if (hasPageCrossPenalty && access == AccessType.Read)
-        {
-            // Note: Page cross detection is complex and depends on addressing mode.
-            // This helper is primarily for consolidating cycle accounting.
-            // The actual page cross detection happens in addressing mode methods.
-        }
-        
-        return _bus.Read(address);
-    }
-
-    /// <summary>
-    /// Write a byte with cycle accounting based on addressing mode and access type.
-    /// Write instructions have fixed cycles (no page-cross penalty added, it's baked into base).
-    /// </summary>
-    private void WriteWithCycles(ushort address, byte value, AddressingMode mode, AccessType access = AccessType.Write)
-    {
-        var (baseCycles, _) = GetCycleInfo(mode, access);
-        TotalCycles += (ulong)baseCycles;
-        _bus.Write(address, value);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // Stack helpers
     // ─────────────────────────────────────────────────────────────────────────
 
