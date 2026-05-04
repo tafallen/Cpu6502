@@ -179,6 +179,33 @@ public class ExecutionTraceTests : CpuFixture
     // ── Interrupt Tracing Tests ──────────────────────────────────────────
 
     [Fact]
+    public void Trace_CaptureInterruptVectorReads()
+    {
+        var trace = new RecordingTrace();
+        Cpu.Trace = trace;
+
+        // Set up interrupt vectors in RAM
+        Ram.Write(0xFFFE, 0x00);  // IRQ handler at 0x4000
+        Ram.Write(0xFFFF, 0x40);
+        Ram.Write(0xFFFC, 0x00);  // Reset handler at 0x5000
+        Ram.Write(0xFFFD, 0x50);
+
+        Load(0x0200, 0x58, 0xEA);  // CLI, NOP
+        Step();  // CLI to clear interrupt disable
+        Assert.False(Cpu.I);
+
+        trace.Clear();
+        Cpu.Irq();  // Request IRQ
+        Step();  // Should read interrupt vector
+
+        // Verify that reads from interrupt vector addresses appear in trace
+        var vectorReads = trace.MemoryAccesses.Where(m => !m.IsWrite && 
+            (m.Address == 0xFFFE || m.Address == 0xFFFF)).ToList();
+        Assert.NotEmpty(vectorReads);
+        Assert.Equal(0x4000, Cpu.PC);  // Should have jumped to handler
+    }
+
+    [Fact]
     public void Trace_CaptureIRQ()
     {
         var trace = new RecordingTrace();

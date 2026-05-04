@@ -202,13 +202,13 @@ public sealed partial class Cpu
     }
 
     private ushort ReadWord(ushort a) =>
-        (ushort)(_bus.Read(a) | (_bus.Read((ushort)(a + 1)) << 8));
+        (ushort)(ReadByte(a) | (ReadByte((ushort)(a + 1)) << 8));
 
     // 6502 page-wrap bug: $xxFF wraps to $xx00 for the high byte
     private ushort ReadWordBug(ushort a)
     {
         ushort hi = (ushort)((a & 0xFF00) | ((a + 1) & 0x00FF));
-        return (ushort)(_bus.Read(a) | (_bus.Read(hi) << 8));
+        return (ushort)(ReadByte(a) | (ReadByte(hi) << 8));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
