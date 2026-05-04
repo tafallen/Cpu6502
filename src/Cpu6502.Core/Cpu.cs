@@ -254,8 +254,8 @@ public sealed partial class Cpu
     // Stack helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void  StackPush(byte v)       => _bus.Write((ushort)(0x0100 | SP--), v);
-    private byte  StackPull()             => _bus.Read((ushort)(0x0100 | ++SP));
+    private void  StackPush(byte v)       => WriteByte((ushort)(0x0100 | SP--), v);
+    private byte  StackPull()             => ReadByte((ushort)(0x0100 | ++SP));
     private void  StackPushWord(ushort v) { StackPush((byte)(v >> 8)); StackPush((byte)(v & 0xFF)); }
     private ushort StackPullWord()        { byte lo = StackPull(); byte hi = StackPull(); return (ushort)((hi << 8) | lo); }
 

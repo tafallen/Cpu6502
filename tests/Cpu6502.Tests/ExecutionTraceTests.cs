@@ -140,6 +140,42 @@ public class ExecutionTraceTests : CpuFixture
         Assert.Equal(0xAB, instr.AAfter);
     }
 
+    [Fact]
+    public void Trace_CaptureStackOperations()
+    {
+        var trace = new RecordingTrace();
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x55, 0x48);  // LDA #$55, PHA
+        Step();  // LDA — sets A to 0x55
+        trace.Clear();
+        Step();  // PHA — pushes A onto stack
+
+        // PHA should write to stack at 0x0100 | SP
+        var stackWrites = trace.MemoryAccesses.Where(m => m.IsWrite && m.Address >= 0x0100 && m.Address < 0x0200).ToList();
+        Assert.NotEmpty(stackWrites);
+        Assert.Equal(0x55, stackWrites[0].Value);  // Value pushed should be 0x55
+    }
+
+    [Fact]
+    public void Trace_CaptureStackPull()
+    {
+        var trace = new RecordingTrace();
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x77, 0x48, 0x68);  // LDA #$77, PHA, PLA
+        Step();  // LDA
+        Step();  // PHA
+        trace.Clear();
+        Step();  // PLA — pulls from stack
+
+        // PLA should read from stack at 0x0100 | SP
+        var stackReads = trace.MemoryAccesses.Where(m => !m.IsWrite && m.Address >= 0x0100 && m.Address < 0x0200).ToList();
+        Assert.NotEmpty(stackReads);
+        Assert.Equal(0x77, stackReads[0].Value);  // Value pulled should be 0x77
+        Assert.Equal(0x77, Cpu.A);  // A should have the pulled value
+    }
+
     // ── Interrupt Tracing Tests ──────────────────────────────────────────
 
     [Fact]
