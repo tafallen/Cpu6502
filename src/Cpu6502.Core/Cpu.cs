@@ -57,7 +57,7 @@ public sealed partial class Cpu
         A  = 0;
         X  = 0;
         Y  = 0;
-        SP = 0xFD;
+        SP = CpuConstants.INITIAL_STACK_POINTER;
         C  = false;
         Z  = false;
         D  = false;
@@ -65,7 +65,7 @@ public sealed partial class Cpu
         N  = false;
         I  = true;   // Interrupts disabled after reset
 
-        PC = ReadWord(0xFFFC);
+        PC = ReadWord(CpuConstants.RESET_VECTOR);
         TotalCycles += 7;
     }
 
@@ -159,7 +159,7 @@ public sealed partial class Cpu
         StackPushWord(PC);
         StackPush(GetStatus(breakFlag: false));
         I  = true;
-        ushort handlerAddress = ReadWord(0xFFFA);
+        ushort handlerAddress = ReadWord(CpuConstants.NMI_VECTOR);
         _trace.OnInterrupt(InterruptType.Nmi, handlerAddress);
         PC = handlerAddress;
         TotalCycles += 7;
@@ -172,7 +172,7 @@ public sealed partial class Cpu
         StackPushWord(PC);
         StackPush(GetStatus(breakFlag: false));
         I  = true;
-        ushort handlerAddress = ReadWord(0xFFFE);
+        ushort handlerAddress = ReadWord(CpuConstants.IRQ_VECTOR);
         _trace.OnInterrupt(InterruptType.Irq, handlerAddress);
         PC = handlerAddress;
         TotalCycles += 7;
@@ -212,7 +212,7 @@ public sealed partial class Cpu
     // 6502 page-wrap bug: $xxFF wraps to $xx00 for the high byte
     private ushort ReadWordBug(ushort a)
     {
-        ushort hi = (ushort)((a & 0xFF00) | ((a + 1) & 0x00FF));
+        ushort hi = (ushort)((a & CpuConstants.PAGE_MASK) | ((a + 1) & 0x00FF));
         return (ushort)(ReadByte(a) | (ReadByte(hi) << 8));
     }
 
@@ -220,8 +220,8 @@ public sealed partial class Cpu
     // Stack helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void  StackPush(byte v)       => WriteByte((ushort)(0x0100 | SP--), v);
-    private byte  StackPull()             => ReadByte((ushort)(0x0100 | ++SP));
+    private void  StackPush(byte v)       => WriteByte((ushort)(CpuConstants.STACK_PAGE_BASE | SP--), v);
+    private byte  StackPull()             => ReadByte((ushort)(CpuConstants.STACK_PAGE_BASE | ++SP));
     private void  StackPushWord(ushort v) { StackPush((byte)(v >> 8)); StackPush((byte)(v & 0xFF)); }
     private ushort StackPullWord()        { byte lo = StackPull(); byte hi = StackPull(); return (ushort)((hi << 8) | lo); }
 
@@ -229,9 +229,9 @@ public sealed partial class Cpu
     // Flag helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void SetZN(byte v) { Z = v == 0; N = (v & 0x80) != 0; }
+    private void SetZN(byte v) { Z = v == 0; N = (v & CpuConstants.BIT_7_MASK) != 0; }
 
-    private static bool PageCrossed(ushort a, ushort b) => (a & 0xFF00) != (b & 0xFF00);
+    private static bool PageCrossed(ushort a, ushort b) => (a & CpuConstants.PAGE_MASK) != (b & CpuConstants.PAGE_MASK);
 
     // ─────────────────────────────────────────────────────────────────────────
     // Dispatch table builder
