@@ -157,6 +157,38 @@ public sealed partial class Cpu
     };
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Generic Compare Helper
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Generic compare operation: Read byte, compare with register, set C/Z/N flags, add cycles.
+    /// Consolidates CMP_*, CPX_*, CPY_* methods (13 total).
+    /// </summary>
+    private void ExecuteCompare(byte register, AddressingMode mode)
+    {
+        byte val = ReadByte(GetAddressByMode(mode));
+        DoCMP(register, val);
+        TotalCycles += (ulong)GetCycleInfo(mode, AccessType.Read).BaseCycles;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Generic Read-Modify-Write Helper
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Generic RMW operation: Read byte, apply operation (INC/DEC), write back, set Z/N, add cycles.
+    /// Consolidates INC_* and DEC_* memory methods (8 total).
+    /// </summary>
+    private void ExecuteRMW(Func<byte, byte> operation, AddressingMode mode)
+    {
+        ushort addr = GetAddressByMode(mode);
+        byte result = operation(ReadByte(addr));
+        WriteByte(addr, result);
+        SetZN(result);
+        TotalCycles += (ulong)GetCycleInfo(mode, AccessType.Rmw).BaseCycles;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Operation Enums
     // ─────────────────────────────────────────────────────────────────────────
 

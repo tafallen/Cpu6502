@@ -325,12 +325,16 @@ public sealed partial class Cpu
         _ops[0xE1] = () => ExecuteArithmetic(Cpu.ArithmeticOp.SBC, AddressingMode.IndirectX);
         _ops[0xF1] = () => ExecuteArithmetic(Cpu.ArithmeticOp.SBC, AddressingMode.IndirectY);
 
-        _ops[0xE6] = INC_Zp;   _ops[0xF6] = INC_ZpX;
-        _ops[0xEE] = INC_Abs;  _ops[0xFE] = INC_AbsX;
+        _ops[0xE6] = () => ExecuteRMW(v => (byte)(v + 1), AddressingMode.ZeroPage);
+        _ops[0xF6] = () => ExecuteRMW(v => (byte)(v + 1), AddressingMode.ZeroPageX);
+        _ops[0xEE] = () => ExecuteRMW(v => (byte)(v + 1), AddressingMode.Absolute);
+        _ops[0xFE] = () => ExecuteRMW(v => (byte)(v + 1), AddressingMode.AbsoluteX);
         _ops[0xE8] = INX;      _ops[0xC8] = INY;
 
-        _ops[0xC6] = DEC_Zp;   _ops[0xD6] = DEC_ZpX;
-        _ops[0xCE] = DEC_Abs;  _ops[0xDE] = DEC_AbsX;
+        _ops[0xC6] = () => ExecuteRMW(v => (byte)(v - 1), AddressingMode.ZeroPage);
+        _ops[0xD6] = () => ExecuteRMW(v => (byte)(v - 1), AddressingMode.ZeroPageX);
+        _ops[0xCE] = () => ExecuteRMW(v => (byte)(v - 1), AddressingMode.Absolute);
+        _ops[0xDE] = () => ExecuteRMW(v => (byte)(v - 1), AddressingMode.AbsoluteX);
         _ops[0xCA] = DEX;      _ops[0x88] = DEY;
 
         // ── Logic ─────────────────────────────────────────────────────────────
@@ -402,12 +406,27 @@ public sealed partial class Cpu
         _ops[0x7E] = () => ExecuteShiftMemory(Cpu.ShiftOp.ROR, AddressingMode.AbsoluteX);
 
         // ── Compare ───────────────────────────────────────────────────────────
-        _ops[0xC9] = CMP_Imm;  _ops[0xC5] = CMP_Zp;   _ops[0xD5] = CMP_ZpX;
-        _ops[0xCD] = CMP_Abs;  _ops[0xDD] = CMP_AbsX; _ops[0xD9] = CMP_AbsY;
-        _ops[0xC1] = CMP_IndX; _ops[0xD1] = CMP_IndY;
+        // Consolidated using ExecuteCompare helper to eliminate 13 duplicate methods
+        
+        // CMP (Compare Accumulator) - 8 addressing modes
+        _ops[0xC9] = () => ExecuteCompare(A, AddressingMode.Immediate);
+        _ops[0xC5] = () => ExecuteCompare(A, AddressingMode.ZeroPage);
+        _ops[0xD5] = () => ExecuteCompare(A, AddressingMode.ZeroPageX);
+        _ops[0xCD] = () => ExecuteCompare(A, AddressingMode.Absolute);
+        _ops[0xDD] = () => ExecuteCompare(A, AddressingMode.AbsoluteX);
+        _ops[0xD9] = () => ExecuteCompare(A, AddressingMode.AbsoluteY);
+        _ops[0xC1] = () => ExecuteCompare(A, AddressingMode.IndirectX);
+        _ops[0xD1] = () => ExecuteCompare(A, AddressingMode.IndirectY);
 
-        _ops[0xE0] = CPX_Imm;  _ops[0xE4] = CPX_Zp;   _ops[0xEC] = CPX_Abs;
-        _ops[0xC0] = CPY_Imm;  _ops[0xC4] = CPY_Zp;   _ops[0xCC] = CPY_Abs;
+        // CPX (Compare X Register) - 3 addressing modes
+        _ops[0xE0] = () => ExecuteCompare(X, AddressingMode.Immediate);
+        _ops[0xE4] = () => ExecuteCompare(X, AddressingMode.ZeroPage);
+        _ops[0xEC] = () => ExecuteCompare(X, AddressingMode.Absolute);
+
+        // CPY (Compare Y Register) - 3 addressing modes
+        _ops[0xC0] = () => ExecuteCompare(Y, AddressingMode.Immediate);
+        _ops[0xC4] = () => ExecuteCompare(Y, AddressingMode.ZeroPage);
+        _ops[0xCC] = () => ExecuteCompare(Y, AddressingMode.Absolute);
 
         // ── Branches ──────────────────────────────────────────────────────────
         _ops[0x90] = BCC; _ops[0xB0] = BCS;
