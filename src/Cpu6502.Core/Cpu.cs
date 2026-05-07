@@ -231,8 +231,6 @@ public sealed partial class Cpu
 
     private void SetZN(byte v) { Z = v == 0; N = (v & CpuConstants.BIT_7_MASK) != 0; }
 
-    private static bool PageCrossed(ushort a, ushort b) => (a & CpuConstants.PAGE_MASK) != (b & CpuConstants.PAGE_MASK);
-
     // ─────────────────────────────────────────────────────────────────────────
     // Dispatch table builder
     // ─────────────────────────────────────────────────────────────────────────

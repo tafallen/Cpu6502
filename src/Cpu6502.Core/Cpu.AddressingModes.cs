@@ -37,7 +37,7 @@ public sealed partial class Cpu
     {
         ushort base_ = AddrAbsolute();
         ushort addr  = (ushort)(base_ + X);
-        if (alwaysAddCycle || PageCrossed(base_, addr)) TotalCycles++;
+        ApplyPageCrossPenalty(base_, addr, alwaysAddCycle);
         return addr;
     }
 
@@ -46,7 +46,7 @@ public sealed partial class Cpu
     {
         ushort base_ = AddrAbsolute();
         ushort addr  = (ushort)(base_ + Y);
-        if (alwaysAddCycle || PageCrossed(base_, addr)) TotalCycles++;
+        ApplyPageCrossPenalty(base_, addr, alwaysAddCycle);
         return addr;
     }
 
@@ -63,7 +63,7 @@ public sealed partial class Cpu
         byte   zpAddr = Fetch();
         ushort base_  = ReadWordBug(zpAddr);
         ushort addr   = (ushort)(base_ + Y);
-        if (alwaysAddCycle || PageCrossed(base_, addr)) TotalCycles++;
+        ApplyPageCrossPenalty(base_, addr, alwaysAddCycle);
         return addr;
     }
 }

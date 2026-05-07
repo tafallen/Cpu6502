@@ -20,7 +20,7 @@ public sealed partial class Cpu
 
         ushort newPc = (ushort)(PC + offset);
         TotalCycles++;                              // +1 for taken branch
-        if (PageCrossed(PC, newPc)) TotalCycles++; // +1 for page cross
+        ApplyBranchPageCrossPenalty(PC, newPc);
         PC = newPc;
     }
 }
