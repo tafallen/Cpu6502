@@ -111,8 +111,9 @@ public sealed partial class Cpu
     /// <summary>
     /// Execution trace sink for debugging, profiling, and test instrumentation.
     /// Defaults to NullTrace (zero-cost no-op); set to custom IExecutionTrace to enable tracing.
+    /// Setting to null coerces to NullTrace.Instance.
     /// </summary>
-    public IExecutionTrace Trace
+    public IExecutionTrace? Trace
     {
         get => _trace;
         set => _trace = value ?? NullTrace.Instance;

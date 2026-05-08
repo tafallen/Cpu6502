@@ -62,8 +62,8 @@ internal static class IntegrationAssetPolicy
             Path.Combine(cwd, "tests", "Cpu6502.Tests", "TestData", fileName),
             Path.Combine(appBase, "TestData", fileName),
             Path.GetFullPath(Path.Combine(appBase, "..", "..", "..", "..", "TestData", fileName)),
-            FindInParents(cwd, fileName),
-            FindInParents(appBase, fileName));
+            FindInParents(cwd, fileName) ?? string.Empty,
+            FindInParents(appBase, fileName) ?? string.Empty);
     }
 
     private static string? FindInParents(string startPath, string fileName)
