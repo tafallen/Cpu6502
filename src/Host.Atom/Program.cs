@@ -52,7 +52,10 @@ else
 }
 
 // ── build machine and host ────────────────────────────────────────────────────
-using var host = new RaylibHost("Acorn Atom", options.Scale, logKeypresses: options.DebugKeys);
+using var host = new RaylibHost(
+    "Acorn Atom",
+    new DisplayOptions(Scale: options.Scale, Smooth: options.Smooth, ScanlineIntensity: options.ScanlineIntensity),
+    logKeypresses: options.DebugKeys);
 
 var machine = new AtomMachine(
     basicRom, osRom,
@@ -90,12 +93,14 @@ static void PrintUsage()
         Usage: atom --basic <path> --os <path> [options]
 
         Options:
-          --tape  <path>   UEF tape image (.uef or .uef.gz)
-          --float <path>   Floating-point ROM (afloat.rom) — $D000-$DFFF
-          --dos   <path>   DOS ROM (dosrom.rom) — $E000-$EFFF
-          --ext   <path>   Utility ROM (#A socket, axr1.rom) — $A000-$AFFF
-          --char  <path>   MC6847 character ROM (768 bytes; built-in default used if omitted)
-          --scale <n>      Window scale factor (default: 3)
-          --debug-keys     Log raw keypresses from Raylib (debug only)
+          --tape       <path>   UEF tape image (.uef or .uef.gz)
+          --float      <path>   Floating-point ROM (afloat.rom) — $D000-$DFFF
+          --dos        <path>   DOS ROM (dosrom.rom) — $E000-$EFFF
+          --ext        <path>   Utility ROM (#A socket, axr1.rom) — $A000-$AFFF
+          --char       <path>   MC6847 character ROM (768 bytes; built-in default used if omitted)
+          --scale      <n>      Window scale factor (default: 3)
+          --smooth             Enable bilinear texture filtering (smooth scaling)
+          --scanlines  <0..1>   CRT scanline intensity (0 = off, 0.5 = moderate, default 0)
+          --debug-keys         Log raw keypresses from Raylib (debug only)
         """);
 }

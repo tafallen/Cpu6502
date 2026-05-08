@@ -28,6 +28,11 @@ dotnet test /p:CollectCoverage=false
 # Run the Atom emulator
 dotnet run --project src/Host.Atom -- --basic atom-basic.rom --os atom-os.rom
 dotnet run --project src/Host.Atom -- --basic atom-basic.rom --os atom-os.rom --tape game.uef
+dotnet run --project src/Host.Atom -- --basic atom-basic.rom --os atom-os.rom --smooth --scanlines 0.5
+
+# Run the VIC-20 emulator
+dotnet run --project src/Host.Vic20 -- --basic basic.rom --kernal kernal.rom
+dotnet run --project src/Host.Vic20 -- --basic basic.rom --kernal kernal.rom --smooth --scanlines 0.3
 ```
 
 Coverage reports are written to `tests/*/coverage/coverage.cobertura.xml` after each `dotnet test` run.
@@ -350,51 +355,76 @@ The detector maintains internal state (`_lineWasActive`) and returns true only w
 
 ---
 
-## Future work
+## Display Features
 
-### Display: scaling filter (`--smooth`)
+### Display options configuration
 
-`RaylibHost.SubmitFrame` currently uses `DrawTextureEx` with Raylib's default nearest-neighbour filtering, giving a hard-pixel look. A `--smooth` flag should enable bilinear filtering:
+Display rendering behavior is controlled via the `DisplayOptions` record in `Adapters.Raylib`:
 
 ```csharp
-Raylib.SetTextureFilter(_texture, TextureFilter.Bilinear);
+public sealed record DisplayOptions(
+    int Scale = 3,
+    bool Smooth = false,
+    float ScanlineIntensity = 0f)
 ```
 
-This is a one-line change in `RaylibHost` after the texture is loaded. For higher quality, a GLSL sharp-bilinear or xBR shader could be added later via `LoadShader` / `BeginShaderMode`.
+- **Scale**: Window scale factor (default 3, must be ≥1)
+- **Smooth**: Enable bilinear texture filtering for smooth scaling (default false)
+- **ScanlineIntensity**: CRT scanline effect intensity 0.0–1.0 (default 0.0 = off)
 
-### Display: scanlines (`--scanlines <intensity>`)
+Pass `DisplayOptions` to `RaylibHost` constructor:
 
-Simulate CRT scanline gaps by darkening alternating horizontal rows. Recommended approach is a GPU-side GLSL fragment shader so the effect is free at runtime and trivially togglable:
-
-```glsl
-// scanlines.frag (sketch)
-uniform float intensity;   // 0.0 = off, 0.5 = half brightness on dark rows
-void main() {
-    vec4 col = texture(texture0, fragTexCoord);
-    if (mod(floor(gl_FragCoord.y), 2.0) == 0.0)
-        col.rgb *= (1.0 - intensity);
-    finalColor = col;
-}
+```csharp
+using var host = new RaylibHost(
+    "Acorn Atom",
+    new DisplayOptions(Scale: 3, Smooth: true, ScanlineIntensity: 0.5f),
+    logKeypresses: false);
 ```
 
-Wire up in `RaylibHost`: load the shader once, pass `intensity` as a uniform, wrap `DrawTextureEx` in `BeginShaderMode` / `EndShaderMode`. Scanlines only look good at 2× scale or above.
+### Display: bilinear texture filtering (`--smooth`)
 
-**Suggested command-line flags** (both machines, added in their respective `Program.cs`):
+The `--smooth` command-line flag enables bilinear filtering on the video texture:
+
+```bash
+atom --basic atom-basic.rom --os atom-os.rom --smooth
+vic20 --basic basic.rom --kernal kernal.rom --smooth
+```
+
+When enabled, `RaylibHost` calls `SetTextureFilter(_texture, TextureFilter.Bilinear)` during initialization. This replaces the default nearest-neighbour filtering with bilinear interpolation, giving smoother scaling at the cost of slight blur.
+
+**Implementation:**
+- `DisplayOptions.Smooth` flag controls whether to apply filtering
+- `IRaylibBackend.SetTextureFilter()` method wraps Raylib's native texture filtering API
+- Applied once at texture load time; no per-frame overhead
+
+### Display: CRT scanlines (`--scanlines <intensity>`)
+
+The `--scanlines` flag adds CRT scanline effect by darkening alternating horizontal rows:
+
+```bash
+atom --basic atom-basic.rom --os atom-os.rom --scanlines 0.5
+vic20 --basic basic.rom --kernal kernal.rom --scanlines 0.3
+```
+
+Intensity ranges 0.0 (off) to 1.0 (full darkness on scanlines). Recommended values: 0.3–0.5 for subtle effect.
+
+**Implementation:**
+- CPU-side darkening in `SubmitFrame()` after color conversion
+- Processes every second row (y = 1, 3, 5, ...) before GPU upload
+- Formula: `pixel_rgb *= (1.0 - intensity)`, leaving alpha unchanged
+- Applied per-frame; negligible performance impact on modern hardware
+
+**Command-line usage (both machines):**
 
 ```
 --smooth              Enable bilinear texture filtering
---scanlines <0..1>    Scanline intensity (0 = off, 0.5 = moderate, default 0)
+--scanlines <0..1>    CRT scanline intensity (0 = off, 0.5 = moderate, default 0)
 ```
 
-**Runtime toggle**: check hotkeys in `PollEvents()` — e.g. `F11` cycles scanline intensity, `F10` toggles smooth. These are pure `RaylibHost` concerns; `IVideoSink` and the machine classes need no changes.
-
-**`DisplayOptions` record** (to avoid threading individual flags through constructors):
-
-```csharp
-record DisplayOptions(int Scale = 3, bool Smooth = false, float ScanlineIntensity = 0f);
-```
-
-Pass into `RaylibHost` instead of the bare `scale` int.
+**Future enhancements:**
+- GPU-side scanlines via GLSL fragment shader (currently CPU-side for portability)
+- Runtime hotkey toggles (e.g., `F10` = toggle smooth, `F11` = cycle scanline intensity)
+- Additional effects (phosphor glow, curvature, shadow mask) via shader pipeline
 
 ### Acorn Electron machine (`Machines.Electron`)
 

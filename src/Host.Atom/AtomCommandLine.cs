@@ -9,6 +9,8 @@ public sealed record AtomOptions(
     string? ExtPath,
     string? CharPath,
     int Scale,
+    bool Smooth,
+    float ScanlineIntensity,
     bool DebugKeys);
 
 public static class AtomCommandLine
@@ -23,6 +25,8 @@ public static class AtomCommandLine
         string? extPath = null;
         string? charPath = null;
         int scale = 3;
+        bool smooth = false;
+        float scanlineIntensity = 0f;
         bool debugKeys = false;
 
         for (int i = 0; i < args.Length; i++)
@@ -40,6 +44,14 @@ public static class AtomCommandLine
                     if (!int.TryParse(RequireValue(args, ref i, "--scale"), out scale))
                         throw new ArgumentException("Invalid value for --scale.");
                     break;
+                case "--smooth":
+                    smooth = true;
+                    break;
+                case "--scanlines":
+                    if (!float.TryParse(RequireValue(args, ref i, "--scanlines"), out scanlineIntensity) ||
+                        scanlineIntensity < 0f || scanlineIntensity > 1f)
+                        throw new ArgumentException("Invalid value for --scanlines (must be 0.0-1.0).");
+                    break;
                 case "--debug-keys":
                     debugKeys = true;
                     break;
@@ -51,7 +63,7 @@ public static class AtomCommandLine
         if (basicPath is null || osPath is null)
             throw new ArgumentException("--basic and --os are required.");
 
-        return new AtomOptions(basicPath, osPath, tapePath, floatPath, dosPath, extPath, charPath, scale, debugKeys);
+        return new AtomOptions(basicPath, osPath, tapePath, floatPath, dosPath, extPath, charPath, scale, smooth, scanlineIntensity, debugKeys);
     }
 
     private static string RequireValue(string[] args, ref int index, string optionName)

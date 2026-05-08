@@ -30,7 +30,12 @@ if (options.TapePath is not null)
 }
 
 // ── build machine and host ────────────────────────────────────────────────────
-using var host = new RaylibHost("Commodore VIC-20", options.Scale, VicI.FrameWidth, VicI.FrameHeight, logKeypresses: options.DebugKeys);
+using var host = new RaylibHost(
+    "Commodore VIC-20",
+    new DisplayOptions(Scale: options.Scale, Smooth: options.Smooth, ScanlineIntensity: options.ScanlineIntensity),
+    frameWidth: VicI.FrameWidth,
+    frameHeight: VicI.FrameHeight,
+    logKeypresses: options.DebugKeys);
 
 var machine = new Vic20Machine(
     basicRom, kernalRom,
@@ -57,9 +62,11 @@ static void PrintUsage()
         Usage: vic20 --basic <path> --kernal <path> [options]
 
         Options:
-          --char  <path>   Character ROM image (4KB)
-          --tape  <path>   TAP tape image
-          --scale <n>      Window scale factor (default: 3)
-          --debug-keys     Log raw keypresses from Raylib (debug only)
+          --char       <path>   Character ROM image (4KB)
+          --tape       <path>   TAP tape image
+          --scale      <n>      Window scale factor (default: 3)
+          --smooth             Enable bilinear texture filtering (smooth scaling)
+          --scanlines  <0..1>   CRT scanline intensity (0 = off, 0.5 = moderate, default 0)
+          --debug-keys         Log raw keypresses from Raylib (debug only)
         """);
 }

@@ -17,6 +17,7 @@ public interface IRaylibBackend
     void PollInputEvents();
     int GetKeyPressed();
     void UpdateTexture(Texture2D texture, ReadOnlySpan<uint> pixels);
+    void SetTextureFilter(Texture2D texture, TextureFilter filter);
     void BeginDrawing();
     void ClearBackground(Color color);
     void DrawTextureEx(Texture2D texture, Vector2 position, float rotation, float scale, Color tint);
@@ -50,6 +51,10 @@ public sealed class RaylibBackend : IRaylibBackend
         fixed (uint* ptr = pixels)
             Raylib_cs.Raylib.UpdateTexture(texture, ptr);
     }
+
+    public void SetTextureFilter(Texture2D texture, TextureFilter filter) =>
+        Raylib_cs.Raylib.SetTextureFilter(texture, filter);
+
 
     public void BeginDrawing() => Raylib_cs.Raylib.BeginDrawing();
     public void ClearBackground(Color color) => Raylib_cs.Raylib.ClearBackground(color);

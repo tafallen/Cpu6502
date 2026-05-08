@@ -11,7 +11,7 @@ namespace Adapters.Raylib;
 ///
 /// Typical loop:
 /// <code>
-///   using var host = new RaylibHost("Acorn Atom", scale: 3);
+///   using var host = new RaylibHost("Acorn Atom", new DisplayOptions(scale: 3));
 ///   while (host.IsRunning)
 ///   {
 ///       host.PollEvents();
@@ -25,7 +25,7 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     private const int DefaultFrameRate = 50;
     private const int DefaultAudioSampleRate = 44100;
 
-    private readonly int _scale;
+    private readonly DisplayOptions _displayOptions;
     private readonly int _frameWidth;
     private readonly int _frameHeight;
     private readonly bool _logKeypresses;
@@ -36,9 +36,12 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     private short[] _audioBuffer;
     private bool _disposed;
 
+    /// <summary>
+    /// Create a new RaylibHost with display options.
+    /// </summary>
     public RaylibHost(
         string title = "Acorn Atom",
-        int scale = 3,
+        DisplayOptions? displayOptions = null,
         int frameWidth = 256,
         int frameHeight = 192,
         bool logKeypresses = false,
@@ -46,18 +49,22 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
         int audioSampleRate = DefaultAudioSampleRate,
         IRaylibBackend? backend = null)
     {
-        _scale       = scale;
+        _displayOptions = displayOptions ?? new DisplayOptions();
         _frameWidth  = frameWidth;
         _frameHeight = frameHeight;
         _logKeypresses = logKeypresses;
         _backend = backend ?? new RaylibBackend();
-        _backend.InitWindow(frameWidth * scale, frameHeight * scale, title);
+        _backend.InitWindow(frameWidth * _displayOptions.Scale, frameHeight * _displayOptions.Scale, title);
         _backend.SetTargetFps(targetFps);
 
         // Video texture
         var img = _backend.GenImageColor(frameWidth, frameHeight, Color.Black);
         _texture = _backend.LoadTextureFromImage(img);
         _backend.UnloadImage(img);
+
+        // Apply texture filtering if smooth is enabled
+        if (_displayOptions.Smooth)
+            _backend.SetTextureFilter(_texture, TextureFilter.Bilinear);
 
         // Audio: mono, 16-bit PCM
         _backend.InitAudioDevice();
@@ -86,7 +93,7 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
 
     /// <summary>
     /// Converts the ARGB32 pixel buffer to RGBA32 (Raylib's native format),
-    /// uploads it to the GPU texture, and draws it scaled to the window.
+    /// applies scanlines if configured, uploads it to the GPU texture, and draws it scaled to the window.
     /// </summary>
     public void SubmitFrame(ReadOnlySpan<uint> pixels, int width, int height)
     {
@@ -102,6 +109,10 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
             _rgbaBuffer[i] = r | (g << 8) | (b << 16) | (a << 24);
         }
 
+        // Apply scanlines if configured
+        if (_displayOptions.ScanlineIntensity > 0f)
+            ApplyScanlines();
+
         _backend.UpdateTexture(_texture, _rgbaBuffer);
 
         _backend.BeginDrawing();
@@ -110,9 +121,34 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
             _texture,
             Vector2.Zero,
             rotation: 0f,
-            scale: _scale,
+            scale: _displayOptions.Scale,
             Color.White);
         _backend.EndDrawing();
+    }
+
+    /// <summary>
+    /// Darkens alternating horizontal rows to simulate CRT scanlines.
+    /// Intensity controls the darkness: 0 = no effect, 1 = full black scanlines.
+    /// </summary>
+    private void ApplyScanlines()
+    {
+        float darknessFactor = 1f - _displayOptions.ScanlineIntensity;
+
+        for (int y = 1; y < _frameHeight; y += 2)
+        {
+            int rowStart = y * _frameWidth;
+            int rowEnd = rowStart + _frameWidth;
+
+            for (int i = rowStart; i < rowEnd; i++)
+            {
+                uint rgba = _rgbaBuffer[i];
+                byte r = (byte)((rgba & 0xFF) * darknessFactor);
+                byte g = (byte)(((rgba >> 8) & 0xFF) * darknessFactor);
+                byte b = (byte)(((rgba >> 16) & 0xFF) * darknessFactor);
+                byte a = (byte)((rgba >> 24) & 0xFF);
+                _rgbaBuffer[i] = r | ((uint)g << 8) | ((uint)b << 16) | ((uint)a << 24);
+            }
+        }
     }
 
     // ── IAudioSink ────────────────────────────────────────────────────────────

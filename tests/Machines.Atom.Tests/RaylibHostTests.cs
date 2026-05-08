@@ -89,6 +89,7 @@ public class RaylibHostTests
         public void PollInputEvents() { }
         public int GetKeyPressed() => _keypresses.Count > 0 ? _keypresses.Dequeue() : 0;
         public void UpdateTexture(Texture2D texture, ReadOnlySpan<uint> pixels) { }
+        public void SetTextureFilter(Texture2D texture, TextureFilter filter) { }
         public void BeginDrawing() { }
         public void ClearBackground(Color color) { }
         public void DrawTextureEx(Texture2D texture, Vector2 position, float rotation, float scale, Color tint) { }
