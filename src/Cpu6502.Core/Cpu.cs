@@ -485,58 +485,64 @@ public sealed partial class Cpu
         _ops[0x97] = () => { WriteByte(AddrZeroPageY(),       (byte)(A & X)); TotalCycles += 4; };
 
         // DCP — DEC memory then CMP A (sets C, Z, N like CMP)
-        _ops[0xC3] = () => { DcpAt(AddrIndexedIndirect());  TotalCycles += 8; };
-        _ops[0xC7] = () => { DcpAt(AddrZeroPage());         TotalCycles += 5; };
-        _ops[0xCF] = () => { DcpAt(AddrAbsolute());         TotalCycles += 6; };
-        _ops[0xD3] = () => { DcpAt(AddrIndirectIndexed(true)); TotalCycles += 8; };
-        _ops[0xD7] = () => { DcpAt(AddrZeroPageX());        TotalCycles += 6; };
-        _ops[0xDB] = () => { DcpAt(AddrAbsoluteY(true));    TotalCycles += 7; };
-        _ops[0xDF] = () => { DcpAt(AddrAbsoluteX(true));    TotalCycles += 7; };
+        // DCP — Decrement then Compare (all addressing modes)
+        _ops[0xC3] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.IndirectX);
+        _ops[0xC7] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.ZeroPage);
+        _ops[0xCF] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.Absolute);
+        _ops[0xD3] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.IndirectY);
+        _ops[0xD7] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.ZeroPageX);
+        _ops[0xDB] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.AbsoluteY);
+        _ops[0xDF] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.AbsoluteX);
 
         // ISB/ISC — INC memory then SBC A
-        _ops[0xE3] = () => { IsbAt(AddrIndexedIndirect());  TotalCycles += 8; };
-        _ops[0xE7] = () => { IsbAt(AddrZeroPage());         TotalCycles += 5; };
-        _ops[0xEF] = () => { IsbAt(AddrAbsolute());         TotalCycles += 6; };
-        _ops[0xF3] = () => { IsbAt(AddrIndirectIndexed(true)); TotalCycles += 8; };
-        _ops[0xF7] = () => { IsbAt(AddrZeroPageX());        TotalCycles += 6; };
-        _ops[0xFB] = () => { IsbAt(AddrAbsoluteY(true));    TotalCycles += 7; };
-        _ops[0xFF] = () => { IsbAt(AddrAbsoluteX(true));    TotalCycles += 7; };
+        // ISB — Increment then SBC (all addressing modes)
+        _ops[0xE3] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.IndirectX);
+        _ops[0xE7] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.ZeroPage);
+        _ops[0xEF] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.Absolute);
+        _ops[0xF3] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.IndirectY);
+        _ops[0xF7] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.ZeroPageX);
+        _ops[0xFB] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.AbsoluteY);
+        _ops[0xFF] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.AbsoluteX);
 
         // SLO — ASL memory then ORA A
-        _ops[0x03] = () => { SloAt(AddrIndexedIndirect());  TotalCycles += 8; };
-        _ops[0x07] = () => { SloAt(AddrZeroPage());         TotalCycles += 5; };
-        _ops[0x0F] = () => { SloAt(AddrAbsolute());         TotalCycles += 6; };
-        _ops[0x13] = () => { SloAt(AddrIndirectIndexed(true)); TotalCycles += 8; };
-        _ops[0x17] = () => { SloAt(AddrZeroPageX());        TotalCycles += 6; };
-        _ops[0x1B] = () => { SloAt(AddrAbsoluteY(true));    TotalCycles += 7; };
-        _ops[0x1F] = () => { SloAt(AddrAbsoluteX(true));    TotalCycles += 7; };
+        // SLO — Shift Left then ORA (all addressing modes)
+        _ops[0x03] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.IndirectX);
+        _ops[0x07] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.ZeroPage);
+        _ops[0x0F] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.Absolute);
+        _ops[0x13] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.IndirectY);
+        _ops[0x17] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.ZeroPageX);
+        _ops[0x1B] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.AbsoluteY);
+        _ops[0x1F] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.AbsoluteX);
 
         // RLA — ROL memory then AND A
-        _ops[0x23] = () => { RlaAt(AddrIndexedIndirect());  TotalCycles += 8; };
-        _ops[0x27] = () => { RlaAt(AddrZeroPage());         TotalCycles += 5; };
-        _ops[0x2F] = () => { RlaAt(AddrAbsolute());         TotalCycles += 6; };
-        _ops[0x33] = () => { RlaAt(AddrIndirectIndexed(true)); TotalCycles += 8; };
-        _ops[0x37] = () => { RlaAt(AddrZeroPageX());        TotalCycles += 6; };
-        _ops[0x3B] = () => { RlaAt(AddrAbsoluteY(true));    TotalCycles += 7; };
-        _ops[0x3F] = () => { RlaAt(AddrAbsoluteX(true));    TotalCycles += 7; };
+        // RLA — Rotate Left then AND (all addressing modes)
+        _ops[0x23] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.IndirectX);
+        _ops[0x27] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.ZeroPage);
+        _ops[0x2F] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.Absolute);
+        _ops[0x33] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.IndirectY);
+        _ops[0x37] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.ZeroPageX);
+        _ops[0x3B] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.AbsoluteY);
+        _ops[0x3F] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.AbsoluteX);
 
         // SRE — LSR memory then EOR A
-        _ops[0x43] = () => { SreAt(AddrIndexedIndirect());  TotalCycles += 8; };
-        _ops[0x47] = () => { SreAt(AddrZeroPage());         TotalCycles += 5; };
-        _ops[0x4F] = () => { SreAt(AddrAbsolute());         TotalCycles += 6; };
-        _ops[0x53] = () => { SreAt(AddrIndirectIndexed(true)); TotalCycles += 8; };
-        _ops[0x57] = () => { SreAt(AddrZeroPageX());        TotalCycles += 6; };
-        _ops[0x5B] = () => { SreAt(AddrAbsoluteY(true));    TotalCycles += 7; };
-        _ops[0x5F] = () => { SreAt(AddrAbsoluteX(true));    TotalCycles += 7; };
+        // SRE — Shift Right then EOR (all addressing modes)
+        _ops[0x43] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.IndirectX);
+        _ops[0x47] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.ZeroPage);
+        _ops[0x4F] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.Absolute);
+        _ops[0x53] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.IndirectY);
+        _ops[0x57] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.ZeroPageX);
+        _ops[0x5B] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.AbsoluteY);
+        _ops[0x5F] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.AbsoluteX);
 
         // RRA — ROR memory then ADC A
-        _ops[0x63] = () => { RraAt(AddrIndexedIndirect());  TotalCycles += 8; };
-        _ops[0x67] = () => { RraAt(AddrZeroPage());         TotalCycles += 5; };
-        _ops[0x6F] = () => { RraAt(AddrAbsolute());         TotalCycles += 6; };
-        _ops[0x73] = () => { RraAt(AddrIndirectIndexed(true)); TotalCycles += 8; };
-        _ops[0x77] = () => { RraAt(AddrZeroPageX());        TotalCycles += 6; };
-        _ops[0x7B] = () => { RraAt(AddrAbsoluteY(true));    TotalCycles += 7; };
-        _ops[0x7F] = () => { RraAt(AddrAbsoluteX(true));    TotalCycles += 7; };
+        // RRA — Rotate Right then ADC (all addressing modes)
+        _ops[0x63] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.IndirectX);
+        _ops[0x67] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.ZeroPage);
+        _ops[0x6F] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.Absolute);
+        _ops[0x73] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.IndirectY);
+        _ops[0x77] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.ZeroPageX);
+        _ops[0x7B] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.AbsoluteY);
+        _ops[0x7F] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.AbsoluteX);
 
         // ANC ($0B/$2B) — AND imm, carry = bit 7 of result
         _ops[0x0B] = _ops[0x2B] = () =>

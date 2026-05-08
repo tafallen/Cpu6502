@@ -189,6 +189,26 @@ public sealed partial class Cpu
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Illegal Opcode RMW Helpers (compound operations)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Generic illegal opcode helper: Read, apply operation, write, set Z/N, add cycles.
+    /// Consolidates DCP, ISB, SLO, RLA, SRE, RRA methods (42 total across 7 addressing modes each).
+    /// Operation parameter receives byte value and returns modified value.
+    /// FlagOp parameter (if provided) runs after the write (for flag updates specific to each illegal operation).
+    /// </summary>
+    private void ExecuteIllegalRMW(Func<byte, byte> operation, Action<byte>? flagOp, AddressingMode mode)
+    {
+        ushort addr = GetAddressByMode(mode);
+        byte val = ReadByte(addr);
+        byte result = operation(val);
+        WriteByte(addr, result);
+        flagOp?.Invoke(result);  // Apply any post-operation flag updates
+        TotalCycles += (ulong)GetCycleInfo(mode, AccessType.Rmw).BaseCycles;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Operation Enums
     // ─────────────────────────────────────────────────────────────────────────
 
