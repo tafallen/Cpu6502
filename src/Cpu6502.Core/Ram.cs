@@ -22,9 +22,21 @@ public sealed class Ram : IBusValidator
                 $"Ram access at 0x{address:X4} exceeds size 0x{_size:X4}");
     }
 
-    public byte Read(ushort address) => _data[address];
+    public byte Read(ushort address)
+    {
+        // Bounds check in Release mode: return 0xFF (open bus) for out-of-bounds reads
+        if (address >= _size)
+            return 0xFF;
+        return _data[address];
+    }
 
-    public void Write(ushort address, byte value) => _data[address] = value;
+    public void Write(ushort address, byte value)
+    {
+        // Bounds check in Release mode: silently ignore out-of-bounds writes
+        if (address >= _size)
+            return;
+        _data[address] = value;
+    }
 
     /// <summary>Copies <paramref name="data"/> into RAM starting at <paramref name="baseAddress"/>.</summary>
     public void Load(ushort baseAddress, byte[] data)
