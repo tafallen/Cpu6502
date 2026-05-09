@@ -285,11 +285,11 @@ public sealed class RecordingTrace : IExecutionTrace
         
         foreach (var (name, min, max) in ranges)
         {
-            var rangeData = CycleProvenance.Where(c => c.Pc >= min && c.Pc <= max).ToList();
-            ulong rangeCycles = (ulong)rangeData.Sum(c => c.CyclesContributed);
+            ulong rangeCycles = GetCyclesForAddressRange(min, max);
+            int instructionCount = CycleProvenance.Count(c => c.Pc >= min && c.Pc <= max);
             double percent = totalCycles > 0 ? (100.0 * rangeCycles) / totalCycles : 0;
             
-            csv.AppendLine($"{name},{rangeCycles},{percent:F2},{rangeData.Count}");
+            csv.AppendLine($"{name},{rangeCycles},{percent:F2},{instructionCount}");
         }
         
         return csv.ToString();
