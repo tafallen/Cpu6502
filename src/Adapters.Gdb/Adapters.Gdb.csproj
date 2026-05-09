@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Cpu6502.Core/Cpu6502.Core.csproj" />
+    <ProjectReference Include="../Machines.Common/Machines.Common.csproj" />
+  </ItemGroup>
+
+</Project>

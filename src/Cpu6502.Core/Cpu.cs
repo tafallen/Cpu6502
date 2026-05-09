@@ -192,6 +192,22 @@ public sealed partial class Cpu
 
     private byte   Peek() => _bus.Read(PC);  // Read opcode without incrementing PC or tracing
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Debugging helpers (for GDB adapter)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    internal void SetRegisterA(byte value) => A = value;
+    internal void SetRegisterX(byte value) => X = value;
+    internal void SetRegisterY(byte value) => Y = value;
+    internal void SetStackPointer(byte value) => SP = value;
+    internal void SetProgramCounter(ushort value) => PC = value;
+    internal void SetFlagC(bool value) => C = value;
+    internal void SetFlagZ(bool value) => Z = value;
+    internal void SetFlagI(bool value) => I = value;
+    internal void SetFlagD(bool value) => D = value;
+    internal void SetFlagV(bool value) => V = value;
+    internal void SetFlagN(bool value) => N = value;
+
     private byte   Fetch()
     {
         byte value = _bus.Read(PC++);
