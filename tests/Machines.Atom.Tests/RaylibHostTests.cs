@@ -93,6 +93,9 @@ public class RaylibHostTests
         public void BeginDrawing() { }
         public void ClearBackground(Color color) { }
         public void DrawTextureEx(Texture2D texture, Vector2 position, float rotation, float scale, Color tint) { }
+        public void DrawRectangle(int x, int y, int width, int height, Color color) { }
+        public void DrawRectangleLines(int x, int y, int width, int height, Color color) { }
+        public void DrawText(string text, int x, int y, int fontSize, Color color) { }
         public void EndDrawing() { }
         public bool IsAudioStreamProcessed(AudioStream stream) => AudioProcessed;
 

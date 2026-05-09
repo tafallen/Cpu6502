@@ -19,11 +19,16 @@ namespace Adapters.Raylib;
 ///       machine.RenderFrame(host);   // host is the IVideoSink
 ///   }
 /// </code>
+/// 
+/// Runtime hotkey toggles:
+/// - F10: Toggle bilinear texture filtering
+/// - F11: Cycle scanline intensity (0 → 0.3 → 0.5 → 0)
 /// </summary>
 public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDisposable
 {
     private const int DefaultFrameRate = 50;
     private const int DefaultAudioSampleRate = 44100;
+    private const int OverlayDurationFrames = 60;  // Show overlay for 60 frames (~1.2 seconds at 50 FPS)
 
     private readonly DisplayOptions _displayOptions;
     private readonly int _frameWidth;
@@ -35,6 +40,10 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     private readonly uint[]  _rgbaBuffer;
     private short[] _audioBuffer;
     private bool _disposed;
+
+    // Overlay state for hotkey feedback
+    private string? _overlayMessage;
+    private int _overlayFrameCounter;
 
     /// <summary>
     /// Create a new RaylibHost with display options.
@@ -81,12 +90,58 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     public void PollEvents()
     {
         _backend.PollInputEvents();
+        HandleDisplayHotkeys();
+
         if (!_logKeypresses) return;
 
         // Optional verbose key logging for input debugging.
         int kp;
         while ((kp = _backend.GetKeyPressed()) != 0)
             Console.WriteLine($"[key] Raylib saw keypress: {(KeyboardKey)kp} ({kp})");
+    }
+
+    /// <summary>
+    /// Handle runtime hotkey toggles for display options.
+    /// F10: Toggle smooth filtering
+    /// F11: Cycle scanline intensity (0 → 0.3 → 0.5 → 0)
+    /// </summary>
+    private void HandleDisplayHotkeys()
+    {
+        if (_backend.IsKeyDown(KeyboardKey.F10))
+        {
+            _displayOptions.Smooth = !_displayOptions.Smooth;
+            ApplyTextureFilter(_displayOptions.Smooth);
+            SetOverlayMessage($"Smooth: {(_displayOptions.Smooth ? "ON" : "OFF")}");
+        }
+
+        if (_backend.IsKeyDown(KeyboardKey.F11))
+        {
+            // Cycle: 0 → 0.3 → 0.5 → 0
+            _displayOptions.ScanlineIntensity = _displayOptions.ScanlineIntensity switch
+            {
+                0f => 0.3f,
+                0.3f => 0.5f,
+                _ => 0f
+            };
+            SetOverlayMessage($"Scanlines: {_displayOptions.ScanlineIntensity:F1}");
+        }
+    }
+
+    /// <summary>
+    /// Apply texture filter at runtime (rebind to texture).
+    /// </summary>
+    private void ApplyTextureFilter(bool smooth)
+    {
+        _backend.SetTextureFilter(_texture, smooth ? TextureFilter.Bilinear : TextureFilter.Point);
+    }
+
+    /// <summary>
+    /// Set overlay message to display for next N frames.
+    /// </summary>
+    private void SetOverlayMessage(string message)
+    {
+        _overlayMessage = message;
+        _overlayFrameCounter = 0;
     }
 
     // ── IVideoSink ────────────────────────────────────────────────────────────
@@ -123,7 +178,54 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
             rotation: 0f,
             scale: _displayOptions.Scale,
             Color.White);
+        
+        // Render overlay message if active
+        RenderOverlay();
+        
         _backend.EndDrawing();
+    }
+
+    /// <summary>
+    /// Render overlay message (hotkey feedback) for a fixed duration.
+    /// Message fades after OverlayDurationFrames.
+    /// </summary>
+    private void RenderOverlay()
+    {
+        if (_overlayMessage == null)
+            return;
+
+        if (_overlayFrameCounter >= OverlayDurationFrames)
+        {
+            _overlayMessage = null;
+            return;
+        }
+
+        // Calculate fade: full opacity for first 75%, then fade to 0
+        float fadeStartFrame = OverlayDurationFrames * 0.75f;
+        float alpha = _overlayFrameCounter < fadeStartFrame
+            ? 1f
+            : 1f - (_overlayFrameCounter - fadeStartFrame) / (OverlayDurationFrames - fadeStartFrame);
+
+        // Draw semi-transparent background box
+        int boxWidth = 200;
+        int boxHeight = 40;
+        int boxX = (_frameWidth * _displayOptions.Scale - boxWidth) / 2;
+        int boxY = 20;
+
+        Color bgColor = new((byte)0, (byte)0, (byte)0, (byte)(200 * alpha));
+        _backend.DrawRectangle(boxX, boxY, boxWidth, boxHeight, bgColor);
+
+        // Draw border
+        Color borderColor = new((byte)255, (byte)255, (byte)255, (byte)(255 * alpha));
+        _backend.DrawRectangleLines(boxX, boxY, boxWidth, boxHeight, borderColor);
+
+        // Draw text
+        Color textColor = new((byte)255, (byte)255, (byte)255, (byte)(255 * alpha));
+        int textX = boxX + 10;
+        int textY = boxY + 10;
+        _backend.DrawText(_overlayMessage, textX, textY, 20, textColor);
+
+        _overlayFrameCounter++;
     }
 
     /// <summary>

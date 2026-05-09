@@ -21,6 +21,9 @@ public interface IRaylibBackend
     void BeginDrawing();
     void ClearBackground(Color color);
     void DrawTextureEx(Texture2D texture, Vector2 position, float rotation, float scale, Color tint);
+    void DrawRectangle(int x, int y, int width, int height, Color color);
+    void DrawRectangleLines(int x, int y, int width, int height, Color color);
+    void DrawText(string text, int x, int y, int fontSize, Color color);
     void EndDrawing();
     bool IsAudioStreamProcessed(AudioStream stream);
     void UpdateAudioStream(AudioStream stream, ReadOnlySpan<short> samples, int count);
@@ -60,6 +63,12 @@ public sealed class RaylibBackend : IRaylibBackend
     public void ClearBackground(Color color) => Raylib_cs.Raylib.ClearBackground(color);
     public void DrawTextureEx(Texture2D texture, Vector2 position, float rotation, float scale, Color tint) =>
         Raylib_cs.Raylib.DrawTextureEx(texture, position, rotation, scale, tint);
+    public void DrawRectangle(int x, int y, int width, int height, Color color) =>
+        Raylib_cs.Raylib.DrawRectangle(x, y, width, height, color);
+    public void DrawRectangleLines(int x, int y, int width, int height, Color color) =>
+        Raylib_cs.Raylib.DrawRectangleLines(x, y, width, height, color);
+    public void DrawText(string text, int x, int y, int fontSize, Color color) =>
+        Raylib_cs.Raylib.DrawText(text, x, y, fontSize, color);
     public void EndDrawing() => Raylib_cs.Raylib.EndDrawing();
     public bool IsAudioStreamProcessed(AudioStream stream) => Raylib_cs.Raylib.IsAudioStreamProcessed(stream);
 
