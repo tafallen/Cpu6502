@@ -135,6 +135,72 @@ public sealed class RecordingTrace : IExecutionTrace
         return JsonSerializer.Serialize(export, new JsonSerializerOptions { WriteIndented = true });
     }
 
+    /// <summary>Export instruction trace as CSV format.</summary>
+    public string ExportInstructionsCSV()
+    {
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("PC,Opcode,Cycles,A,Flags");
+        
+        foreach (var instr in Instructions)
+        {
+            csv.AppendLine($"0x{instr.Pc:X4},{instr.Opcode:X2},{instr.Cycles},0x{instr.AAfter:X2},0x{instr.Flags:X2}");
+        }
+        
+        return csv.ToString();
+    }
+
+    /// <summary>Export memory access trace as CSV format.</summary>
+    public string ExportMemoryAccessesCSV()
+    {
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Address,Value,Operation,Cycles");
+        
+        foreach (var access in MemoryAccesses)
+        {
+            string op = access.IsWrite ? "WRITE" : "READ";
+            csv.AppendLine($"0x{access.Address:X4},0x{access.Value:X2},{op},{access.Cycles}");
+        }
+        
+        return csv.ToString();
+    }
+
+    /// <summary>Export instruction trace as binary format (little-endian).</summary>
+    public byte[] ExportInstructionsBinary()
+    {
+        using var ms = new System.IO.MemoryStream();
+        using var writer = new System.IO.BinaryWriter(ms);
+        
+        writer.Write(Instructions.Count);
+        foreach (var instr in Instructions)
+        {
+            writer.Write(instr.Pc);
+            writer.Write(instr.Opcode);
+            writer.Write(instr.Cycles);
+            writer.Write(instr.AAfter);
+            writer.Write(instr.Flags);
+        }
+        
+        return ms.ToArray();
+    }
+
+    /// <summary>Export memory access trace as binary format (little-endian).</summary>
+    public byte[] ExportMemoryAccessesBinary()
+    {
+        using var ms = new System.IO.MemoryStream();
+        using var writer = new System.IO.BinaryWriter(ms);
+        
+        writer.Write(MemoryAccesses.Count);
+        foreach (var access in MemoryAccesses)
+        {
+            writer.Write(access.Address);
+            writer.Write(access.Value);
+            writer.Write(access.IsWrite);
+            writer.Write(access.Cycles);
+        }
+        
+        return ms.ToArray();
+    }
+
     /// <summary>Clear all recorded events.</summary>
     public void Clear()
     {
