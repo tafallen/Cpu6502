@@ -179,24 +179,22 @@ public sealed class Cpu6502GdbTarget : IGdbTarget
     public void SetBreakpoint(ushort address)
     {
         _breakpoints.Add(address);
-        
-        // Wire breakpoint through trace API  
-        var currentTrace = _cpu.Trace ?? NullTrace.Instance;
-        
-        var newCondition = (ushort pc, byte opcode, byte a) =>
-        {
-            bool inBreakpoints = _breakpoints.Contains(pc);
-            bool originalTriggered = currentTrace.ShouldBreak(pc, opcode, a);
-            return inBreakpoints || originalTriggered;
-        };
-        
-        // For simplicity, just check breakpoints during Peek without replacing trace
-        // The actual breakpoint check happens during Step()
+        UpdateTraceBreakpointCondition();
     }
 
     public void RemoveBreakpoint(ushort address)
     {
         _breakpoints.Remove(address);
+        UpdateTraceBreakpointCondition();
+    }
+
+    private void UpdateTraceBreakpointCondition()
+    {
+        // Wrap current trace to include GDB breakpoints in the ShouldBreak check
+        var currentTrace = _cpu.Trace ?? NullTrace.Instance;
+        
+        // Create a wrapper trace that adds GDB breakpoint checks
+        _cpu.Trace = new BreakpointWrapperTrace(currentTrace, _breakpoints);
     }
 
     // ─────────────────────────────────────────────────────────────────────
