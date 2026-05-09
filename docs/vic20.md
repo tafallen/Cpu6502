@@ -23,14 +23,27 @@ The character ROM is optional — if omitted the screen will show blank glyphs.
 
 ## Command-line options
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--basic <path>` | required | 8 KB BASIC ROM |
-| `--kernal <path>` | required | 8 KB Kernal ROM |
-| `--char <path>` | — | 4 KB character ROM |
-| `--tape <path>` | — | Commodore TAP tape image |
-| `--scale <n>` | 3 | Window scale factor |
-| `--debug-keys` | off | Log raw keypresses from Raylib (debug only) |
+| Flag | Required | Default | Description |
+|---|---|---|---|
+| `--basic <path>` | Yes | — | 8 KB BASIC ROM (`basic.901486-01.bin`) |
+| `--kernal <path>` | Yes | — | 8 KB Kernal ROM (`kernal.901486-07.bin`) |
+| `--char <path>` | No | — | 4 KB character ROM (`chargen.901460-03.bin`) |
+| `--tape <path>` | No | — | Commodore TAP tape image |
+| `--scale <n>` | No | 3 | Window scale factor → resolution 256×272 × scale |
+| `--smooth` | No | off | Enable bilinear texture filtering for smooth scaling |
+| `--scanlines <0..1>` | No | 0 | CRT scanline intensity (0 = off, 0.5 = moderate, 1 = full) |
+| `--debug-keys` | No | off | Log raw keypresses from Raylib (debug only) |
+
+### Runtime display hotkeys
+
+While running the emulator, press:
+
+| Hotkey | Effect |
+|---|---|
+| `F10` | Toggle bilinear texture filtering (`--smooth`) |
+| `F11` | Cycle scanline intensity through [off, 0.3, 0.5, 1.0] |
+
+An overlay appears for 1 second confirming the change.
 
 ## Address map
 

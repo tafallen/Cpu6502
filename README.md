@@ -83,9 +83,10 @@ To run:
 ```
 dotnet run --project src/Host.Atom -- --basic atom-basic.rom --os atom-os.rom
 dotnet run --project src/Host.Atom -- --basic atom-basic.rom --os atom-os.rom --tape game.uef
+dotnet run --project src/Host.Atom -- --basic atom-basic.rom --os atom-os.rom --smooth --scanlines 0.5
 ```
 
-See [docs/atom.md](docs/atom.md) for the full address map, chip documentation, and all command-line options.
+See [docs/atom.md](docs/atom.md) for the full address map, chip documentation, and ROM details. See [docs/cli-reference.md](docs/cli-reference.md) for comprehensive command-line options, display hotkeys (F10/F11), and troubleshooting.
 
 ## Commodore VIC-20 emulator
 
@@ -111,9 +112,10 @@ To run you need three ROM images from the VIC-20 (these are freely available fro
 ```
 dotnet run --project src/Host.Vic20 -- --basic basic.901486-01.bin --kernal kernal.901486-07.bin --char chargen.901460-03.bin
 dotnet run --project src/Host.Vic20 -- --basic basic.901486-01.bin --kernal kernal.901486-07.bin --char chargen.901460-03.bin --tape game.tap
+dotnet run --project src/Host.Vic20 -- --basic basic.901486-01.bin --kernal kernal.901486-07.bin --char chargen.901460-03.bin --smooth --scanlines 0.3
 ```
 
-See [docs/vic20.md](docs/vic20.md) for the full address map and chip documentation.
+See [docs/vic20.md](docs/vic20.md) for the full address map, chip documentation, and ROM details. See [docs/cli-reference.md](docs/cli-reference.md) for comprehensive command-line options, display hotkeys (F10/F11), and troubleshooting.
 
 ## Validating correctness
 
@@ -126,6 +128,27 @@ CPU6502_REQUIRE_INTEGRATION_ASSETS=1
 ```
 
 When strict mode is enabled, missing assets fail the test with a clear error message.
+
+## Execution tracing & debugging
+
+The CPU supports pluggable execution tracing for debugging, profiling, and analysis. See [CLAUDE.md](CLAUDE.md#execution-tracing--debugging) for:
+
+- **Conditional breakpoints** — Set `BreakpointCondition` on `RecordingTrace` to break on PC, opcode, or accumulator values
+- **Memory dump export** — Export instruction and memory access history to CSV or binary formats for spreadsheet/custom analysis
+- **Pluggable trace hooks** — Implement `IExecutionTrace` interface for custom debugging workflows
+
+**Quick example:**
+
+```csharp
+var trace = new RecordingTrace { BreakpointCondition = (pc, op, a) => pc == 0x3000 };
+cpu.Trace = trace;
+
+// ... run code ...
+
+// Export results
+File.WriteAllText("trace.csv", trace.ExportInstructionsCSV());
+File.WriteAllBytes("memory.bin", trace.ExportMemoryAccessesBinary());
+```
 
 ## Contributor checklist
 

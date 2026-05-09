@@ -10,17 +10,30 @@ dotnet run --project src/Host.Atom -- --basic atom-basic.rom --os atom-os.rom --
 
 All `--` flags:
 
-| Flag | Required | Description |
-|---|---|---|
-| `--basic <path>` | Yes | 4 KB BASIC ROM (`abasic.rom`) |
-| `--os <path>` | Yes | 4 KB OS/kernel ROM (`akernel.rom`) |
-| `--tape <path>` | No | UEF tape image (plain or gzip-compressed) |
-| `--float <path>` | No | 4 KB floating-point ROM (`afloat.rom`) |
-| `--dos <path>` | No | 4 KB DOS/extension ROM (`dosrom.rom`) |
-| `--ext <path>` | No | 4 KB utility ROM for socket #A (`axr1.rom`) |
-| `--char <path>` | No | 768-byte MC6847 character ROM (64 chars × 12 rows) |
-| `--scale <n>` | No | Window scale factor (default: 3 → 768×576) |
-| `--debug-keys` | No | Log raw keypresses from Raylib (debug only) |
+| Flag | Required | Default | Description |
+|---|---|---|---|
+| `--basic <path>` | Yes | — | 4 KB BASIC ROM (`abasic.rom`) |
+| `--os <path>` | Yes | — | 4 KB OS/kernel ROM (`akernel.rom`) |
+| `--tape <path>` | No | — | UEF tape image (plain or gzip-compressed) |
+| `--float <path>` | No | — | 4 KB floating-point ROM (`afloat.rom`) |
+| `--dos <path>` | No | — | 4 KB DOS/extension ROM (`dosrom.rom`) |
+| `--ext <path>` | No | — | 4 KB utility ROM for socket #A (`axr1.rom`) |
+| `--char <path>` | No | — | 768-byte MC6847 character ROM (64 chars × 12 rows) |
+| `--scale <n>` | No | 3 | Window scale factor → resolution 256×192 × scale |
+| `--smooth` | No | off | Enable bilinear texture filtering for smooth scaling |
+| `--scanlines <0..1>` | No | 0 | CRT scanline intensity (0 = off, 0.5 = moderate, 1 = full) |
+| `--debug-keys` | No | off | Log raw keypresses from Raylib (debug only) |
+
+### Runtime display hotkeys
+
+While running the emulator, press:
+
+| Hotkey | Effect |
+|---|---|
+| `F10` | Toggle bilinear texture filtering (`--smooth`) |
+| `F11` | Cycle scanline intensity through [off, 0.3, 0.5, 1.0] |
+
+An overlay appears for 1 second confirming the change.
 
 ---
 

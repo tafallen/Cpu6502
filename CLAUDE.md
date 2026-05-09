@@ -44,17 +44,20 @@ src/
   Cpu6502.Core/       — 6502 CPU, Ram, Rom, AddressDecoder (IBus primitives)
   Machines.Common/    — Shared interfaces: IBus, IVideoSink, IAudioSink, IPhysicalKeyboard, ITapeDevice; components: InterruptEdgeDetector, IComponent, MachineClock, TimingScheduler
   Machines.Atom/      — Acorn Atom hardware emulation
+  Machines.Vic20/     — Commodore VIC-20 hardware emulation
   Adapters.Raylib/    — RaylibHost: window, input, audio (IVideoSink + IPhysicalKeyboard + IAudioSink)
-  Host.Atom/          — Console entry point; --basic, --os, --tape, --float, --ext, --scale flags
+  Host.Atom/          — Console entry point; CLI parsing (--basic, --os, --tape, --smooth, --scanlines, etc.)
+  Host.Vic20/         — Console entry point; CLI parsing (--basic, --kernal, --smooth, --scanlines, etc.)
 tests/
-  Cpu6502.Tests/      — CPU unit tests + Klaus Dörmann integration test
-  Machines.Atom.Tests/ — Atom hardware tests (Ppi8255, Mc6847, keyboard, sound, tape, UEF, machine)
+  Cpu6502.Tests/      — CPU unit tests + Klaus Dörmann integration test + RecordingTrace (conditional breakpoints, memory export)
+  Machines.Atom.Tests/  — Atom hardware tests (Ppi8255, Mc6847, keyboard, sound, tape, UEF, machine initialization)
+  Machines.Vic20.Tests/ — VIC-20 hardware tests (Via6522, VicI, keyboard, tape, machine initialization)
 docs/
   walkthrough.md      — IBus / AddressDecoder / CPU tutorial
-  atom.md             — Acorn Atom hardware reference: address map, chips, ROM layout, VBL timing
-  electron.md         — Acorn Electron hardware reference: ULA, address map, ROM banking, video modes
-  vic20.md            — Commodore VIC-20 hardware reference
+  atom.md             — Acorn Atom hardware reference: address map, chips, ROM layout, VBL timing, CLI options
+  vic20.md            — Commodore VIC-20 hardware reference: address map, chips, ROM layout, CLI options
   vic20-tape.md       — VIC-20 TAP tape format details
+  electron.md         — Acorn Electron hardware reference (not yet implemented): ULA, address map, ROM banking, video modes
 ```
 
 ## Architecture
@@ -359,13 +362,15 @@ The detector maintains internal state (`_lineWasActive`) and returns true only w
 
 ### Display options configuration
 
-Display rendering behavior is controlled via the `DisplayOptions` record in `Adapters.Raylib`:
+Display rendering behavior is controlled via the `DisplayOptions` class in `Adapters.Raylib`:
 
 ```csharp
-public sealed record DisplayOptions(
-    int Scale = 3,
-    bool Smooth = false,
-    float ScanlineIntensity = 0f)
+public sealed class DisplayOptions
+{
+    public int Scale { get; set; } = 3;
+    public bool Smooth { get; set; } = false;
+    public float ScanlineIntensity { get; set; } = 0f;
+}
 ```
 
 - **Scale**: Window scale factor (default 3, must be ≥1)
@@ -377,7 +382,7 @@ Pass `DisplayOptions` to `RaylibHost` constructor:
 ```csharp
 using var host = new RaylibHost(
     "Acorn Atom",
-    new DisplayOptions(Scale: 3, Smooth: true, ScanlineIntensity: 0.5f),
+    new DisplayOptions { Scale = 3, Smooth = true, ScanlineIntensity = 0.5f },
     logKeypresses: false);
 ```
 
@@ -414,17 +419,33 @@ Intensity ranges 0.0 (off) to 1.0 (full darkness on scanlines). Recommended valu
 - Formula: `pixel_rgb *= (1.0 - intensity)`, leaving alpha unchanged
 - Applied per-frame; negligible performance impact on modern hardware
 
+### Display: Runtime hotkey toggles
+
+Both `--smooth` and `--scanlines` can be toggled at runtime with no need to restart:
+
+**F10 — Toggle bilinear texture filtering**
+- Toggles between nearest-neighbor and bilinear filtering
+- Overlay shows current mode for 1 second ("Bilinear: ON" or "Bilinear: OFF")
+- Useful for comparing crisp vs. smooth rendering quality
+
+**F11 — Cycle scanline intensity**
+- Cycles through preset intensities: [0.0 (off), 0.3 (subtle), 0.5 (moderate), 1.0 (full)] and back to 0.0
+- Overlay shows current intensity ("Scanlines: 0.3" or "Scanlines: OFF")
+- Useful for tuning CRT effect without pausing/restarting emulation
+
+**Implementation:**
+- `RaylibHost.HandleDisplayHotkeys()` polls `IsKeyDown()` for F10/F11 each frame
+- Changes applied immediately via `RaylibHost.ApplyTextureFilter()` and re-render
+- `DisplayOptions` properties are mutable to support runtime updates
+- Overlay rendered as semi-transparent rectangle with fade effect (175 alpha)
+
 **Command-line usage (both machines):**
 
 ```
 --smooth              Enable bilinear texture filtering
 --scanlines <0..1>    CRT scanline intensity (0 = off, 0.5 = moderate, default 0)
+--scale <n>           Window scale factor (default 3)
 ```
-
-**Future enhancements:**
-- GPU-side scanlines via GLSL fragment shader (currently CPU-side for portability)
-- Runtime hotkey toggles (e.g., `F10` = toggle smooth, `F11` = cycle scanline intensity)
-- Additional effects (phosphor glow, curvature, shadow mask) via shader pipeline
 
 ### Acorn Electron machine (`Machines.Electron`)
 
@@ -522,20 +543,74 @@ public void CPU_TracesInstructionExecution()
 }
 ```
 
-**Performance notes:**
+**Trace enhancements:**
 
-- `NullTrace` methods are empty stubs; compiler will inline them → **zero cycles overhead**
-- `RecordingTrace` appends to lists; minimal allocation pressure
-- Trace callbacks fire on every memory access (granular visibility)
-- Consider per-frame or sampling-based collection for long runs
+#### Conditional breakpoints (implemented)
+
+`IExecutionTrace` provides `ShouldBreak()` method for conditional debugging:
+
+```csharp
+public interface IExecutionTrace
+{
+    /// <summary>Called after instruction execution to determine whether to break.
+    /// Return true to trigger Debugger.Break(). Used for conditional breakpoints.</summary>
+    bool ShouldBreak(ushort pc, byte opcode, byte aAfter);
+    // ... other methods ...
+}
+```
+
+**Example: Break on A=0x42 at PC=0x3000:**
+
+```csharp
+var trace = new RecordingTrace();
+trace.BreakpointCondition = (pc, opcode, a) => pc == 0x3000 && a == 0x42;
+cpu.Trace = trace;
+
+cpu.Step();  // Breaks if condition is met
+```
+
+The `RecordingTrace` implementation provides:
+- `BreakpointCondition` — optional `Func<ushort, byte, byte, bool>` predicate
+- `BreakpointHits` — count of breakpoint triggers
+- `ShouldBreak()` evaluates the condition and returns true on match
+
+#### Memory dump export (implemented)
+
+`RecordingTrace` exports instruction and memory access history in CSV and binary formats:
+
+```csharp
+var trace = new RecordingTrace();
+cpu.Trace = trace;
+// ... run code ...
+
+// CSV (human-readable)
+File.WriteAllText("instructions.csv", trace.ExportInstructionsCSV());
+File.WriteAllText("memory.csv", trace.ExportMemoryAccessesCSV());
+
+// Binary (compact, little-endian)
+File.WriteAllBytes("instructions.bin", trace.ExportInstructionsBinary());
+File.WriteAllBytes("memory.bin", trace.ExportMemoryAccessesBinary());
+```
+
+**CSV format:**
+- Instructions: `PC,Opcode,Cycles,A,Flags` (hex)
+- Memory: `Address,Value,Operation,Cycles` (hex/text)
+
+**Binary format:**
+- Compact little-endian encoding: count (int) + records
+- Instructions: ushort pc, byte opcode, int cycles, byte a, byte flags
+- Memory: ushort address, byte value, bool isWrite, ulong cycles
+
+Enable external analysis workflows:
+- Import CSV into spreadsheet tools for filtering, sorting, charting
+- Parse binary format in Python/Rust for custom analysis
+- Debug performance issues by correlating cycles and memory patterns
 
 **Future extensions:**
 
 - **GDB integration**: Implement Remote Serial Protocol (RSP) adapter; connect `rr (record and replay)` / `gdb` to step through emulation
 - **VS Code debugger**: Language Server Protocol (LSP) adapter for IDE breakpoints and variable inspection
-- **Conditional breakpoints**: `OnInstructionFetched` can check conditions and trigger `Debugger.Break()`
 - **Cycle provenance**: Associate every cycle delta with source instruction for performance analysis
-- **Memory dump export**: CSV/binary formats for off-line analysis
 
 ---
 
