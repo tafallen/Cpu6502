@@ -1,4 +1,5 @@
 using Cpu6502.Core;
+using System.Reflection;
 using Xunit;
 
 namespace Cpu6502.Tests;
@@ -146,5 +147,15 @@ public class AddressDecoderTests
 
         bus.Write(0x1234, 0x55);
         Assert.Equal(0x0000, spy.LastWriteAddress);
+    }
+
+    [Fact]
+    public void Decoder_DoesNotExpose_LinearResolveFallback()
+    {
+        var resolver = typeof(AddressDecoder).GetMethod(
+            "ResolveWithBase",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.Null(resolver);
     }
 }
