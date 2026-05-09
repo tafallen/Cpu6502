@@ -659,8 +659,7 @@ Cycle provenance enables:
 
 ```csharp
 public sealed record CycleContribution(
-    ushort Pc,            // Instruction address
-    byte Opcode,          // Opcode executed
+    int InstructionIndex, // Index into RecordingTrace.Instructions
     int CyclesContributed // Cycles consumed by this instruction
 );
 

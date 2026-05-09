@@ -426,13 +426,15 @@ public class ExecutionTraceTests : CpuFixture
         Step(2);
 
         Assert.Equal(2, trace.CycleProvenance.Count);
-        Assert.Equal(0x0200, trace.CycleProvenance[0].Pc);
-        Assert.Equal(0xA9, trace.CycleProvenance[0].Opcode);
+        Assert.Equal(0, trace.CycleProvenance[0].InstructionIndex);
         Assert.Equal(2, trace.CycleProvenance[0].CyclesContributed);
+        Assert.Equal(0x0200, trace.Instructions[trace.CycleProvenance[0].InstructionIndex].Pc);
+        Assert.Equal(0xA9, trace.Instructions[trace.CycleProvenance[0].InstructionIndex].Opcode);
 
-        Assert.Equal(0x0202, trace.CycleProvenance[1].Pc);
-        Assert.Equal(0xA2, trace.CycleProvenance[1].Opcode);
+        Assert.Equal(1, trace.CycleProvenance[1].InstructionIndex);
         Assert.Equal(2, trace.CycleProvenance[1].CyclesContributed);
+        Assert.Equal(0x0202, trace.Instructions[trace.CycleProvenance[1].InstructionIndex].Pc);
+        Assert.Equal(0xA2, trace.Instructions[trace.CycleProvenance[1].InstructionIndex].Opcode);
     }
 
     [Fact]

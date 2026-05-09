@@ -32,11 +32,10 @@ public sealed class RecordingTrace : IExecutionTrace
         ushort HandlerAddress
     );
 
-    /// <summary>Cycle provenance: tracks how many cycles each instruction contributed to specific address ranges.</summary>
+    /// <summary>Cycle provenance: stores instruction indices plus cycle contribution.</summary>
     public sealed record CycleContribution(
-        ushort Pc,            // Instruction address
-        byte Opcode,          // Instruction opcode
-        int CyclesContributed // Cycles consumed by this instruction
+        int InstructionIndex,
+        int CyclesContributed
     );
 
     /// <summary>All instruction execution events, in order.</summary>
@@ -103,9 +102,9 @@ public sealed class RecordingTrace : IExecutionTrace
     public void OnInstructionExecuted(ushort pc, byte opcode, int cycles, byte aAfter, byte flags)
     {
         Instructions.Add(new(pc, opcode, cycles, aAfter, flags));
-        
-        // Track cycle provenance: record which instruction consumed these cycles
-        CycleProvenance.Add(new(pc, opcode, cycles));
+
+        // Track cycle provenance by pointing at the recorded instruction rather than duplicating it.
+        CycleProvenance.Add(new(Instructions.Count - 1, cycles));
     }
 
     public void OnMemoryAccess(ushort address, byte value, bool isWrite, ulong cycles)
@@ -143,11 +142,15 @@ public sealed class RecordingTrace : IExecutionTrace
                 intr.Type,
                 intr.HandlerAddress
             }).ToList(),
-            CycleProvenance = CycleProvenance.Select(cp => new
+            CycleProvenance = CycleProvenance.Select(cp =>
             {
-                cp.Pc,
-                cp.Opcode,
-                cp.CyclesContributed
+                var instr = Instructions[cp.InstructionIndex];
+                return new
+                {
+                    instr.Pc,
+                    instr.Opcode,
+                    cp.CyclesContributed
+                };
             }).ToList(),
             CycleStats = new
             {
@@ -236,7 +239,11 @@ public sealed class RecordingTrace : IExecutionTrace
     public ulong GetCyclesForAddressRange(ushort minAddr, ushort maxAddr)
     {
         return (ulong)CycleProvenance
-            .Where(c => c.Pc >= minAddr && c.Pc <= maxAddr)
+            .Where(c =>
+            {
+                var instr = Instructions[c.InstructionIndex];
+                return instr.Pc >= minAddr && instr.Pc <= maxAddr;
+            })
             .Sum(c => c.CyclesContributed);
     }
 
@@ -244,7 +251,7 @@ public sealed class RecordingTrace : IExecutionTrace
     public int GetCyclesForInstruction(ushort pc)
     {
         return CycleProvenance
-            .Where(c => c.Pc == pc)
+            .Where(c => Instructions[c.InstructionIndex].Pc == pc)
             .Sum(c => c.CyclesContributed);
     }
 
@@ -252,7 +259,7 @@ public sealed class RecordingTrace : IExecutionTrace
     public Dictionary<byte, int> GetCyclesByOpcode()
     {
         return CycleProvenance
-            .GroupBy(c => c.Opcode)
+            .GroupBy(c => Instructions[c.InstructionIndex].Opcode)
             .ToDictionary(g => g.Key, g => g.Sum(c => c.CyclesContributed));
     }
 
@@ -269,7 +276,8 @@ public sealed class RecordingTrace : IExecutionTrace
         {
             cumulativeCycles += (ulong)contrib.CyclesContributed;
             double percent = totalCycles > 0 ? (100.0 * cumulativeCycles) / totalCycles : 0;
-            csv.AppendLine($"0x{contrib.Pc:X4},0x{contrib.Opcode:X2},{contrib.CyclesContributed},{percent:F2}");
+            var instr = Instructions[contrib.InstructionIndex];
+            csv.AppendLine($"0x{instr.Pc:X4},0x{instr.Opcode:X2},{contrib.CyclesContributed},{percent:F2}");
         }
         
         return csv.ToString();
@@ -286,7 +294,11 @@ public sealed class RecordingTrace : IExecutionTrace
         foreach (var (name, min, max) in ranges)
         {
             ulong rangeCycles = GetCyclesForAddressRange(min, max);
-            int instructionCount = CycleProvenance.Count(c => c.Pc >= min && c.Pc <= max);
+            int instructionCount = CycleProvenance.Count(c =>
+            {
+                var instr = Instructions[c.InstructionIndex];
+                return instr.Pc >= min && instr.Pc <= max;
+            });
             double percent = totalCycles > 0 ? (100.0 * rangeCycles) / totalCycles : 0;
             
             csv.AppendLine($"{name},{rangeCycles},{percent:F2},{instructionCount}");
