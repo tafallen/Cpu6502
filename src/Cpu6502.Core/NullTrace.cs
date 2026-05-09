@@ -16,4 +16,5 @@ public sealed class NullTrace : IExecutionTrace
     public void OnInstructionExecuted(ushort pc, byte opcode, int cycles, byte aAfter, byte flags) { }
     public void OnMemoryAccess(ushort address, byte value, bool isWrite, ulong cycles) { }
     public void OnInterrupt(InterruptType type, ushort handlerAddress) { }
+    public bool ShouldBreak(ushort pc, byte opcode, byte currentA) => false;
 }

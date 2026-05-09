@@ -52,6 +52,31 @@ public interface IExecutionTrace
     /// Default is 1 (record all). Can be overridden for high-frequency tracing.
     /// </summary>
     int MemoryAccessSampleRate => 1;
+
+    /// <summary>
+    /// Optional breakpoint check: return true to break (pause execution).
+    /// Called during OnInstructionFetched to support conditional breakpoints.
+    /// Default implementation (if not overridden) returns false (no breakpoint).
+    /// 
+    /// Example: Break on address 0x3000 when A register equals 0x42:
+    /// <code>
+    /// class BreakingTrace : IExecutionTrace
+    /// {
+    ///     private byte _lastA;
+    ///     public bool ShouldBreak(ushort pc, byte opcode, byte currentA)
+    ///     {
+    ///         _lastA = currentA;
+    ///         return pc == 0x3000 && currentA == 0x42;
+    ///     }
+    ///     // ... other members
+    /// }
+    /// </code>
+    /// </summary>
+    /// <param name="pc">Program counter (instruction address)</param>
+    /// <param name="opcode">Opcode byte being fetched</param>
+    /// <param name="currentA">Current accumulator value (for context)</param>
+    /// <returns>True to trigger breakpoint, false to continue</returns>
+    bool ShouldBreak(ushort pc, byte opcode, byte currentA) => false;
 }
 
 /// <summary>

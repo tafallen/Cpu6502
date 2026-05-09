@@ -44,11 +44,17 @@ public sealed class RecordingTrace : IExecutionTrace
     /// <summary>Optional address range filter: only record accesses in this range (null = no filter).</summary>
     public (ushort Min, ushort Max)? AddressRangeFilter { get; set; }
 
-    /// <summary>Optional filter to record only writes (null = no filter).</summary>
+     /// <summary>Optional filter to record only writes (null = no filter).</summary>
     public bool? WriteOnlyFilter { get; set; }
 
     /// <summary>Sample rate for memory accesses (1 = all, 2 = every 2nd, etc).</summary>
     public int MemoryAccessSampleRate { get; set; } = 1;
+
+    /// <summary>Optional breakpoint condition: if set and returns true, triggers breakpoint.</summary>
+    public Func<ushort, byte, byte, bool>? BreakpointCondition { get; set; }
+
+    /// <summary>Recorded breakpoint hits during execution.</summary>
+    public List<(ushort Pc, byte Opcode, byte AValue)> BreakpointHits { get; } = new();
 
     public void OnInstructionFetched(ushort pc, byte opcode)
     {
@@ -70,6 +76,18 @@ public sealed class RecordingTrace : IExecutionTrace
             return false;
 
         return true;
+    }
+
+    public bool ShouldBreak(ushort pc, byte opcode, byte currentA)
+    {
+        if (BreakpointCondition == null)
+            return false;
+
+        bool shouldBreak = BreakpointCondition(pc, opcode, currentA);
+        if (shouldBreak)
+            BreakpointHits.Add((pc, opcode, currentA));
+
+        return shouldBreak;
     }
 
     public void OnInstructionExecuted(ushort pc, byte opcode, int cycles, byte aAfter, byte flags)
