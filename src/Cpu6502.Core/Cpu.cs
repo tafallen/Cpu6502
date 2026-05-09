@@ -82,9 +82,16 @@ public sealed partial class Cpu
         else
         {
             ushort pcBefore = PC;
-            byte opcode = Fetch();
+            byte opcode = Peek();  // Peek at opcode without incrementing or tracing
             
             _trace.OnInstructionFetched(pcBefore, opcode);
+            
+            // Check for conditional breakpoint (before execution and before PC advances)
+            if (_trace.ShouldBreak(pcBefore, opcode, A))
+                throw new BreakException(pcBefore, opcode, A);
+            
+            Fetch();  // Now fetch (increments PC and records memory access)
+            // (ignore return value since we already have opcode from Peek())
             
             _ops[opcode]();
             
@@ -182,6 +189,8 @@ public sealed partial class Cpu
     // ─────────────────────────────────────────────────────────────────────────
     // Bus helpers
     // ─────────────────────────────────────────────────────────────────────────
+
+    private byte   Peek() => _bus.Read(PC);  // Read opcode without incrementing PC or tracing
 
     private byte   Fetch()
     {

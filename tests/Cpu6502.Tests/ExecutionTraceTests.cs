@@ -566,4 +566,120 @@ public class ExecutionTraceTests : CpuFixture
         trace.Clear();
         Assert.Empty(trace.CycleProvenance);
     }
+
+    // ── Conditional Breakpoint Tests ────────────────────────────────────────
+
+    [Fact]
+    public void Trace_BreakpointTriggersException()
+    {
+        var trace = new RecordingTrace();
+        trace.BreakpointCondition = (pc, opcode, a) => pc == 0x0200;  // Break on first instruction
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42);  // LDA #$42
+
+        // Step() should throw BreakException
+        var ex = Assert.Throws<BreakException>(() => Step());
+        Assert.Equal(0x0200, ex.PC);
+        Assert.Equal(0xA9, ex.Opcode);
+        Assert.Equal(0x00, ex.AValue);  // A is still 0 before instruction executes
+    }
+
+    [Fact]
+    public void Trace_BreakpointConditionEvaluatesBeforeExecution()
+    {
+        var trace = new RecordingTrace();
+        trace.BreakpointCondition = (pc, opcode, a) => a == 0x42;  // Break when A = 0x42
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42, 0xA9, 0x55);  // LDA #$42, LDA #$55
+        
+        // First instruction: A is 0, breakpoint should not trigger
+        Step();
+        Assert.Equal(0x42, Cpu.A);  // A now has 0x42
+        
+        // Second instruction: A is 0x42, breakpoint should trigger
+        trace.Clear();
+        var ex = Assert.Throws<BreakException>(() => Step());
+        Assert.Equal(0x0202, ex.PC);
+        Assert.Equal(0xA9, ex.Opcode);
+        Assert.Equal(0x42, ex.AValue);  // A is 0x42 before instruction
+    }
+
+    [Fact]
+    public void Trace_NoBreakpointWhenConditionFalse()
+    {
+        var trace = new RecordingTrace();
+        trace.BreakpointCondition = (pc, opcode, a) => false;  // Never break
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42);
+
+        // Should not throw
+        Step();
+        Assert.Equal(0x42, Cpu.A);
+    }
+
+    [Fact]
+    public void Trace_NoBreakpointWhenConditionNull()
+    {
+        var trace = new RecordingTrace();
+        trace.BreakpointCondition = null;  // No breakpoint condition set
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42);
+
+        // Should not throw
+        Step();
+        Assert.Equal(0x42, Cpu.A);
+    }
+
+    [Fact]
+    public void Trace_BreakpointHitsAreRecorded()
+    {
+        var trace = new RecordingTrace();
+        trace.BreakpointCondition = (pc, opcode, a) => opcode == 0xA9;  // Break on all LDA immediate
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42, 0xA9, 0x55, 0xA9, 0x77);  // LDA #$42, LDA #$55, LDA #$77
+
+        // Hit first breakpoint at 0x0200
+        Assert.Throws<BreakException>(() => Step());
+        Assert.Single(trace.BreakpointHits);
+        Assert.Equal((0x0200, (byte)0xA9, (byte)0x00), trace.BreakpointHits[0]);
+
+        // Resume from breakpoint (execute the first LDA #$42)
+        Cpu.Trace = null;  // Disable breakpoints to proceed
+        Step();
+        Assert.Equal(0x42, Cpu.A);  // First LDA #$42 executed
+
+        // Execute second LDA #$55
+        Step();
+        Assert.Equal(0x55, Cpu.A);  // Second LDA #$55 executed
+
+        // Re-enable trace and hit another breakpoint on third LDA
+        Cpu.Trace = trace;
+        Assert.Throws<BreakException>(() => Step());
+        Assert.Equal(2, trace.BreakpointHits.Count);
+        Assert.Equal((0x0204, (byte)0xA9, (byte)0x55), trace.BreakpointHits[1]);  // At third LDA, A still holds 0x55
+    }
+
+    [Fact]
+    public void Trace_BreakExceptionContextIncludesState()
+    {
+        var trace = new RecordingTrace();
+        trace.BreakpointCondition = (pc, opcode, a) => pc == 0x0200 && a == 0x00;
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA2, 0x99);  // LDX #$99
+
+        var ex = Assert.Throws<BreakException>(() => Step());
+        
+        // Exception should include full context
+        Assert.Equal(0x0200, ex.PC);
+        Assert.Equal(0xA2, ex.Opcode);
+        Assert.Equal(0x00, ex.AValue);
+        Assert.NotNull(ex.Message);
+        Assert.Contains("0x0200", ex.Message);  // PC in message
+    }
 }
