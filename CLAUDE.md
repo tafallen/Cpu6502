@@ -606,11 +606,62 @@ Enable external analysis workflows:
 - Parse binary format in Python/Rust for custom analysis
 - Debug performance issues by correlating cycles and memory patterns
 
+#### Cycle provenance tracking (implemented)
+
+`RecordingTrace` tracks cycle contributions per instruction for performance profiling:
+
+```csharp
+var trace = new RecordingTrace();
+cpu.Trace = trace;
+// ... run code ...
+
+// Query cycle provenance
+ulong totalCycles = trace.GetTotalCycles();
+ulong romCycles = trace.GetCyclesForAddressRange(0x8000, 0xBFFF);  // ROM only
+int lda_cycles = trace.GetCyclesForInstruction(0x1234);  // All invocations at 0x1234
+var cyclesByOp = trace.GetCyclesByOpcode();  // Cycles per opcode
+
+// Export for analysis
+File.WriteAllText("provenance.csv", trace.ExportCycleProvenanceCSV());
+File.WriteAllText("provenance-summary.csv", trace.ExportCycleProvenanceSummaryByRange(
+    ("ROM", 0x8000, 0xBFFF),
+    ("RAM", 0x0000, 0x7FFF),
+    ("Stack", 0x0100, 0x01FF)
+));
+```
+
+Cycle provenance enables:
+- Identify code hot-spots by cycle consumption
+- Profile ROM vs RAM execution time
+- Analyze function-level cycle costs
+- Detect infinite loops or stalled code
+
+**Data structure:**
+
+```csharp
+public sealed record CycleContribution(
+    ushort Pc,            // Instruction address
+    byte Opcode,          // Opcode executed
+    int CyclesContributed // Cycles consumed by this instruction
+);
+
+public List<CycleContribution> CycleProvenance { get; }  // Recorded for every instruction
+```
+
+**Helper methods:**
+
+- `GetTotalCycles()` — sum of all cycles
+- `GetCyclesForAddressRange(min, max)` — cycles in address range
+- `GetCyclesForInstruction(pc)` — total cycles for all invocations at PC
+- `GetCyclesByOpcode()` — cycles grouped by opcode type
+- `ExportCycleProvenanceCSV()` — per-instruction breakdown with cumulative percentages
+- `ExportCycleProvenanceSummaryByRange(params (name, min, max)[])` — area summary
+
 **Future extensions:**
 
 - **GDB integration**: Implement Remote Serial Protocol (RSP) adapter; connect `rr (record and replay)` / `gdb` to step through emulation
 - **VS Code debugger**: Language Server Protocol (LSP) adapter for IDE breakpoints and variable inspection
-- **Cycle provenance**: Associate every cycle delta with source instruction for performance analysis
+- **Performance visualization**: Generate flame graphs, timeline views, or interactive profiling UI from cycle provenance data
 
 ---
 
