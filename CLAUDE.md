@@ -547,14 +547,15 @@ public void CPU_TracesInstructionExecution()
 
 #### Conditional breakpoints (implemented)
 
-`IExecutionTrace` provides `ShouldBreak()` method for conditional debugging:
+`IExecutionTrace.ShouldBreak()` provides CPU-side breakpoint checking. When a breakpoint condition is met, a `BreakException` is thrown, allowing test harnesses and debuggers to pause execution before an instruction executes.
 
 ```csharp
 public interface IExecutionTrace
 {
-    /// <summary>Called after instruction execution to determine whether to break.
-    /// Return true to trigger Debugger.Break(). Used for conditional breakpoints.</summary>
-    bool ShouldBreak(ushort pc, byte opcode, byte aAfter);
+    /// <summary>Called before instruction execution to check for conditional breakpoints.
+    /// Return true to throw BreakException (pauses before instruction executes).
+    /// Allows test harnesses and debuggers to implement conditional breakpoints.</summary>
+    bool ShouldBreak(ushort pc, byte opcode, byte currentA) => false;
     // ... other methods ...
 }
 ```
@@ -566,13 +567,31 @@ var trace = new RecordingTrace();
 trace.BreakpointCondition = (pc, opcode, a) => pc == 0x3000 && a == 0x42;
 cpu.Trace = trace;
 
-cpu.Step();  // Breaks if condition is met
+try
+{
+    cpu.Step();  // Throws BreakException if condition is met
+}
+catch (BreakException ex)
+{
+    Console.WriteLine($"Breakpoint at PC=0x{ex.PC:X4}, A=0x{ex.AValue:X2}");
+    // Can resume execution with another Step()
+    cpu.Step();  // Executes the breakpoint instruction
+}
 ```
 
-The `RecordingTrace` implementation provides:
+**Breakpoint behavior:**
+
+1. Before each instruction, `Cpu.Step()` peeks at the opcode and checks `ShouldBreak()`
+2. If the condition returns true, `BreakException` is thrown immediately
+3. The instruction has NOT executed yet—PC is at the breakpoint address
+4. Caller can resume execution with another `Step()`, or inspect CPU state before continuing
+5. `RecordingTrace.BreakpointHits` tracks all breakpoint hits for analysis
+
+**RecordingTrace breakpoint support:**
+
 - `BreakpointCondition` — optional `Func<ushort, byte, byte, bool>` predicate
-- `BreakpointHits` — count of breakpoint triggers
-- `ShouldBreak()` evaluates the condition and returns true on match
+- `BreakpointHits` — list of breakpoint triggers: `List<(ushort Pc, byte Opcode, byte AValue)>`
+- `ShouldBreak(pc, opcode, a)` — evaluates the condition and throws `BreakException` if true
 
 #### Memory dump export (implemented)
 
