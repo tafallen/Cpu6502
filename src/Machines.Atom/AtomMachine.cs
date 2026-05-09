@@ -74,18 +74,11 @@ public sealed class AtomMachine : IComponent
         Ppi = new Ppi8255();
         Ppi.Write(3, 0x8A); // PA=out, PB=in, PC-upper=in, PC-lower=out
 
-        if (keyboard is not null)
-        {
-            var kb = new AtomKeyboardAdapter(keyboard);
-            Ppi.ReadPortB = () => kb.ScanColumns(Ppi.PortALatch);
-        }
+        Tape = tape;
+        _vdg = new Mc6847(VideoRam.RawBytes, charRom);
 
         if (audio is not null)
             _sound = new AtomSoundAdapter(audio);
-
-        Tape = tape;
-
-        _vdg = new Mc6847(VideoRam.RawBytes, charRom);
 
         _bus = new AddressDecoder();
         _bus.Map(0x0000, 0x7FFF, MainRam);
@@ -126,6 +119,16 @@ public sealed class AtomMachine : IComponent
         _scheduler = new TimingScheduler(_clock);
         Cpu.OnCyclesConsumed = OnCyclesConsumed;
 
+        // Validate initialization before wiring optional callbacks
+        ValidateInitialization();
+
+        // Wire keyboard to PPI
+        if (keyboard is not null)
+        {
+            var kb = new AtomKeyboardAdapter(keyboard);
+            Ppi.ReadPortB = () => kb.ScanColumns(Ppi.PortALatch);
+        }
+
         // Port C read bit layout (matches Atomulator / Acorn Atom hardware):
         //   bit 7: VBL — 0 during vertical blank, 1 during active display (active-low)
         //   bit 6: RPT key (unused here; stays 1)
@@ -144,8 +147,6 @@ public sealed class AtomMachine : IComponent
             }
             return val;
         };
-
-        ValidateInitialization();
     }
 
     public void Reset()
@@ -158,6 +159,9 @@ public sealed class AtomMachine : IComponent
     {
         if (Cpu == null)
             throw new InvalidOperationException("CPU not initialized");
+        
+        if (Bus == null)
+            throw new InvalidOperationException("AddressDecoder bus not initialized");
         
         if (MainRam == null || MainRam.RawBytes.Length == 0)
             throw new InvalidOperationException("Main RAM not initialized");

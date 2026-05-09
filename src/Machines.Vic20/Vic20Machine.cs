@@ -74,6 +74,23 @@ public sealed class Vic20Machine : IComponent
         _vic      = new VicI(audio);
         Tape      = tape;
 
+        _bus = new AddressDecoder();
+        _bus.Map(0x0000, 0x1FFF, Ram);
+        _bus.Map(0x8000, 0x83FF, _colorRam);
+        _bus.Map(0x9000, 0x900F, _vic);
+        _bus.Map(0x9110, 0x911F, Via1);
+        _bus.Map(0x9120, 0x912F, Via2);
+        _bus.Map(0xC000, 0xDFFF, new Rom(basicRom));
+        _bus.Map(0xE000, 0xFFFF, new Rom(kernalRom));
+
+        Bus = _bus;
+        Cpu = new Cpu(_bus);
+        _scheduler = new TimingScheduler(_clock);
+        Cpu.OnCyclesConsumed = AdvanceTiming;
+
+        // Validate initialization before wiring optional callbacks
+        ValidateInitialization();
+
         // Wire keyboard to VIA 2
         if (keyboard is not null)
         {
@@ -90,22 +107,6 @@ public sealed class Vic20Machine : IComponent
         // VIC-I memory callbacks
         _vic.ReadVicMemory = ReadVicMemory;
         _vic.ReadColorRam  = cellIdx => (byte)(_colorRam.Read((ushort)(cellIdx & 0x3FF)) & 0x0F);
-
-        _bus = new AddressDecoder();
-        _bus.Map(0x0000, 0x1FFF, Ram);
-        _bus.Map(0x8000, 0x83FF, _colorRam);
-        _bus.Map(0x9000, 0x900F, _vic);
-        _bus.Map(0x9110, 0x911F, Via1);
-        _bus.Map(0x9120, 0x912F, Via2);
-        _bus.Map(0xC000, 0xDFFF, new Rom(basicRom));
-        _bus.Map(0xE000, 0xFFFF, new Rom(kernalRom));
-
-        Bus = _bus;
-        Cpu = new Cpu(_bus);
-        _scheduler = new TimingScheduler(_clock);
-        Cpu.OnCyclesConsumed = AdvanceTiming;
-
-        ValidateInitialization();
     }
 
     public void Reset()
@@ -120,6 +121,9 @@ public sealed class Vic20Machine : IComponent
         if (Cpu == null)
             throw new InvalidOperationException("CPU not initialized");
         
+        if (Bus == null)
+            throw new InvalidOperationException("AddressDecoder bus not initialized");
+        
         if (Ram == null || Ram.RawBytes.Length == 0)
             throw new InvalidOperationException("RAM not initialized");
         
@@ -128,6 +132,9 @@ public sealed class Vic20Machine : IComponent
         
         if (Via2 == null)
             throw new InvalidOperationException("VIA 2 not initialized");
+        
+        if (_vic == null)
+            throw new InvalidOperationException("VIC-I video chip not initialized");
         
         // Keyboard is optional for headless/test use, so no validation needed.
         // Tape is optional for headless/test use, so no validation needed.

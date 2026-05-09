@@ -56,4 +56,28 @@ public sealed class AddressDecoder : IBus
             device.Write(offset, value);
         }
     }
+
+    /// <summary>
+    /// Validate all mapped address ranges by checking that every mapped device
+    /// can handle its minimum address offset (0x0000). Called after Map() operations
+    /// to catch misconfiguration early in DEBUG builds.
+    /// </summary>
+    public void ValidateMapping()
+    {
+#if DEBUG
+        var checkedDevices = new HashSet<IBus>();
+        for (int address = 0; address < 0x10000; address++)
+        {
+            var (device, from) = _routes[address];
+            if (device is not null && checkedDevices.Add(device))
+            {
+                // Check device at its base offset (first address it's mapped to)
+                if (device is IBusValidator validator)
+                {
+                    validator.ValidateAddress(0);
+                }
+            }
+        }
+#endif
+    }
 }

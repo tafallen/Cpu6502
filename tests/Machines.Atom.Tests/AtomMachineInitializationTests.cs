@@ -20,18 +20,16 @@ public class AtomMachineInitializationTests
         m.ValidateInitialization(); // should not throw
     }
 
-    [Fact(Skip = "Placeholder test - CPU always initialized by constructor")]
+    [Fact]
     public void ValidateInitialization_ChecksCpu()
     {
         var m = new AtomMachine(MakeRom(), MakeRom());
-        var ex = Assert.Throws<InvalidOperationException>(
-            () => { /* CPU is internal, but we verify the message path */ });
+        Assert.NotNull(m.Cpu);
     }
 
     [Fact]
     public void ValidateInitialization_ChecksMainRam()
     {
-        // Note: MainRam is always initialized in constructor, so this tests the validation logic path
         var m = new AtomMachine(MakeRom(), MakeRom());
         Assert.NotNull(m.MainRam);
         Assert.NotEmpty(m.MainRam.RawBytes);
@@ -40,7 +38,6 @@ public class AtomMachineInitializationTests
     [Fact]
     public void ValidateInitialization_ChecksVideoRam()
     {
-        // Note: VideoRam is always initialized in constructor, so this tests the validation logic path
         var m = new AtomMachine(MakeRom(), MakeRom());
         Assert.NotNull(m.VideoRam);
         Assert.NotEmpty(m.VideoRam.RawBytes);
@@ -49,9 +46,14 @@ public class AtomMachineInitializationTests
     [Fact]
     public void ValidateInitialization_ChecksPpi()
     {
-        // Note: Ppi is always initialized in constructor, so this tests the validation logic path
         var m = new AtomMachine(MakeRom(), MakeRom());
         Assert.NotNull(m.Ppi);
     }
 
+    [Fact]
+    public void ValidateInitialization_ChecksBus()
+    {
+        var m = new AtomMachine(MakeRom(), MakeRom());
+        Assert.NotNull(m.Bus);
+    }
 }

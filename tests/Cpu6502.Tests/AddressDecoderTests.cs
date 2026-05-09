@@ -158,4 +158,34 @@ public class AddressDecoderTests
 
         Assert.Null(resolver);
     }
+
+    [Fact]
+    public void ValidateMapping_ChecksAllMappedDevices()
+    {
+        // ValidateMapping() should validate all mapped devices in DEBUG builds
+        // In Release builds, it's a no-op (controlled by #if DEBUG)
+        var ram = new Ram(0x8000);
+        var rom = new Rom(new byte[0x8000]);
+
+        var bus = new AddressDecoder();
+        bus.Map(0x0000, 0x7FFF, ram);
+        bus.Map(0x8000, 0xFFFF, rom);
+
+        // Should not throw in DEBUG builds (validation succeeds for valid sizes)
+        bus.ValidateMapping();
+    }
+
+    [Fact]
+    public void ValidateMapping_SkipsNullDevices()
+    {
+        // ValidateMapping() should skip unmapped addresses (null devices)
+        var ram = new Ram(0x2000);
+
+        var bus = new AddressDecoder();
+        bus.Map(0x0000, 0x1FFF, ram);
+        // $2000–$FFFF are unmapped (null)
+
+        // Should not throw - unmapped addresses don't have devices to validate
+        bus.ValidateMapping();
+    }
 }

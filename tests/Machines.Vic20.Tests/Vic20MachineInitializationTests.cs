@@ -1,5 +1,5 @@
-using Machines.Common;
 using Machines.Vic20;
+using Machines.Common;
 using Xunit;
 
 namespace Machines.Vic20.Tests;
@@ -49,4 +49,10 @@ public class Vic20MachineInitializationTests
         Assert.NotNull(m.Via2);
     }
 
+    [Fact]
+    public void ValidateInitialization_ChecksBus()
+    {
+        var m = new Vic20Machine(MakeRom(), MakeRom());
+        Assert.NotNull(m.Bus);
+    }
 }
