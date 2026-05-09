@@ -250,47 +250,47 @@ public sealed partial class Cpu
         // Each addressing mode is now handled by the generic helper with a parameter
         
         // LDA (Load Accumulator) - 8 addressing modes
-        _ops[0xA9] = () => A = ExecuteLoad(AddressingMode.Immediate);
-        _ops[0xA5] = () => A = ExecuteLoad(AddressingMode.ZeroPage);
-        _ops[0xB5] = () => A = ExecuteLoad(AddressingMode.ZeroPageX);
-        _ops[0xAD] = () => A = ExecuteLoad(AddressingMode.Absolute);
-        _ops[0xBD] = () => A = ExecuteLoad(AddressingMode.AbsoluteX);
-        _ops[0xB9] = () => A = ExecuteLoad(AddressingMode.AbsoluteY);
-        _ops[0xA1] = () => A = ExecuteLoad(AddressingMode.IndirectX);
-        _ops[0xB1] = () => A = ExecuteLoad(AddressingMode.IndirectY);
+        _ops[0xA9] = LDA_Immediate;
+        _ops[0xA5] = LDA_ZeroPage;
+        _ops[0xB5] = LDA_ZeroPageX;
+        _ops[0xAD] = LDA_Absolute;
+        _ops[0xBD] = LDA_AbsoluteX;
+        _ops[0xB9] = LDA_AbsoluteY;
+        _ops[0xA1] = LDA_IndirectX;
+        _ops[0xB1] = LDA_IndirectY;
 
         // LDX (Load X Register) - 5 addressing modes
-        _ops[0xA2] = () => X = ExecuteLoad(AddressingMode.Immediate);
-        _ops[0xA6] = () => X = ExecuteLoad(AddressingMode.ZeroPage);
-        _ops[0xB6] = () => X = ExecuteLoad(AddressingMode.ZeroPageY);
-        _ops[0xAE] = () => X = ExecuteLoad(AddressingMode.Absolute);
-        _ops[0xBE] = () => X = ExecuteLoad(AddressingMode.AbsoluteY);
+        _ops[0xA2] = LDX_Immediate;
+        _ops[0xA6] = LDX_ZeroPage;
+        _ops[0xB6] = LDX_ZeroPageY;
+        _ops[0xAE] = LDX_Absolute;
+        _ops[0xBE] = LDX_AbsoluteY;
 
         // LDY (Load Y Register) - 5 addressing modes
-        _ops[0xA0] = () => Y = ExecuteLoad(AddressingMode.Immediate);
-        _ops[0xA4] = () => Y = ExecuteLoad(AddressingMode.ZeroPage);
-        _ops[0xB4] = () => Y = ExecuteLoad(AddressingMode.ZeroPageX);
-        _ops[0xAC] = () => Y = ExecuteLoad(AddressingMode.Absolute);
-        _ops[0xBC] = () => Y = ExecuteLoad(AddressingMode.AbsoluteX);
+        _ops[0xA0] = LDY_Immediate;
+        _ops[0xA4] = LDY_ZeroPage;
+        _ops[0xB4] = LDY_ZeroPageX;
+        _ops[0xAC] = LDY_Absolute;
+        _ops[0xBC] = LDY_AbsoluteX;
 
         // STA (Store Accumulator) - 7 addressing modes
-        _ops[0x85] = () => ExecuteStore(A, AddressingMode.ZeroPage);
-        _ops[0x95] = () => ExecuteStore(A, AddressingMode.ZeroPageX);
-        _ops[0x8D] = () => ExecuteStore(A, AddressingMode.Absolute);
-        _ops[0x9D] = () => ExecuteStore(A, AddressingMode.AbsoluteX);
-        _ops[0x99] = () => ExecuteStore(A, AddressingMode.AbsoluteY);
-        _ops[0x81] = () => ExecuteStore(A, AddressingMode.IndirectX);
-        _ops[0x91] = () => ExecuteStore(A, AddressingMode.IndirectY);
+        _ops[0x85] = STA_ZeroPage;
+        _ops[0x95] = STA_ZeroPageX;
+        _ops[0x8D] = STA_Absolute;
+        _ops[0x9D] = STA_AbsoluteX;
+        _ops[0x99] = STA_AbsoluteY;
+        _ops[0x81] = STA_IndirectX;
+        _ops[0x91] = STA_IndirectY;
 
         // STX (Store X Register) - 3 addressing modes
-        _ops[0x86] = () => ExecuteStore(X, AddressingMode.ZeroPage);
-        _ops[0x96] = () => ExecuteStore(X, AddressingMode.ZeroPageY);
-        _ops[0x8E] = () => ExecuteStore(X, AddressingMode.Absolute);
+        _ops[0x86] = STX_ZeroPage;
+        _ops[0x96] = STX_ZeroPageY;
+        _ops[0x8E] = STX_Absolute;
 
         // STY (Store Y Register) - 3 addressing modes
-        _ops[0x84] = () => ExecuteStore(Y, AddressingMode.ZeroPage);
-        _ops[0x94] = () => ExecuteStore(Y, AddressingMode.ZeroPageX);
-        _ops[0x8C] = () => ExecuteStore(Y, AddressingMode.Absolute);
+        _ops[0x84] = STY_ZeroPage;
+        _ops[0x94] = STY_ZeroPageX;
+        _ops[0x8C] = STY_Absolute;
 
         // ── Register transfers ────────────────────────────────────────────────
         _ops[0xAA] = TAX; _ops[0x8A] = TXA;
@@ -305,24 +305,24 @@ public sealed partial class Cpu
         // Consolidated using ExecuteArithmetic helper to eliminate 16 duplicate methods
         
         // ADC (Add with Carry) - 8 addressing modes
-        _ops[0x69] = () => ExecuteArithmetic(Cpu.ArithmeticOp.ADC, AddressingMode.Immediate);
-        _ops[0x65] = () => ExecuteArithmetic(Cpu.ArithmeticOp.ADC, AddressingMode.ZeroPage);
-        _ops[0x75] = () => ExecuteArithmetic(Cpu.ArithmeticOp.ADC, AddressingMode.ZeroPageX);
-        _ops[0x6D] = () => ExecuteArithmetic(Cpu.ArithmeticOp.ADC, AddressingMode.Absolute);
-        _ops[0x7D] = () => ExecuteArithmetic(Cpu.ArithmeticOp.ADC, AddressingMode.AbsoluteX);
-        _ops[0x79] = () => ExecuteArithmetic(Cpu.ArithmeticOp.ADC, AddressingMode.AbsoluteY);
-        _ops[0x61] = () => ExecuteArithmetic(Cpu.ArithmeticOp.ADC, AddressingMode.IndirectX);
-        _ops[0x71] = () => ExecuteArithmetic(Cpu.ArithmeticOp.ADC, AddressingMode.IndirectY);
+        _ops[0x69] = ADC_Immediate;
+        _ops[0x65] = ADC_ZeroPage;
+        _ops[0x75] = ADC_ZeroPageX;
+        _ops[0x6D] = ADC_Absolute;
+        _ops[0x7D] = ADC_AbsoluteX;
+        _ops[0x79] = ADC_AbsoluteY;
+        _ops[0x61] = ADC_IndirectX;
+        _ops[0x71] = ADC_IndirectY;
 
         // SBC (Subtract with Carry) - 8 addressing modes
-        _ops[0xE9] = () => ExecuteArithmetic(Cpu.ArithmeticOp.SBC, AddressingMode.Immediate);
-        _ops[0xE5] = () => ExecuteArithmetic(Cpu.ArithmeticOp.SBC, AddressingMode.ZeroPage);
-        _ops[0xF5] = () => ExecuteArithmetic(Cpu.ArithmeticOp.SBC, AddressingMode.ZeroPageX);
-        _ops[0xED] = () => ExecuteArithmetic(Cpu.ArithmeticOp.SBC, AddressingMode.Absolute);
-        _ops[0xFD] = () => ExecuteArithmetic(Cpu.ArithmeticOp.SBC, AddressingMode.AbsoluteX);
-        _ops[0xF9] = () => ExecuteArithmetic(Cpu.ArithmeticOp.SBC, AddressingMode.AbsoluteY);
-        _ops[0xE1] = () => ExecuteArithmetic(Cpu.ArithmeticOp.SBC, AddressingMode.IndirectX);
-        _ops[0xF1] = () => ExecuteArithmetic(Cpu.ArithmeticOp.SBC, AddressingMode.IndirectY);
+        _ops[0xE9] = SBC_Immediate;
+        _ops[0xE5] = SBC_ZeroPage;
+        _ops[0xF5] = SBC_ZeroPageX;
+        _ops[0xED] = SBC_Absolute;
+        _ops[0xFD] = SBC_AbsoluteX;
+        _ops[0xF9] = SBC_AbsoluteY;
+        _ops[0xE1] = SBC_IndirectX;
+        _ops[0xF1] = SBC_IndirectY;
 
         _ops[0xE6] = () => ExecuteRMW(v => (byte)(v + 1), AddressingMode.ZeroPage);
         _ops[0xF6] = () => ExecuteRMW(v => (byte)(v + 1), AddressingMode.ZeroPageX);
@@ -330,102 +330,102 @@ public sealed partial class Cpu
         _ops[0xFE] = () => ExecuteRMW(v => (byte)(v + 1), AddressingMode.AbsoluteX);
         _ops[0xE8] = INX;      _ops[0xC8] = INY;
 
-        _ops[0xC6] = () => ExecuteRMW(v => (byte)(v - 1), AddressingMode.ZeroPage);
-        _ops[0xD6] = () => ExecuteRMW(v => (byte)(v - 1), AddressingMode.ZeroPageX);
-        _ops[0xCE] = () => ExecuteRMW(v => (byte)(v - 1), AddressingMode.Absolute);
-        _ops[0xDE] = () => ExecuteRMW(v => (byte)(v - 1), AddressingMode.AbsoluteX);
+        _ops[0xC6] = DEC_ZeroPage;
+        _ops[0xD6] = DEC_ZeroPageX;
+        _ops[0xCE] = DEC_Absolute;
+        _ops[0xDE] = DEC_AbsoluteX;
         _ops[0xCA] = DEX;      _ops[0x88] = DEY;
 
         // ── Logic ─────────────────────────────────────────────────────────────
         // Consolidated using ExecuteLogic helper to eliminate 26 duplicate methods
         
         // AND (Bitwise AND) - 8 addressing modes
-        _ops[0x29] = () => A = ExecuteLogic(Cpu.LogicOp.AND, AddressingMode.Immediate);
-        _ops[0x25] = () => A = ExecuteLogic(Cpu.LogicOp.AND, AddressingMode.ZeroPage);
-        _ops[0x35] = () => A = ExecuteLogic(Cpu.LogicOp.AND, AddressingMode.ZeroPageX);
-        _ops[0x2D] = () => A = ExecuteLogic(Cpu.LogicOp.AND, AddressingMode.Absolute);
-        _ops[0x3D] = () => A = ExecuteLogic(Cpu.LogicOp.AND, AddressingMode.AbsoluteX);
-        _ops[0x39] = () => A = ExecuteLogic(Cpu.LogicOp.AND, AddressingMode.AbsoluteY);
-        _ops[0x21] = () => A = ExecuteLogic(Cpu.LogicOp.AND, AddressingMode.IndirectX);
-        _ops[0x31] = () => A = ExecuteLogic(Cpu.LogicOp.AND, AddressingMode.IndirectY);
+        _ops[0x29] = AND_Immediate;
+        _ops[0x25] = AND_ZeroPage;
+        _ops[0x35] = AND_ZeroPageX;
+        _ops[0x2D] = AND_Absolute;
+        _ops[0x3D] = AND_AbsoluteX;
+        _ops[0x39] = AND_AbsoluteY;
+        _ops[0x21] = AND_IndirectX;
+        _ops[0x31] = AND_IndirectY;
 
         // ORA (Bitwise OR) - 8 addressing modes
-        _ops[0x09] = () => A = ExecuteLogic(Cpu.LogicOp.ORA, AddressingMode.Immediate);
-        _ops[0x05] = () => A = ExecuteLogic(Cpu.LogicOp.ORA, AddressingMode.ZeroPage);
-        _ops[0x15] = () => A = ExecuteLogic(Cpu.LogicOp.ORA, AddressingMode.ZeroPageX);
-        _ops[0x0D] = () => A = ExecuteLogic(Cpu.LogicOp.ORA, AddressingMode.Absolute);
-        _ops[0x1D] = () => A = ExecuteLogic(Cpu.LogicOp.ORA, AddressingMode.AbsoluteX);
-        _ops[0x19] = () => A = ExecuteLogic(Cpu.LogicOp.ORA, AddressingMode.AbsoluteY);
-        _ops[0x01] = () => A = ExecuteLogic(Cpu.LogicOp.ORA, AddressingMode.IndirectX);
-        _ops[0x11] = () => A = ExecuteLogic(Cpu.LogicOp.ORA, AddressingMode.IndirectY);
+        _ops[0x09] = ORA_Immediate;
+        _ops[0x05] = ORA_ZeroPage;
+        _ops[0x15] = ORA_ZeroPageX;
+        _ops[0x0D] = ORA_Absolute;
+        _ops[0x1D] = ORA_AbsoluteX;
+        _ops[0x19] = ORA_AbsoluteY;
+        _ops[0x01] = ORA_IndirectX;
+        _ops[0x11] = ORA_IndirectY;
 
         // EOR (Bitwise XOR) - 8 addressing modes
-        _ops[0x49] = () => A = ExecuteLogic(Cpu.LogicOp.EOR, AddressingMode.Immediate);
-        _ops[0x45] = () => A = ExecuteLogic(Cpu.LogicOp.EOR, AddressingMode.ZeroPage);
-        _ops[0x55] = () => A = ExecuteLogic(Cpu.LogicOp.EOR, AddressingMode.ZeroPageX);
-        _ops[0x4D] = () => A = ExecuteLogic(Cpu.LogicOp.EOR, AddressingMode.Absolute);
-        _ops[0x5D] = () => A = ExecuteLogic(Cpu.LogicOp.EOR, AddressingMode.AbsoluteX);
-        _ops[0x59] = () => A = ExecuteLogic(Cpu.LogicOp.EOR, AddressingMode.AbsoluteY);
-        _ops[0x41] = () => A = ExecuteLogic(Cpu.LogicOp.EOR, AddressingMode.IndirectX);
-        _ops[0x51] = () => A = ExecuteLogic(Cpu.LogicOp.EOR, AddressingMode.IndirectY);
+        _ops[0x49] = EOR_Immediate;
+        _ops[0x45] = EOR_ZeroPage;
+        _ops[0x55] = EOR_ZeroPageX;
+        _ops[0x4D] = EOR_Absolute;
+        _ops[0x5D] = EOR_AbsoluteX;
+        _ops[0x59] = EOR_AbsoluteY;
+        _ops[0x41] = EOR_IndirectX;
+        _ops[0x51] = EOR_IndirectY;
 
         // BIT (Test bits) - 2 addressing modes (handled separately as it doesn't store in A)
-        _ops[0x24] = () => ExecuteBit(AddressingMode.ZeroPage);
-        _ops[0x2C] = () => ExecuteBit(AddressingMode.Absolute);
+        _ops[0x24] = BIT_ZeroPage;
+        _ops[0x2C] = BIT_Absolute;
 
         // ── Shifts & Rotates ──────────────────────────────────────────────────
         // Consolidated using ExecuteShiftAccumulator and ExecuteShiftMemory to eliminate 20 duplicate methods
         
         // ASL (Arithmetic Shift Left) - accumulator + 4 memory addressing modes
-        _ops[0x0A] = () => ExecuteShiftAccumulator(Cpu.ShiftOp.ASL);
-        _ops[0x06] = () => ExecuteShiftMemory(Cpu.ShiftOp.ASL, AddressingMode.ZeroPage);
-        _ops[0x16] = () => ExecuteShiftMemory(Cpu.ShiftOp.ASL, AddressingMode.ZeroPageX);
-        _ops[0x0E] = () => ExecuteShiftMemory(Cpu.ShiftOp.ASL, AddressingMode.Absolute);
-        _ops[0x1E] = () => ExecuteShiftMemory(Cpu.ShiftOp.ASL, AddressingMode.AbsoluteX);
+        _ops[0x0A] = ASL_Accumulator;
+        _ops[0x06] = ASL_ZeroPage;
+        _ops[0x16] = ASL_ZeroPageX;
+        _ops[0x0E] = ASL_Absolute;
+        _ops[0x1E] = ASL_AbsoluteX;
 
         // LSR (Logical Shift Right) - accumulator + 4 memory addressing modes
-        _ops[0x4A] = () => ExecuteShiftAccumulator(Cpu.ShiftOp.LSR);
-        _ops[0x46] = () => ExecuteShiftMemory(Cpu.ShiftOp.LSR, AddressingMode.ZeroPage);
-        _ops[0x56] = () => ExecuteShiftMemory(Cpu.ShiftOp.LSR, AddressingMode.ZeroPageX);
-        _ops[0x4E] = () => ExecuteShiftMemory(Cpu.ShiftOp.LSR, AddressingMode.Absolute);
-        _ops[0x5E] = () => ExecuteShiftMemory(Cpu.ShiftOp.LSR, AddressingMode.AbsoluteX);
+        _ops[0x4A] = LSR_Accumulator;
+        _ops[0x46] = LSR_ZeroPage;
+        _ops[0x56] = LSR_ZeroPageX;
+        _ops[0x4E] = LSR_Absolute;
+        _ops[0x5E] = LSR_AbsoluteX;
 
         // ROL (Rotate Left through Carry) - accumulator + 4 memory addressing modes
-        _ops[0x2A] = () => ExecuteShiftAccumulator(Cpu.ShiftOp.ROL);
-        _ops[0x26] = () => ExecuteShiftMemory(Cpu.ShiftOp.ROL, AddressingMode.ZeroPage);
-        _ops[0x36] = () => ExecuteShiftMemory(Cpu.ShiftOp.ROL, AddressingMode.ZeroPageX);
-        _ops[0x2E] = () => ExecuteShiftMemory(Cpu.ShiftOp.ROL, AddressingMode.Absolute);
-        _ops[0x3E] = () => ExecuteShiftMemory(Cpu.ShiftOp.ROL, AddressingMode.AbsoluteX);
+        _ops[0x2A] = ROL_Accumulator;
+        _ops[0x26] = ROL_ZeroPage;
+        _ops[0x36] = ROL_ZeroPageX;
+        _ops[0x2E] = ROL_Absolute;
+        _ops[0x3E] = ROL_AbsoluteX;
 
         // ROR (Rotate Right through Carry) - accumulator + 4 memory addressing modes
-        _ops[0x6A] = () => ExecuteShiftAccumulator(Cpu.ShiftOp.ROR);
-        _ops[0x66] = () => ExecuteShiftMemory(Cpu.ShiftOp.ROR, AddressingMode.ZeroPage);
-        _ops[0x76] = () => ExecuteShiftMemory(Cpu.ShiftOp.ROR, AddressingMode.ZeroPageX);
-        _ops[0x6E] = () => ExecuteShiftMemory(Cpu.ShiftOp.ROR, AddressingMode.Absolute);
-        _ops[0x7E] = () => ExecuteShiftMemory(Cpu.ShiftOp.ROR, AddressingMode.AbsoluteX);
+        _ops[0x6A] = ROR_Accumulator;
+        _ops[0x66] = ROR_ZeroPage;
+        _ops[0x76] = ROR_ZeroPageX;
+        _ops[0x6E] = ROR_Absolute;
+        _ops[0x7E] = ROR_AbsoluteX;
 
         // ── Compare ───────────────────────────────────────────────────────────
         // Consolidated using ExecuteCompare helper to eliminate 13 duplicate methods
         
         // CMP (Compare Accumulator) - 8 addressing modes
-        _ops[0xC9] = () => ExecuteCompare(A, AddressingMode.Immediate);
-        _ops[0xC5] = () => ExecuteCompare(A, AddressingMode.ZeroPage);
-        _ops[0xD5] = () => ExecuteCompare(A, AddressingMode.ZeroPageX);
-        _ops[0xCD] = () => ExecuteCompare(A, AddressingMode.Absolute);
-        _ops[0xDD] = () => ExecuteCompare(A, AddressingMode.AbsoluteX);
-        _ops[0xD9] = () => ExecuteCompare(A, AddressingMode.AbsoluteY);
-        _ops[0xC1] = () => ExecuteCompare(A, AddressingMode.IndirectX);
-        _ops[0xD1] = () => ExecuteCompare(A, AddressingMode.IndirectY);
+        _ops[0xC9] = CMP_Immediate;
+        _ops[0xC5] = CMP_ZeroPage;
+        _ops[0xD5] = CMP_ZeroPageX;
+        _ops[0xCD] = CMP_Absolute;
+        _ops[0xDD] = CMP_AbsoluteX;
+        _ops[0xD9] = CMP_AbsoluteY;
+        _ops[0xC1] = CMP_IndirectX;
+        _ops[0xD1] = CMP_IndirectY;
 
         // CPX (Compare X Register) - 3 addressing modes
-        _ops[0xE0] = () => ExecuteCompare(X, AddressingMode.Immediate);
-        _ops[0xE4] = () => ExecuteCompare(X, AddressingMode.ZeroPage);
-        _ops[0xEC] = () => ExecuteCompare(X, AddressingMode.Absolute);
+        _ops[0xE0] = CPX_Immediate;
+        _ops[0xE4] = CPX_ZeroPage;
+        _ops[0xEC] = CPX_Absolute;
 
         // CPY (Compare Y Register) - 3 addressing modes
-        _ops[0xC0] = () => ExecuteCompare(Y, AddressingMode.Immediate);
-        _ops[0xC4] = () => ExecuteCompare(Y, AddressingMode.ZeroPage);
-        _ops[0xCC] = () => ExecuteCompare(Y, AddressingMode.Absolute);
+        _ops[0xC0] = CPY_Immediate;
+        _ops[0xC4] = CPY_ZeroPage;
+        _ops[0xCC] = CPY_Absolute;
 
         // ── Branches ──────────────────────────────────────────────────────────
         _ops[0x90] = BCC; _ops[0xB0] = BCS;
