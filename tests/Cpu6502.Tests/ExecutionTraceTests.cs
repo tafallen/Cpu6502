@@ -413,4 +413,157 @@ public class ExecutionTraceTests : CpuFixture
         // Should be 2+2+2 = 6 cycles for 3 immediate loads
         Assert.Equal(6UL, delta);
     }
+
+    // ── Cycle Provenance Tests ──────────────────────────────────────────────
+
+    [Fact]
+    public void Trace_CycleProvenanceTracksPerInstruction()
+    {
+        var trace = new RecordingTrace();
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42, 0xA2, 0x99);  // LDA #$42 (2 cycles), LDX #$99 (2 cycles)
+        Step(2);
+
+        Assert.Equal(2, trace.CycleProvenance.Count);
+        Assert.Equal(0x0200, trace.CycleProvenance[0].Pc);
+        Assert.Equal(0xA9, trace.CycleProvenance[0].Opcode);
+        Assert.Equal(2, trace.CycleProvenance[0].CyclesContributed);
+
+        Assert.Equal(0x0202, trace.CycleProvenance[1].Pc);
+        Assert.Equal(0xA2, trace.CycleProvenance[1].Opcode);
+        Assert.Equal(2, trace.CycleProvenance[1].CyclesContributed);
+    }
+
+    [Fact]
+    public void Trace_GetTotalCycles()
+    {
+        var trace = new RecordingTrace();
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42, 0xA2, 0x99);  // LDA #$42 (2), LDX #$99 (2)
+        Step(2);
+
+        ulong total = trace.GetTotalCycles();
+        Assert.Equal(4UL, total);
+    }
+
+    [Fact]
+    public void Trace_GetCyclesForAddressRange()
+    {
+        var trace = new RecordingTrace();
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42, 0xA2, 0x99, 0xA0, 0x77);  // LDA (0x0200), LDX (0x0202), LDY (0x0204)
+        Step(3);
+
+        // Cycles for ROM range 0x0200-0x0203 (should be LDA + LDX)
+        ulong romCycles = trace.GetCyclesForAddressRange(0x0200, 0x0203);
+        Assert.Equal(4UL, romCycles);
+
+        // Cycles for address 0x0204 and above
+        ulong romCycles2 = trace.GetCyclesForAddressRange(0x0204, 0xFFFF);
+        Assert.Equal(2UL, romCycles2);
+    }
+
+    [Fact]
+    public void Trace_GetCyclesForInstruction()
+    {
+        var trace = new RecordingTrace();
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42, 0xA2, 0x99, 0xA9, 0x55);  // LDA, LDX, LDA again
+        Step(3);
+
+        // First LDA at 0x0200 should have 2 cycles
+        int cycles = trace.GetCyclesForInstruction(0x0200);
+        Assert.Equal(2, cycles);
+
+        // Third instruction (LDA at 0x0204) should have 2 cycles
+        cycles = trace.GetCyclesForInstruction(0x0204);
+        Assert.Equal(2, cycles);
+    }
+
+    [Fact]
+    public void Trace_GetCyclesByOpcode()
+    {
+        var trace = new RecordingTrace();
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42, 0xA2, 0x99, 0xA9, 0x55);  // LDA #$42, LDX #$99, LDA #$55
+        Step(3);
+
+        var cyclesByOp = trace.GetCyclesByOpcode();
+        
+        // 0xA9 (LDA immediate) appears twice, 2 cycles each = 4 total
+        Assert.Equal(4, cyclesByOp[0xA9]);
+        
+        // 0xA2 (LDX immediate) appears once, 2 cycles
+        Assert.Equal(2, cyclesByOp[0xA2]);
+    }
+
+    [Fact]
+    public void Trace_ExportCycleProvenanceCSV()
+    {
+        var trace = new RecordingTrace();
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42, 0xA2, 0x99);
+        Step(2);
+
+        string csv = trace.ExportCycleProvenanceCSV();
+        Assert.NotEmpty(csv);
+        Assert.Contains("PC,Opcode,Cycles,CumulativePercent", csv);
+        Assert.Contains("0x0200", csv);  // First instruction PC
+        Assert.Contains("0xA9", csv);   // LDA opcode
+    }
+
+    [Fact]
+    public void Trace_ExportCycleProvenanceSummaryByRange()
+    {
+        var trace = new RecordingTrace();
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42, 0xA2, 0x99);  // Both instructions in ROM
+        Step(2);
+
+        string csv = trace.ExportCycleProvenanceSummaryByRange(
+            ("ROM", 0x0200, 0x0FFF),
+            ("RAM", 0x0000, 0x01FF)
+        );
+
+        Assert.NotEmpty(csv);
+        Assert.Contains("Range,Cycles,Percent,InstructionCount", csv);
+        Assert.Contains("ROM,4,100.00,2", csv);  // 4 cycles in ROM range, 2 instructions
+        Assert.Contains("RAM,0,0.00,0", csv);   // 0 cycles in RAM range
+    }
+
+    [Fact]
+    public void Trace_CycleProvenanceIncludedInJson()
+    {
+        var trace = new RecordingTrace();
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42);  // LDA #$42
+        Step();
+
+        string json = trace.ExportJson();
+        Assert.Contains("CycleProvenance", json);
+        Assert.Contains("CycleStats", json);
+        Assert.Contains("TotalCycles", json);
+    }
+
+    [Fact]
+    public void Trace_ClearAlsoClearsCycleProvenance()
+    {
+        var trace = new RecordingTrace();
+        Cpu.Trace = trace;
+
+        Load(0x0200, 0xA9, 0x42);
+        Step();
+
+        Assert.Single(trace.CycleProvenance);
+        trace.Clear();
+        Assert.Empty(trace.CycleProvenance);
+    }
 }

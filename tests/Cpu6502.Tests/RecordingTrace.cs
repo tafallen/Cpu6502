@@ -32,6 +32,13 @@ public sealed class RecordingTrace : IExecutionTrace
         ushort HandlerAddress
     );
 
+    /// <summary>Cycle provenance: tracks how many cycles each instruction contributed to specific address ranges.</summary>
+    public sealed record CycleContribution(
+        ushort Pc,            // Instruction address
+        byte Opcode,          // Instruction opcode
+        int CyclesContributed // Cycles consumed by this instruction
+    );
+
     /// <summary>All instruction execution events, in order.</summary>
     public List<InstructionEvent> Instructions { get; } = new();
 
@@ -40,6 +47,9 @@ public sealed class RecordingTrace : IExecutionTrace
 
     /// <summary>All interrupt events, in order.</summary>
     public List<InterruptEvent> Interrupts { get; } = new();
+
+    /// <summary>Cycle provenance: contribution of each instruction to total cycle count.</summary>
+    public List<CycleContribution> CycleProvenance { get; } = new();
 
     /// <summary>Optional address range filter: only record accesses in this range (null = no filter).</summary>
     public (ushort Min, ushort Max)? AddressRangeFilter { get; set; }
@@ -93,6 +103,9 @@ public sealed class RecordingTrace : IExecutionTrace
     public void OnInstructionExecuted(ushort pc, byte opcode, int cycles, byte aAfter, byte flags)
     {
         Instructions.Add(new(pc, opcode, cycles, aAfter, flags));
+        
+        // Track cycle provenance: record which instruction consumed these cycles
+        CycleProvenance.Add(new(pc, opcode, cycles));
     }
 
     public void OnMemoryAccess(ushort address, byte value, bool isWrite, ulong cycles)
@@ -129,7 +142,19 @@ public sealed class RecordingTrace : IExecutionTrace
             {
                 intr.Type,
                 intr.HandlerAddress
-            }).ToList()
+            }).ToList(),
+            CycleProvenance = CycleProvenance.Select(cp => new
+            {
+                cp.Pc,
+                cp.Opcode,
+                cp.CyclesContributed
+            }).ToList(),
+            CycleStats = new
+            {
+                TotalCycles = GetTotalCycles(),
+                InstructionCount = Instructions.Count,
+                MemoryAccessCount = MemoryAccesses.Count
+            }
         };
 
         return JsonSerializer.Serialize(export, new JsonSerializerOptions { WriteIndented = true });
@@ -201,11 +226,81 @@ public sealed class RecordingTrace : IExecutionTrace
         return ms.ToArray();
     }
 
+    /// <summary>Get total cycle count across all instructions.</summary>
+    public ulong GetTotalCycles()
+    {
+        return (ulong)CycleProvenance.Sum(c => c.CyclesContributed);
+    }
+
+    /// <summary>Get cycle contribution for a specific address range (e.g., ROM or function).</summary>
+    public ulong GetCyclesForAddressRange(ushort minAddr, ushort maxAddr)
+    {
+        return (ulong)CycleProvenance
+            .Where(c => c.Pc >= minAddr && c.Pc <= maxAddr)
+            .Sum(c => c.CyclesContributed);
+    }
+
+    /// <summary>Get cycle contribution for a specific instruction address (all invocations).</summary>
+    public int GetCyclesForInstruction(ushort pc)
+    {
+        return CycleProvenance
+            .Where(c => c.Pc == pc)
+            .Sum(c => c.CyclesContributed);
+    }
+
+    /// <summary>Get cycle contribution by opcode (all addresses).</summary>
+    public Dictionary<byte, int> GetCyclesByOpcode()
+    {
+        return CycleProvenance
+            .GroupBy(c => c.Opcode)
+            .ToDictionary(g => g.Key, g => g.Sum(c => c.CyclesContributed));
+    }
+
+    /// <summary>Export cycle provenance as CSV (PC, Opcode, Cycles, Cumulative%).</summary>
+    public string ExportCycleProvenanceCSV()
+    {
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("PC,Opcode,Cycles,CumulativePercent");
+        
+        ulong totalCycles = GetTotalCycles();
+        ulong cumulativeCycles = 0;
+        
+        foreach (var contrib in CycleProvenance)
+        {
+            cumulativeCycles += (ulong)contrib.CyclesContributed;
+            double percent = totalCycles > 0 ? (100.0 * cumulativeCycles) / totalCycles : 0;
+            csv.AppendLine($"0x{contrib.Pc:X4},0x{contrib.Opcode:X2},{contrib.CyclesContributed},{percent:F2}");
+        }
+        
+        return csv.ToString();
+    }
+
+    /// <summary>Export cycle provenance summary by address range (e.g., ROM, RAM, Peripheral).</summary>
+    public string ExportCycleProvenanceSummaryByRange(params (string Name, ushort Min, ushort Max)[] ranges)
+    {
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Range,Cycles,Percent,InstructionCount");
+        
+        ulong totalCycles = GetTotalCycles();
+        
+        foreach (var (name, min, max) in ranges)
+        {
+            var rangeData = CycleProvenance.Where(c => c.Pc >= min && c.Pc <= max).ToList();
+            ulong rangeCycles = (ulong)rangeData.Sum(c => c.CyclesContributed);
+            double percent = totalCycles > 0 ? (100.0 * rangeCycles) / totalCycles : 0;
+            
+            csv.AppendLine($"{name},{rangeCycles},{percent:F2},{rangeData.Count}");
+        }
+        
+        return csv.ToString();
+    }
+
     /// <summary>Clear all recorded events.</summary>
     public void Clear()
     {
         Instructions.Clear();
         MemoryAccesses.Clear();
         Interrupts.Clear();
+        CycleProvenance.Clear();
     }
 }
