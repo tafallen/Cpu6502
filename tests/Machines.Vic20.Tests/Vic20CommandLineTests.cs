@@ -19,6 +19,17 @@ public class Vic20CommandLineTests
         var options = Vic20CommandLine.Parse(["--basic", "basic.rom", "--kernal", "kernal.rom"]);
 
         Assert.False(options.DebugKeys);
+        Assert.False(options.Gdb);
+        Assert.Equal(1234, options.GdbPort);
+    }
+
+    [Fact]
+    public void Parse_SetsGdbOptions_WhenFlagsProvided()
+    {
+        var options = Vic20CommandLine.Parse(["--basic", "basic.rom", "--kernal", "kernal.rom", "--gdb", "--gdb-port", "2345"]);
+
+        Assert.True(options.Gdb);
+        Assert.Equal(2345, options.GdbPort);
     }
 
     [Fact]

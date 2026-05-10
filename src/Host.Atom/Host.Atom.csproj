@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Adapters.Gdb\Adapters.Gdb.csproj" />
     <ProjectReference Include="..\Adapters.Raylib\Adapters.Raylib.csproj" />
     <ProjectReference Include="..\Machines.Atom\Machines.Atom.csproj" />
   </ItemGroup>

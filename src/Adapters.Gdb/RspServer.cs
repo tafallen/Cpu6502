@@ -21,6 +21,8 @@ public sealed class RspServer : IDisposable
     private volatile bool _running;
     private readonly object _lock = new();
 
+    public bool IsRunning => _running;
+
     public RspServer(IGdbTarget target, int port = 1234)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
@@ -229,7 +231,10 @@ public sealed class RspServer : IDisposable
     private string Continue()
     {
         _target.Continue();
-        return "S05";  // Will be updated when breakpoint hits
+        while (_running && !_target.IsHalted)
+            Thread.Sleep(1);
+
+        return _target.GetHaltReason();
     }
 
     private string ContinueWithSignal(string args)
@@ -286,13 +291,14 @@ public sealed class RspServer : IDisposable
     private string Kill()
     {
         _running = false;
+        _target.Pause();
         return "OK";
     }
 
     private string QueryCommand(string args)
     {
         if (args.StartsWith("Supported"))
-            return "qSupported:;";  // Empty feature list for now
+            return "PacketSize=4000;hwbreak+;swbreak+";
         if (args.StartsWith("Offset"))
             return "TextSeg=0";  // No offset
         if (args.StartsWith("TStatus"))

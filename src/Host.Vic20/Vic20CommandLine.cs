@@ -8,7 +8,9 @@ public sealed record Vic20Options(
     int Scale,
     bool Smooth,
     float ScanlineIntensity,
-    bool DebugKeys);
+    bool DebugKeys,
+    bool Gdb,
+    int GdbPort);
 
 public static class Vic20CommandLine
 {
@@ -22,6 +24,8 @@ public static class Vic20CommandLine
         bool smooth = false;
         float scanlineIntensity = 0f;
         bool debugKeys = false;
+        bool gdb = false;
+        int gdbPort = 1234;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -46,6 +50,13 @@ public static class Vic20CommandLine
                 case "--debug-keys":
                     debugKeys = true;
                     break;
+                case "--gdb":
+                    gdb = true;
+                    break;
+                case "--gdb-port":
+                    if (!int.TryParse(RequireValue(args, ref i, "--gdb-port"), out gdbPort) || gdbPort is < 1 or > 65535)
+                        throw new ArgumentException("Invalid value for --gdb-port (must be 1-65535).");
+                    break;
                 default:
                     throw new ArgumentException($"Unknown argument: {args[i]}");
             }
@@ -54,7 +65,7 @@ public static class Vic20CommandLine
         if (basicPath is null || kernalPath is null)
             throw new ArgumentException("--basic and --kernal are required.");
 
-        return new Vic20Options(basicPath, kernalPath, charPath, tapePath, scale, smooth, scanlineIntensity, debugKeys);
+        return new Vic20Options(basicPath, kernalPath, charPath, tapePath, scale, smooth, scanlineIntensity, debugKeys, gdb, gdbPort);
     }
 
     private static string RequireValue(string[] args, ref int index, string optionName)

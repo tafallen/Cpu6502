@@ -40,7 +40,7 @@ public sealed class RspServerTests
         Assert.Equal("OK", Exchange(stream, "z1,1000,1"));
         Assert.Equal("", Exchange(stream, "Z0,1000,1"));
         Assert.Equal("", Exchange(stream, "z0,1000,1"));
-        Assert.Equal("qSupported:;", Exchange(stream, "qSupported"));
+        Assert.Equal("PacketSize=4000;hwbreak+;swbreak+", Exchange(stream, "qSupported"));
         Assert.Equal("TextSeg=0", Exchange(stream, "qOffset"));
         Assert.Equal("", Exchange(stream, "qTStatus"));
         Assert.Equal("", Exchange(stream, "v"));
@@ -191,7 +191,8 @@ public sealed class RspServerTests
         public void Continue()
         {
             ContinueCalled = true;
-            IsHalted = false;
+            HaltReason = "S05";
+            IsHalted = true;
         }
 
         public void Pause()

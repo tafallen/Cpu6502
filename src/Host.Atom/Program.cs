@@ -1,3 +1,5 @@
+using System;
+using Adapters.Gdb;
 using Adapters.Raylib;
 using Host.Atom;
 using Machines.Atom;
@@ -51,6 +53,34 @@ else
     Console.WriteLine($"WARNING: OS ROM is only {osRom.Length} bytes — expected 4096 ($1000)");
 }
 
+if (options.Gdb)
+{
+    var gdbMachine = new AtomMachine(
+        basicRom, osRom,
+        floatRom: floatRom,
+        dosRom:   dosRom,
+        extRom:   extRom,
+        charRom:  charRom,
+        tape:     tape);
+
+    gdbMachine.Reset();
+    using var gdbTarget = new Cpu6502GdbTarget(gdbMachine.Cpu, gdbMachine.Bus);
+    using var gdbServer = new RspServer(gdbTarget, options.GdbPort);
+
+    Console.WriteLine($"[GDB] Atom debug server listening on localhost:{options.GdbPort}");
+    Console.CancelKeyPress += (_, e) =>
+    {
+        e.Cancel = true;
+        gdbServer.Stop();
+    };
+
+    gdbServer.Start();
+    while (gdbServer.IsRunning)
+        Thread.Sleep(50);
+
+    return 0;
+}
+
 // ── build machine and host ────────────────────────────────────────────────────
 using var host = new RaylibHost(
     "Acorn Atom",
@@ -102,5 +132,7 @@ static void PrintUsage()
           --smooth             Enable bilinear texture filtering (smooth scaling)
           --scanlines  <0..1>   CRT scanline intensity (0 = off, 0.5 = moderate, default 0)
           --debug-keys         Log raw keypresses from Raylib (debug only)
+          --gdb                Run a headless GDB remote debugging server on localhost:1234
+          --gdb-port   <n>     GDB server port (default: 1234)
         """);
 }

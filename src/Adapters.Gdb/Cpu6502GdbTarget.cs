@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Cpu6502.Core;
 
 namespace Adapters.Gdb;
@@ -18,13 +19,16 @@ namespace Adapters.Gdb;
 ///   6-11: Flags (C, Z, I, D, V, N) as individual boolean bytes
 ///   12: Unused
 /// </summary>
-public sealed class Cpu6502GdbTarget : IGdbTarget
+public sealed class Cpu6502GdbTarget : IGdbTarget, IDisposable
 {
     private readonly Cpu _cpu;
     private readonly IBus _bus;
+    private readonly object _sync = new();
     private readonly HashSet<ushort> _breakpoints = new();
     private volatile bool _halted;
+    private volatile bool _disposed;
     private bool _hitBreakpoint;
+    private Thread? _continueThread;
 
     public bool IsHalted => _halted;
 
@@ -34,122 +38,248 @@ public sealed class Cpu6502GdbTarget : IGdbTarget
         _bus = bus ?? throw new ArgumentNullException(nameof(bus));
     }
 
+    public void Dispose()
+    {
+        lock (_sync)
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            _halted = true;
+
+            if (_continueThread is not null)
+            {
+                _continueThread.Join(1000);
+                _continueThread = null;
+            }
+        }
+    }
+
     public string GetHaltReason()
     {
-        if (_hitBreakpoint)
+        lock (_sync)
         {
-            _hitBreakpoint = false;
-            return "S05";  // SIGTRAP
+            if (_hitBreakpoint)
+            {
+                _hitBreakpoint = false;
+                return "S05";  // SIGTRAP
+            }
+
+            return "S00";  // No signal
         }
-        return "S00";  // No signal
     }
 
     public string ReadAllRegisters()
     {
-        // Return all registers as hex-encoded bytes
-        byte[] regs = new byte[13];
-        regs[0] = _cpu.A;
-        regs[1] = _cpu.X;
-        regs[2] = _cpu.Y;
-        regs[3] = _cpu.SP;
-        regs[4] = (byte)(_cpu.PC & 0xFF);
-        regs[5] = (byte)((_cpu.PC >> 8) & 0xFF);
-        regs[6] = _cpu.C ? (byte)1 : (byte)0;
-        regs[7] = _cpu.Z ? (byte)1 : (byte)0;
-        regs[8] = _cpu.I ? (byte)1 : (byte)0;
-        regs[9] = _cpu.D ? (byte)1 : (byte)0;
-        regs[10] = _cpu.V ? (byte)1 : (byte)0;
-        regs[11] = _cpu.N ? (byte)1 : (byte)0;
-        regs[12] = 0;  // Unused register
+        lock (_sync)
+        {
+            // Return all registers as hex-encoded bytes
+            byte[] regs = new byte[13];
+            regs[0] = _cpu.A;
+            regs[1] = _cpu.X;
+            regs[2] = _cpu.Y;
+            regs[3] = _cpu.SP;
+            regs[4] = (byte)(_cpu.PC & 0xFF);
+            regs[5] = (byte)((_cpu.PC >> 8) & 0xFF);
+            regs[6] = _cpu.C ? (byte)1 : (byte)0;
+            regs[7] = _cpu.Z ? (byte)1 : (byte)0;
+            regs[8] = _cpu.I ? (byte)1 : (byte)0;
+            regs[9] = _cpu.D ? (byte)1 : (byte)0;
+            regs[10] = _cpu.V ? (byte)1 : (byte)0;
+            regs[11] = _cpu.N ? (byte)1 : (byte)0;
+            regs[12] = 0;  // Unused register
 
-        return BytesToHex(regs);
+            return BytesToHex(regs);
+        }
     }
 
     public void WriteAllRegisters(string hexData)
     {
-        byte[] regs = HexToBytes(hexData);
-        if (regs.Length < 12)
-            throw new ArgumentException("Not enough register data", nameof(hexData));
+        lock (_sync)
+        {
+            byte[] regs = HexToBytes(hexData);
+            if (regs.Length < 12)
+                throw new ArgumentException("Not enough register data", nameof(hexData));
 
-        _cpu.SetRegisterA(regs[0]);
-        _cpu.SetRegisterX(regs[1]);
-        _cpu.SetRegisterY(regs[2]);
-        _cpu.SetStackPointer(regs[3]);
-        
-        ushort pc = (ushort)(regs[4] | (regs[5] << 8));
-        _cpu.SetProgramCounter(pc);
+            _cpu.SetRegisterA(regs[0]);
+            _cpu.SetRegisterX(regs[1]);
+            _cpu.SetRegisterY(regs[2]);
+            _cpu.SetStackPointer(regs[3]);
 
-        _cpu.SetFlagC(regs[6] != 0);
-        _cpu.SetFlagZ(regs[7] != 0);
-        _cpu.SetFlagI(regs[8] != 0);
-        _cpu.SetFlagD(regs[9] != 0);
-        _cpu.SetFlagV(regs[10] != 0);
-        _cpu.SetFlagN(regs[11] != 0);
+            ushort pc = (ushort)(regs[4] | (regs[5] << 8));
+            _cpu.SetProgramCounter(pc);
+
+            _cpu.SetFlagC(regs[6] != 0);
+            _cpu.SetFlagZ(regs[7] != 0);
+            _cpu.SetFlagI(regs[8] != 0);
+            _cpu.SetFlagD(regs[9] != 0);
+            _cpu.SetFlagV(regs[10] != 0);
+            _cpu.SetFlagN(regs[11] != 0);
+        }
     }
 
     public string ReadRegister(int regNum)
     {
-        byte val = regNum switch
+        lock (_sync)
         {
-            0 => _cpu.A,
-            1 => _cpu.X,
-            2 => _cpu.Y,
-            3 => _cpu.SP,
-            4 => (byte)(_cpu.PC & 0xFF),
-            5 => (byte)((_cpu.PC >> 8) & 0xFF),
-            6 => _cpu.C ? (byte)1 : (byte)0,
-            7 => _cpu.Z ? (byte)1 : (byte)0,
-            8 => _cpu.I ? (byte)1 : (byte)0,
-            9 => _cpu.D ? (byte)1 : (byte)0,
-            10 => _cpu.V ? (byte)1 : (byte)0,
-            11 => _cpu.N ? (byte)1 : (byte)0,
-            _ => throw new ArgumentOutOfRangeException(nameof(regNum), "Invalid register number")
-        };
-        return val.ToString("X2");
+            byte val = regNum switch
+            {
+                0 => _cpu.A,
+                1 => _cpu.X,
+                2 => _cpu.Y,
+                3 => _cpu.SP,
+                4 => (byte)(_cpu.PC & 0xFF),
+                5 => (byte)((_cpu.PC >> 8) & 0xFF),
+                6 => _cpu.C ? (byte)1 : (byte)0,
+                7 => _cpu.Z ? (byte)1 : (byte)0,
+                8 => _cpu.I ? (byte)1 : (byte)0,
+                9 => _cpu.D ? (byte)1 : (byte)0,
+                10 => _cpu.V ? (byte)1 : (byte)0,
+                11 => _cpu.N ? (byte)1 : (byte)0,
+                _ => throw new ArgumentOutOfRangeException(nameof(regNum), "Invalid register number")
+            };
+            return val.ToString("X2");
+        }
     }
 
     public void WriteRegister(int regNum, string hexData)
     {
-        byte val = byte.Parse(hexData, System.Globalization.NumberStyles.HexNumber);
-
-        switch (regNum)
+        lock (_sync)
         {
-            case 0: _cpu.SetRegisterA(val); break;
-            case 1: _cpu.SetRegisterX(val); break;
-            case 2: _cpu.SetRegisterY(val); break;
-            case 3: _cpu.SetStackPointer(val); break;
-            case 4: _cpu.SetProgramCounter((ushort)((_cpu.PC & 0xFF00) | val)); break;
-            case 5: _cpu.SetProgramCounter((ushort)((_cpu.PC & 0x00FF) | (val << 8))); break;
-            case 6: _cpu.SetFlagC(val != 0); break;
-            case 7: _cpu.SetFlagZ(val != 0); break;
-            case 8: _cpu.SetFlagI(val != 0); break;
-            case 9: _cpu.SetFlagD(val != 0); break;
-            case 10: _cpu.SetFlagV(val != 0); break;
-            case 11: _cpu.SetFlagN(val != 0); break;
-            default: throw new ArgumentOutOfRangeException(nameof(regNum));
+            byte val = byte.Parse(hexData, System.Globalization.NumberStyles.HexNumber);
+
+            switch (regNum)
+            {
+                case 0: _cpu.SetRegisterA(val); break;
+                case 1: _cpu.SetRegisterX(val); break;
+                case 2: _cpu.SetRegisterY(val); break;
+                case 3: _cpu.SetStackPointer(val); break;
+                case 4: _cpu.SetProgramCounter((ushort)((_cpu.PC & 0xFF00) | val)); break;
+                case 5: _cpu.SetProgramCounter((ushort)((_cpu.PC & 0x00FF) | (val << 8))); break;
+                case 6: _cpu.SetFlagC(val != 0); break;
+                case 7: _cpu.SetFlagZ(val != 0); break;
+                case 8: _cpu.SetFlagI(val != 0); break;
+                case 9: _cpu.SetFlagD(val != 0); break;
+                case 10: _cpu.SetFlagV(val != 0); break;
+                case 11: _cpu.SetFlagN(val != 0); break;
+                default: throw new ArgumentOutOfRangeException(nameof(regNum));
+            }
         }
     }
 
     public string ReadMemory(ushort address, int length)
     {
-        byte[] data = new byte[length];
-        for (int i = 0; i < length; i++)
-            data[i] = _bus.Read((ushort)(address + i));
-        return BytesToHex(data);
+        lock (_sync)
+        {
+            byte[] data = new byte[length];
+            for (int i = 0; i < length; i++)
+                data[i] = _bus.Read((ushort)(address + i));
+            return BytesToHex(data);
+        }
     }
 
     public void WriteMemory(ushort address, string hexData)
     {
-        byte[] data = HexToBytes(hexData);
-        for (int i = 0; i < data.Length; i++)
-            _bus.Write((ushort)(address + i), data[i]);
+        lock (_sync)
+        {
+            byte[] data = HexToBytes(hexData);
+            for (int i = 0; i < data.Length; i++)
+                _bus.Write((ushort)(address + i), data[i]);
+        }
     }
 
-    public ushort GetProgramCounter() => _cpu.PC;
+    public ushort GetProgramCounter()
+    {
+        lock (_sync)
+            return _cpu.PC;
+    }
 
-    public void SetProgramCounter(ushort pc) => _cpu.SetProgramCounter(pc);
+    public void SetProgramCounter(ushort pc)
+    {
+        lock (_sync)
+            _cpu.SetProgramCounter(pc);
+    }
 
     public bool Step()
+    {
+        lock (_sync)
+        {
+            return StepLocked();
+        }
+    }
+
+    public void Continue()
+    {
+        lock (_sync)
+        {
+            if (_continueThread is { IsAlive: true })
+                return;
+
+            _halted = false;
+            _continueThread = new Thread(ContinueLoop) { IsBackground = true };
+            _continueThread.Start();
+        }
+    }
+
+    public void Pause()
+    {
+        lock (_sync)
+        {
+            _halted = true;
+        }
+    }
+
+    public void SetBreakpoint(ushort address)
+    {
+        lock (_sync)
+        {
+            _breakpoints.Add(address);
+            UpdateTraceBreakpointCondition();
+        }
+    }
+
+    public void RemoveBreakpoint(ushort address)
+    {
+        lock (_sync)
+        {
+            _breakpoints.Remove(address);
+            UpdateTraceBreakpointCondition();
+        }
+    }
+
+    private void UpdateTraceBreakpointCondition()
+    {
+        // Wrap current trace to include GDB breakpoints in the ShouldBreak check
+        var currentTrace = _cpu.Trace ?? NullTrace.Instance;
+        
+        // Create a wrapper trace that adds GDB breakpoint checks
+        _cpu.Trace = new BreakpointWrapperTrace(currentTrace, _breakpoints);
+    }
+
+    private void ContinueLoop()
+    {
+        while (true)
+        {
+            lock (_sync)
+            {
+                if (_halted)
+                    break;
+
+                if (StepLocked())
+                    break;
+            }
+
+            Thread.Sleep(1);
+        }
+
+        lock (_sync)
+        {
+            _continueThread = null;
+        }
+    }
+
+    private bool StepLocked()
     {
         try
         {
@@ -161,40 +291,8 @@ public sealed class Cpu6502GdbTarget : IGdbTarget
             _halted = true;
             return true;
         }
+
         return false;
-    }
-
-    public void Continue()
-    {
-        _halted = false;
-        // Note: This would need to run in a background thread for non-blocking behavior
-        // For now, this is a placeholder
-    }
-
-    public void Pause()
-    {
-        _halted = true;
-    }
-
-    public void SetBreakpoint(ushort address)
-    {
-        _breakpoints.Add(address);
-        UpdateTraceBreakpointCondition();
-    }
-
-    public void RemoveBreakpoint(ushort address)
-    {
-        _breakpoints.Remove(address);
-        UpdateTraceBreakpointCondition();
-    }
-
-    private void UpdateTraceBreakpointCondition()
-    {
-        // Wrap current trace to include GDB breakpoints in the ShouldBreak check
-        var currentTrace = _cpu.Trace ?? NullTrace.Instance;
-        
-        // Create a wrapper trace that adds GDB breakpoint checks
-        _cpu.Trace = new BreakpointWrapperTrace(currentTrace, _breakpoints);
     }
 
     // ─────────────────────────────────────────────────────────────────────

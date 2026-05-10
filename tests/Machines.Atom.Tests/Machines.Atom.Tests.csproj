@@ -14,7 +14,7 @@
     <Threshold>80</Threshold>
     <ThresholdType>line</ThresholdType>
     <ThresholdStat>total</ThresholdStat>
-    <Exclude>[*.Tests]*,[Cpu6502.Core]*,[Adapters.Raylib]*,[atom]*,[vic20]*</Exclude>
+    <Exclude>[*.Tests]*,[Cpu6502.Core]*,[Adapters.Raylib]*,[Adapters.Gdb]*,[atom]*,[vic20]*</Exclude>
   </PropertyGroup>
 
   <ItemGroup>
