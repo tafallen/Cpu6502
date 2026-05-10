@@ -3,6 +3,60 @@ using Cpu6502.Core;
 
 namespace Machines.Electron;
 
+/// <summary>Electron video modes (0–6).</summary>
+public enum VideoMode : byte
+{
+    Mode0 = 0,  // 640×256, 2-colour, 20 KB at $3000
+    Mode1 = 1,  // 320×256, 4-colour, 20 KB at $3000
+    Mode2 = 2,  // 160×256, 16-colour, 20 KB at $3000
+    Mode3 = 3,  // 640×200, 2-colour text, 16 KB at $4000
+    Mode4 = 4,  // 320×256, 2-colour, 10 KB at $5800
+    Mode5 = 5,  // 160×256, 4-colour, 10 KB at $5800
+    Mode6 = 6   // 320×200, 2-colour text, 8 KB at $6000
+}
+
+/// <summary>Video mode properties: resolution, color depth, and RAM base address.</summary>
+public sealed record VideoModeProperties(
+    ushort Width,         // Horizontal resolution in pixels
+    ushort Height,        // Vertical resolution in pixels
+    byte BitsPerPixel,    // 1, 2, or 4 bits per pixel
+    ushort RamBase        // Base address in RAM where video data starts
+)
+{
+    /// <summary>Lookup table for all video modes.</summary>
+    public static readonly VideoModeProperties[] Modes =
+    {
+        // Mode 0: 640×256, 2-colour, 20 KB at $3000
+        new(Width: 640, Height: 256, BitsPerPixel: 1, RamBase: 0x3000),
+
+        // Mode 1: 320×256, 4-colour, 20 KB at $3000
+        new(Width: 320, Height: 256, BitsPerPixel: 2, RamBase: 0x3000),
+
+        // Mode 2: 160×256, 16-colour, 20 KB at $3000
+        new(Width: 160, Height: 256, BitsPerPixel: 4, RamBase: 0x3000),
+
+        // Mode 3: 640×200, 2-colour text, 16 KB at $4000
+        new(Width: 640, Height: 200, BitsPerPixel: 1, RamBase: 0x4000),
+
+        // Mode 4: 320×256, 2-colour, 10 KB at $5800
+        new(Width: 320, Height: 256, BitsPerPixel: 1, RamBase: 0x5800),
+
+        // Mode 5: 160×256, 4-colour, 10 KB at $5800
+        new(Width: 160, Height: 256, BitsPerPixel: 2, RamBase: 0x5800),
+
+        // Mode 6: 320×200, 2-colour text, 8 KB at $6000
+        new(Width: 320, Height: 200, BitsPerPixel: 1, RamBase: 0x6000)
+    };
+
+    /// <summary>Get properties for a given video mode.</summary>
+    public static VideoModeProperties GetMode(VideoMode mode)
+    {
+        if ((int)mode < 0 || (int)mode >= Modes.Length)
+            throw new ArgumentOutOfRangeException(nameof(mode), $"Invalid video mode: {(byte)mode}");
+        return Modes[(int)mode];
+    }
+}
+
 /// <summary>
 /// Acorn Electron ULA (Uncommitted Logic Array) — unified I/O hub.
 /// 
@@ -37,7 +91,7 @@ namespace Machines.Electron;
 /// </summary>
 public sealed class ElectronUla : IBus
 {
-    // ── Interrupt state ──────────────────────────────────────────────────────
+     // ── Interrupt state ──────────────────────────────────────────────────────
     private byte _interruptStatus;   // Pending interrupt flags (bits [6:0])
     private byte _interruptEnable;   // Interrupt enable mask (bits [7:4], written to $FE05 high nibble)
 
@@ -45,6 +99,7 @@ public sealed class ElectronUla : IBus
     private byte _romPage;           // ROM page selector (bits [3:0] of $FE05)
     private byte _keyboardColumn;    // Currently latched column for keyboard matrix
     private byte _cassetteControl;   // Motor, tone divisor, transmit bit ($FE07 write)
+    private VideoMode _videoMode;    // Current video mode (0–6)
 
     // ── ROM storage ──────────────────────────────────────────────────────────
     private readonly byte[] _pagedRomBank0;      // Pages 0–3 (external cartridge 1)
@@ -72,6 +127,7 @@ public sealed class ElectronUla : IBus
         _romPage = 0;
         _keyboardColumn = 0;
         _cassetteControl = 0x00;
+        _videoMode = VideoMode.Mode0;  // Default to Mode 0
 
         // Initialize ROM banks
         // Pages 0–3: External cartridge 1 (not populated)
@@ -300,5 +356,31 @@ public sealed class ElectronUla : IBus
     {
         // Similar to cartridge 1, but for pages 4–7
         return 0xFF;  // Open bus (not populated)
+    }
+
+    /// <summary>Get or set the current video mode (0–6).</summary>
+    public VideoMode VideoMode
+    {
+        get => _videoMode;
+        set => _videoMode = value;
+    }
+
+    /// <summary>Get the properties (resolution, color depth, RAM base) for the current video mode.</summary>
+    public VideoModeProperties CurrentVideoModeProperties => VideoModeProperties.GetMode(_videoMode);
+
+    /// <summary>Get the base address in RAM where video data for the current mode is stored.</summary>
+    public ushort VideoMemoryBase => CurrentVideoModeProperties.RamBase;
+
+    /// <summary>Read video memory byte from the correct address based on current video mode.
+    /// 
+    /// This would typically be called by a video renderer to fetch display data.
+    /// The address is relative to the start of the video mode's RAM region.
+    /// </summary>
+    public byte ReadVideoMemory(ushort offset, IBus? ramBus = null)
+    {
+        // In a real implementation, this would read from ramBus
+        // For now, we just calculate the address and return 0x00 (placeholder)
+        ushort absoluteAddress = (ushort)(VideoMemoryBase + offset);
+        return ramBus?.Read(absoluteAddress) ?? 0x00;
     }
 }
