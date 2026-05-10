@@ -1,3 +1,4 @@
+using System;
 using Cpu6502.Core;
 
 namespace Machines.Electron;
@@ -45,28 +46,90 @@ public sealed class ElectronUla : IBus
     private byte _keyboardColumn;    // Currently latched column for keyboard matrix
     private byte _cassetteControl;   // Motor, tone divisor, transmit bit ($FE07 write)
 
-    /// <summary>Constructor. ROMs will be added in Phase 2.</summary>
-    public ElectronUla()
+    // ── ROM storage ──────────────────────────────────────────────────────────
+    private readonly byte[] _pagedRomBank0;      // Pages 0–3 (external cartridge 1)
+    private readonly byte[] _pagedRomBank1;      // Pages 4–7 (external cartridge 2)
+    private readonly byte[] _pagedRomBank2;      // Pages 8–9 (keyboard handler + OS extension)
+    private readonly byte[] _pagedRomBank3;      // Pages 10–11 (BBC BASIC II)
+    private readonly byte[] _osRom;              // Pages 12–15 (OS ROM, 16 KB)
+
+    /// <summary>
+    /// Constructor accepting built-in ROM images.
+    /// 
+    /// ROM layout:
+    ///   Pages 0–3:   External cartridge 1 (not populated → returns 0xFF)
+    ///   Pages 4–7:   External cartridge 2 (not populated → returns 0xFF)
+    ///   Pages 8–9:   Keyboard handler + OS extension (built-in, 16 KB total for 2 pages)
+    ///   Pages 10–11: BBC BASIC II (built-in, 16 KB total for 2 pages)
+    ///   Pages 12–15: OS ROM (16 KB, always visible at $C000–$FBFF and $FF00–$FFFF)
+    /// 
+    /// On an unexpanded machine, pass null for external cartridges (they will return open bus).
+    /// </summary>
+    public ElectronUla(byte[]? basicRom = null, byte[]? osRom = null, byte[]? keyboardHandlerRom = null, byte[]? osExtensionRom = null)
     {
         _interruptStatus = 0x00;
         _interruptEnable = 0x00;
         _romPage = 0;
         _keyboardColumn = 0;
         _cassetteControl = 0x00;
+
+        // Initialize ROM banks
+        // Pages 0–3: External cartridge 1 (not populated)
+        _pagedRomBank0 = new byte[0x4000];  // 16 KB, initialized to 0 (will return as 0xFF in reads)
+
+        // Pages 4–7: External cartridge 2 (not populated)
+        _pagedRomBank1 = new byte[0x4000];  // 16 KB, initialized to 0
+
+        // Pages 8–9: Keyboard handler (page 8, 8 KB) + OS extension (page 9, 8 KB)
+        _pagedRomBank2 = new byte[0x4000];  // 16 KB total
+        if (keyboardHandlerRom != null)
+            Array.Copy(keyboardHandlerRom, 0, _pagedRomBank2, 0, Math.Min(keyboardHandlerRom.Length, 0x2000));
+        if (osExtensionRom != null)
+            Array.Copy(osExtensionRom, 0, _pagedRomBank2, 0x2000, Math.Min(osExtensionRom.Length, 0x2000));
+
+        // Pages 10–11: BBC BASIC II (16 KB total)
+        _pagedRomBank3 = new byte[0x4000];  // 16 KB
+        if (basicRom != null)
+            Array.Copy(basicRom, 0, _pagedRomBank3, 0, Math.Min(basicRom.Length, 0x4000));
+
+        // Pages 12–15: OS ROM (16 KB)
+        _osRom = new byte[0x4000];  // 16 KB
+        if (osRom != null)
+            Array.Copy(osRom, 0, _osRom, 0, Math.Min(osRom.Length, 0x4000));
     }
 
     /// <summary>Read from ULA address space ($8000–$FFFF).</summary>
     public byte Read(ushort address)
     {
-        // Phase 1: Handle MMIO registers only. ROM reads will be added in Phase 2.
+        // MMIO registers at $FC00–$FEFF
         if (address >= 0xFC00 && address <= 0xFEFF)
         {
             int registerOffset = GetRegisterOffset(address);
             return ReadRegister(registerOffset);
         }
 
-        // Placeholder for ROM reads (Phase 2)
-        return 0xFF;  // Open bus
+        // Paged ROM at $8000–$BFFF (16 KB window selected by page register)
+        if (address >= 0x8000 && address <= 0xBFFF)
+        {
+            return ReadPagedRom(address);
+        }
+
+        // OS ROM at $C000–$FBFF (lower 16 KB minus top 1 KB)
+        if (address >= 0xC000 && address <= 0xFBFF)
+        {
+            ushort offset = (ushort)(address - 0xC000);
+            return _osRom[offset];
+        }
+
+        // OS ROM at $FF00–$FFFF (top 256 bytes, interrupt vectors)
+        if (address >= 0xFF00 && address <= 0xFFFF)
+        {
+            ushort offset = (ushort)(address - 0xC000);  // $FF00 = offset $3F00 in OS ROM
+            return _osRom[offset];
+        }
+
+        // Unmapped
+        return 0xFF;
     }
 
     /// <summary>Write to ULA address space ($8000–$FFFF).</summary>
@@ -197,4 +260,45 @@ public sealed class ElectronUla : IBus
 
     /// <summary>Query current interrupt status.</summary>
     public byte InterruptStatus => _interruptStatus;
+
+    /// <summary>Read from paged ROM window ($8000–$BFFF) based on current page register.</summary>
+    private byte ReadPagedRom(ushort address)
+    {
+        // Offset within the 16 KB paged window
+        ushort offset = (ushort)(address - 0x8000);
+
+        return _romPage switch
+        {
+            // Pages 0–3: External cartridge 1
+            0 or 1 or 2 or 3 => ReadExternalCartridge1(offset),
+
+            // Pages 4–7: External cartridge 2
+            4 or 5 or 6 or 7 => ReadExternalCartridge2(offset),
+
+            // Pages 8–9: Keyboard handler + OS extension
+            8 or 9 => _pagedRomBank2[offset],
+
+            // Pages 10–11: BBC BASIC II
+            10 or 11 => _pagedRomBank3[offset],
+
+            // Pages 12–15: Not used (open bus)
+            _ => 0xFF
+        };
+    }
+
+    /// <summary>Read from external cartridge 1 (pages 0–3) — returns open bus if not populated.</summary>
+    private byte ReadExternalCartridge1(ushort offset)
+    {
+        // Offset determines which page (0–3) within the cartridge
+        // For base machine (unexpanded), no cartridge is present, so return open bus
+        // If populated, would select the appropriate page and return byte
+        return 0xFF;  // Open bus (not populated)
+    }
+
+    /// <summary>Read from external cartridge 2 (pages 4–7) — returns open bus if not populated.</summary>
+    private byte ReadExternalCartridge2(ushort offset)
+    {
+        // Similar to cartridge 1, but for pages 4–7
+        return 0xFF;  // Open bus (not populated)
+    }
 }

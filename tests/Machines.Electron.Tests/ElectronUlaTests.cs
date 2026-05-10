@@ -1,4 +1,5 @@
 using Machines.Electron;
+using System;
 using Xunit;
 
 namespace Machines.Electron.Tests;
@@ -282,5 +283,176 @@ public class ElectronUlaTests
         ula.SetRomPageAndInterruptEnable(0x05);
         ula.Write(0xFE01, 0xFF);  // Try to write to reg 1
         Assert.Equal(0x05, ula.RomPage);  // No change
+    }
+
+    // ── ROM Paging Tests ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void RomPaging_BasicRomBoot()
+    {
+        // Prepare BASIC ROM (pages 10–11) with known pattern
+        byte[] basicRom = new byte[0x4000];
+        for (int i = 0; i < basicRom.Length; i++)
+            basicRom[i] = (byte)(i & 0xFF);
+
+        var ula = new ElectronUla(basicRom: basicRom);
+
+        // Page 10 or 11 (BASIC) should return ROM data
+        ula.SetRomPageAndInterruptEnable(0x0A);  // Page 10 (lower BASIC)
+        byte value = ula.Read(0x8000);
+        Assert.Equal(0x00, value);  // First byte of BASIC
+
+        // Page 11 should also work (uses same ROM bank in this impl)
+        ula.SetRomPageAndInterruptEnable(0x0B);  // Page 11 (upper BASIC)
+        value = ula.Read(0x8000);
+        Assert.Equal(0x00, value);
+    }
+
+    [Fact]
+    public void RomPaging_KeyboardHandlerRom()
+    {
+        byte[] keyboardRom = new byte[0x2000];
+        for (int i = 0; i < keyboardRom.Length; i++)
+            keyboardRom[i] = (byte)(i & 0xFF);
+
+        var ula = new ElectronUla(keyboardHandlerRom: keyboardRom);
+
+        ula.SetRomPageAndInterruptEnable(0x08);  // Page 8 (keyboard handler)
+        byte value = ula.Read(0x8000);
+        Assert.Equal(0x00, value);  // First byte
+    }
+
+    [Fact]
+    public void RomPaging_OsRom()
+    {
+        byte[] osRom = new byte[0x4000];
+        for (int i = 0; i < osRom.Length; i++)
+            osRom[i] = (byte)((i >> 8) & 0xFF);  // High byte of address
+
+        var ula = new ElectronUla(osRom: osRom);
+
+        // OS ROM should be visible at $C000–$FBFF regardless of page selection
+        byte value = ula.Read(0xC000);
+        Assert.Equal(0x00, value);
+
+        value = ula.Read(0xD000);
+        Assert.Equal(0x10, value);
+
+        value = ula.Read(0xFBFF);
+        Assert.Equal(0x3B, value);  // Offset 0x3BFF, high byte = 0x3B
+    }
+
+    [Fact]
+    public void RomPaging_InterruptVectors()
+    {
+        byte[] osRom = new byte[0x4000];
+        osRom[0x3FFA] = 0x11;  // NMI vector (offset $FFFA → offset $3FFA in 16 KB OS ROM)
+        osRom[0x3FFB] = 0x22;
+        osRom[0x3FFC] = 0x33;  // RESET vector
+        osRom[0x3FFD] = 0x44;
+        osRom[0x3FFE] = 0x55;  // IRQ vector
+        osRom[0x3FFF] = 0x66;
+
+        var ula = new ElectronUla(osRom: osRom);
+
+        // Read interrupt vectors from $FFFA–$FFFF
+        Assert.Equal(0x11, ula.Read(0xFFFA));
+        Assert.Equal(0x22, ula.Read(0xFFFB));
+        Assert.Equal(0x33, ula.Read(0xFFFC));
+        Assert.Equal(0x44, ula.Read(0xFFFD));
+        Assert.Equal(0x55, ula.Read(0xFFFE));
+        Assert.Equal(0x66, ula.Read(0xFFFF));
+    }
+
+    [Fact]
+    public void RomPaging_ExternalCartridge_ReturnsOpenBus()
+    {
+        var ula = new ElectronUla();
+
+        // Pages 0–3 (external cartridge 1) should return open bus
+        ula.SetRomPageAndInterruptEnable(0x00);
+        Assert.Equal(0xFF, ula.Read(0x8000));
+
+        ula.SetRomPageAndInterruptEnable(0x03);
+        Assert.Equal(0xFF, ula.Read(0x8000));
+
+        // Pages 4–7 (external cartridge 2) should return open bus
+        ula.SetRomPageAndInterruptEnable(0x04);
+        Assert.Equal(0xFF, ula.Read(0x8000));
+
+        ula.SetRomPageAndInterruptEnable(0x07);
+        Assert.Equal(0xFF, ula.Read(0x8000));
+    }
+
+    [Fact]
+    public void RomPaging_UnusedPages_ReturnsOpenBus()
+    {
+        var ula = new ElectronUla();
+
+        // Pages 12–15 not used (should return open bus)
+        for (byte page = 12; page <= 15; page++)
+        {
+            ula.SetRomPageAndInterruptEnable(page);
+            Assert.Equal(0xFF, ula.Read(0x8000));
+        }
+    }
+
+    [Fact]
+    public void RomPaging_PagedRomBoundaryReads()
+    {
+        byte[] basicRom = new byte[0x4000];
+        basicRom[0x0000] = 0xAA;  // Start
+        basicRom[0x3FFF] = 0xBB;  // End
+
+        var ula = new ElectronUla(basicRom: basicRom);
+        ula.SetRomPageAndInterruptEnable(0x0A);  // Page 10
+
+        Assert.Equal(0xAA, ula.Read(0x8000));  // Start of paged window
+        Assert.Equal(0xBB, ula.Read(0xBFFF));  // End of paged window
+    }
+
+    [Fact]
+    public void RomPaging_PageSwitchingWorks()
+    {
+        byte[] basicRom = new byte[0x4000];
+        for (int i = 0; i < basicRom.Length; i++)
+            basicRom[i] = (byte)(i & 0xFF);
+
+        byte[] keyboardRom = new byte[0x2000];
+        for (int i = 0; i < keyboardRom.Length; i++)
+            keyboardRom[i] = 0xCC;
+
+        var ula = new ElectronUla(basicRom: basicRom, keyboardHandlerRom: keyboardRom);
+
+        // Read from BASIC page
+        ula.SetRomPageAndInterruptEnable(0x0A);
+        byte value1 = ula.Read(0x8000);
+
+        // Switch to keyboard handler page
+        ula.SetRomPageAndInterruptEnable(0x08);
+        byte value2 = ula.Read(0x8000);
+
+        // Values should differ
+        Assert.NotEqual(value1, value2);
+        Assert.Equal(0xCC, value2);
+    }
+
+    [Fact]
+    public void RomPaging_OsRomAndPagedRomDoNotConflict()
+    {
+        byte[] basicRom = new byte[0x4000];
+        basicRom[0] = 0x11;
+
+        byte[] osRom = new byte[0x4000];
+        osRom[0] = 0x22;  // Different from BASIC
+
+        var ula = new ElectronUla(basicRom: basicRom, osRom: osRom);
+        ula.SetRomPageAndInterruptEnable(0x0A);  // Page 10 (BASIC)
+
+        // Paged ROM read should return BASIC byte
+        Assert.Equal(0x11, ula.Read(0x8000));
+
+        // OS ROM read should return OS byte
+        Assert.Equal(0x22, ula.Read(0xC000));
     }
 }
