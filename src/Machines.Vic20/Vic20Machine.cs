@@ -124,7 +124,7 @@ public sealed class Vic20Machine : IComponent
         if (Bus == null)
             throw new InvalidOperationException("AddressDecoder bus not initialized");
         
-        if (Ram == null || Ram.RawBytes.Length == 0)
+        if (Ram == null || Ram.Memory.Length == 0)
             throw new InvalidOperationException("RAM not initialized");
         
         if (Via1 == null)

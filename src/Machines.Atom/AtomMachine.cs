@@ -75,7 +75,7 @@ public sealed class AtomMachine : IComponent
         Ppi.Write(3, 0x8A); // PA=out, PB=in, PC-upper=in, PC-lower=out
 
         Tape = tape;
-        _vdg = new Mc6847(VideoRam.RawBytes, charRom);
+        _vdg = new Mc6847(VideoRam.Memory, charRom);
 
         if (audio is not null)
             _sound = new AtomSoundAdapter(audio);
@@ -163,10 +163,10 @@ public sealed class AtomMachine : IComponent
         if (Bus == null)
             throw new InvalidOperationException("AddressDecoder bus not initialized");
         
-        if (MainRam == null || MainRam.RawBytes.Length == 0)
+        if (MainRam == null || MainRam.Memory.Length == 0)
             throw new InvalidOperationException("Main RAM not initialized");
         
-        if (VideoRam == null || VideoRam.RawBytes.Length == 0)
+        if (VideoRam == null || VideoRam.Memory.Length == 0)
             throw new InvalidOperationException("Video RAM not initialized");
         
         if (Ppi == null)

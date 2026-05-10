@@ -32,7 +32,7 @@ public class Vic20MachineInitializationTests
     {
         var m = new Vic20Machine(MakeRom(), MakeRom());
         Assert.NotNull(m.Ram);
-        Assert.NotEmpty(m.Ram.RawBytes);
+        Assert.NotEmpty(m.Ram.Memory.ToArray());
     }
 
     [Fact]

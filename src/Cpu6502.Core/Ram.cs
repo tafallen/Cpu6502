@@ -12,7 +12,11 @@ public sealed class Ram : IBusValidator
         _data = new byte[size];
     }
 
+    /// <summary>Read-only access to the backing buffer — for chips (e.g. VDG) that share the bus.</summary>
+    public ReadOnlyMemory<byte> Memory => _data.AsMemory();
+
     /// <summary>Direct access to the backing buffer — for chips (e.g. VDG) that share the bus.</summary>
+    [Obsolete("Use Memory property instead, which returns ReadOnlyMemory<byte>")]
     public byte[] RawBytes => _data;
 
     public void ValidateAddress(ushort address)

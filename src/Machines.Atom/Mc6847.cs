@@ -9,7 +9,7 @@ namespace Machines.Atom;
 /// </summary>
 public sealed class Mc6847
 {
-    private readonly byte[] _vram;
+    private readonly ReadOnlyMemory<byte> _vram;
     private readonly byte[] _charRom; // 64 chars × 12 rows = 768 bytes
     private readonly ushort _vramBase;
 
@@ -30,7 +30,7 @@ public sealed class Mc6847
     /// </summary>
     public byte Control { get; set; }
 
-    public Mc6847(byte[] vram, byte[]? charRom = null, ushort vramBase = 0x8000)
+    public Mc6847(ReadOnlyMemory<byte> vram, byte[]? charRom = null, ushort vramBase = 0x8000)
     {
         _vram    = vram;
         _charRom = charRom ?? BuiltinCharRom;
@@ -176,7 +176,7 @@ public sealed class Mc6847
     private bool Css        => (Control & 0x10) != 0;
 
     private byte VramRead(int offset) =>
-        (offset >= 0 && offset < _vram.Length) ? _vram[offset] : (byte)0;
+        (offset >= 0 && offset < _vram.Length) ? _vram.Span[offset] : (byte)0;
 
     public void RenderFrame(IVideoSink sink)
     {

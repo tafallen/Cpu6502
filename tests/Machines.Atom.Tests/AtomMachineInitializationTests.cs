@@ -32,7 +32,7 @@ public class AtomMachineInitializationTests
     {
         var m = new AtomMachine(MakeRom(), MakeRom());
         Assert.NotNull(m.MainRam);
-        Assert.NotEmpty(m.MainRam.RawBytes);
+        Assert.NotEmpty(m.MainRam.Memory.ToArray());
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public class AtomMachineInitializationTests
     {
         var m = new AtomMachine(MakeRom(), MakeRom());
         Assert.NotNull(m.VideoRam);
-        Assert.NotEmpty(m.VideoRam.RawBytes);
+        Assert.NotEmpty(m.VideoRam.Memory.ToArray());
     }
 
     [Fact]
