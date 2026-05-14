@@ -37,5 +37,43 @@ public class Vic20CommandLineTests
     {
         Assert.Throws<ArgumentException>(() => Vic20CommandLine.Parse(["--basic", "basic.rom"]));
     }
+
+    [Fact]
+    public void Parse_SmoothFlag_SetsSmoothTrue()
+    {
+        var options = Vic20CommandLine.Parse(["--basic", "b.rom", "--kernal", "k.rom", "--smooth"]);
+        Assert.True(options.Smooth);
+    }
+
+    [Fact]
+    public void Parse_NoSmoothFlag_DefaultsFalse()
+    {
+        var options = Vic20CommandLine.Parse(["--basic", "b.rom", "--kernal", "k.rom"]);
+        Assert.False(options.Smooth);
+    }
+
+    [Fact]
+    public void Parse_ScanlinesFlag_SetsScanlineIntensity()
+    {
+        var options = Vic20CommandLine.Parse(["--basic", "b.rom", "--kernal", "k.rom", "--scanlines", "0.3"]);
+        Assert.Equal(0.3f, options.ScanlineIntensity);
+    }
+
+    [Fact]
+    public void Parse_NoScanlinesFlag_DefaultsToZero()
+    {
+        var options = Vic20CommandLine.Parse(["--basic", "b.rom", "--kernal", "k.rom"]);
+        Assert.Equal(0f, options.ScanlineIntensity);
+    }
+
+    [Theory]
+    [InlineData("-0.1")]
+    [InlineData("1.1")]
+    [InlineData("abc")]
+    public void Parse_InvalidScanlines_Throws(string value)
+    {
+        Assert.Throws<ArgumentException>(() =>
+            Vic20CommandLine.Parse(["--basic", "b.rom", "--kernal", "k.rom", "--scanlines", value]));
+    }
 }
 
