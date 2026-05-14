@@ -37,5 +37,43 @@ public class AtomCommandLineTests
     {
         Assert.Throws<ArgumentException>(() => AtomCommandLine.Parse(["--basic", "basic.rom"]));
     }
+
+    [Fact]
+    public void Parse_SmoothFlag_SetsSmoothTrue()
+    {
+        var options = AtomCommandLine.Parse(["--basic", "b.rom", "--os", "o.rom", "--smooth"]);
+        Assert.True(options.Smooth);
+    }
+
+    [Fact]
+    public void Parse_NoSmoothFlag_DefaultsFalse()
+    {
+        var options = AtomCommandLine.Parse(["--basic", "b.rom", "--os", "o.rom"]);
+        Assert.False(options.Smooth);
+    }
+
+    [Fact]
+    public void Parse_ScanlinesFlag_SetsScanlineIntensity()
+    {
+        var options = AtomCommandLine.Parse(["--basic", "b.rom", "--os", "o.rom", "--scanlines", "0.5"]);
+        Assert.Equal(0.5f, options.ScanlineIntensity);
+    }
+
+    [Fact]
+    public void Parse_NoScanlinesFlag_DefaultsToZero()
+    {
+        var options = AtomCommandLine.Parse(["--basic", "b.rom", "--os", "o.rom"]);
+        Assert.Equal(0f, options.ScanlineIntensity);
+    }
+
+    [Theory]
+    [InlineData("-0.1")]
+    [InlineData("1.1")]
+    [InlineData("abc")]
+    public void Parse_InvalidScanlines_Throws(string value)
+    {
+        Assert.Throws<ArgumentException>(() =>
+            AtomCommandLine.Parse(["--basic", "b.rom", "--os", "o.rom", "--scanlines", value]));
+    }
 }
 
