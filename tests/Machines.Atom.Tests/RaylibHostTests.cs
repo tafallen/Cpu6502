@@ -85,8 +85,7 @@ public class RaylibHostTests
         var backend = new FakeRaylibBackend();
         using var _ = new RaylibHost(displayOptions: new DisplayOptions(Smooth: false), backend: backend);
 
-        // SetTextureFilter should not have been called (or called with Point)
-        Assert.True(backend.LastTextureFilter is null or TextureFilter.Point);
+        Assert.Null(backend.LastTextureFilter);
     }
 
     [Fact]
@@ -170,12 +169,27 @@ public class RaylibHostTests
     {
         var backend = new FakeRaylibBackend();
         var opts    = new DisplayOptions(ScanlineIntensity: 0f);
-        using var host = new RaylibHost(displayOptions: opts, backend: backend);
+        using var host = new RaylibHost(
+            displayOptions: opts,
+            frameWidth:  2,
+            frameHeight: 2,
+            backend: backend);
 
         backend.SetKeyHeld(KeyboardKey.F11, true);
         host.PollEvents();
 
-        Assert.Equal(0.3f, opts.ScanlineIntensity);
+        // After cycling 0→0.3, odd rows should be darkened by factor 0.7
+        // Submit a 2×2 frame: ARGB 0xFF_64_64_64 (all channels = 100)
+        uint inputPixel = 0xFF_64_64_64u;
+        host.SubmitFrame([inputPixel, inputPixel, inputPixel, inputPixel], 2, 2);
+
+        // Row 0 (even): unchanged → R=100, G=100, B=100, A=255
+        uint expectedEven = 100u | (100u << 8) | (100u << 16) | (255u << 24);
+        Assert.Equal(expectedEven, backend.LastTexturePixels![0]);
+
+        // Row 1 (odd): darkened by 0.7 → floor(100*0.7)=70
+        uint expectedOdd = 70u | (70u << 8) | (70u << 16) | (255u << 24);
+        Assert.Equal(expectedOdd, backend.LastTexturePixels![2]);
     }
 
     [Fact]
@@ -183,12 +197,25 @@ public class RaylibHostTests
     {
         var backend = new FakeRaylibBackend();
         var opts    = new DisplayOptions(ScanlineIntensity: 0.3f);
-        using var host = new RaylibHost(displayOptions: opts, backend: backend);
+        using var host = new RaylibHost(
+            displayOptions: opts,
+            frameWidth:  2,
+            frameHeight: 2,
+            backend: backend);
 
         backend.SetKeyHeld(KeyboardKey.F11, true);
         host.PollEvents();
 
-        Assert.Equal(0.5f, opts.ScanlineIntensity);
+        // After cycling 0.3→0.5, odd rows should be darkened by factor 0.5
+        uint inputPixel = 0xFF_64_64_64u;
+        host.SubmitFrame([inputPixel, inputPixel, inputPixel, inputPixel], 2, 2);
+
+        uint expectedEven = 100u | (100u << 8) | (100u << 16) | (255u << 24);
+        Assert.Equal(expectedEven, backend.LastTexturePixels![0]);
+
+        // Row 1 (odd): darkened by 0.5 → 50
+        uint expectedOdd = 50u | (50u << 8) | (50u << 16) | (255u << 24);
+        Assert.Equal(expectedOdd, backend.LastTexturePixels![2]);
     }
 
     [Fact]
@@ -196,12 +223,22 @@ public class RaylibHostTests
     {
         var backend = new FakeRaylibBackend();
         var opts    = new DisplayOptions(ScanlineIntensity: 0.5f);
-        using var host = new RaylibHost(displayOptions: opts, backend: backend);
+        using var host = new RaylibHost(
+            displayOptions: opts,
+            frameWidth:  2,
+            frameHeight: 2,
+            backend: backend);
 
         backend.SetKeyHeld(KeyboardKey.F11, true);
         host.PollEvents();
 
-        Assert.Equal(0f, opts.ScanlineIntensity);
+        // After cycling 0.5→0, no darkening should occur
+        uint inputPixel = 0xFF_64_64_64u;
+        host.SubmitFrame([inputPixel, inputPixel, inputPixel, inputPixel], 2, 2);
+
+        uint expectedPixel = 100u | (100u << 8) | (100u << 16) | (255u << 24);
+        // All rows unchanged
+        Assert.All(backend.LastTexturePixels!, p => Assert.Equal(expectedPixel, p));
     }
 
     private sealed class FakeRaylibBackend : IRaylibBackend
