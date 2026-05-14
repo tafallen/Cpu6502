@@ -49,6 +49,14 @@ public class DisplayOptionsTests
     }
 
     [Fact]
+    public void IsValid_ReturnsFalseWhenScanlineIntensityDirectlyMutated()
+    {
+        var opts = new DisplayOptions();
+        opts.ScanlineIntensity = 1.5f;  // bypass validation via direct property set
+        Assert.False(opts.IsValid);
+    }
+
+    [Fact]
     public void WithSmooth_ReturnsNewInstanceWithSmoothSet()
     {
         var original = new DisplayOptions(Scale: 2, Smooth: false, ScanlineIntensity: 0.3f);
@@ -93,5 +101,6 @@ public class DisplayOptionsTests
         Assert.Equal(5, updated.Scale);
         Assert.True(updated.Smooth);
         Assert.Equal(0.3f, updated.ScanlineIntensity);
+        Assert.Equal(3, original.Scale);          // original unmodified
     }
 }
