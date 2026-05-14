@@ -67,6 +67,143 @@ public class RaylibHostTests
         Assert.Contains("[key] Raylib saw keypress:", sw.ToString());
     }
 
+    // ── smooth flag ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Constructor_SmoothEnabled_SetsTextureFilterBilinear()
+    {
+        var backend = new FakeRaylibBackend();
+        var opts    = new DisplayOptions(Smooth: true);
+        using var _ = new RaylibHost(displayOptions: opts, backend: backend);
+
+        Assert.Equal(TextureFilter.Bilinear, backend.LastTextureFilter);
+    }
+
+    [Fact]
+    public void Constructor_SmoothDisabled_DoesNotSetBilinearFilter()
+    {
+        var backend = new FakeRaylibBackend();
+        using var _ = new RaylibHost(displayOptions: new DisplayOptions(Smooth: false), backend: backend);
+
+        // SetTextureFilter should not have been called (or called with Point)
+        Assert.True(backend.LastTextureFilter is null or TextureFilter.Point);
+    }
+
+    [Fact]
+    public void F10Hotkey_TogglesSmoothOn()
+    {
+        var backend = new FakeRaylibBackend();
+        var opts    = new DisplayOptions(Smooth: false);
+        using var host = new RaylibHost(displayOptions: opts, backend: backend);
+
+        backend.SetKeyHeld(KeyboardKey.F10, true);
+        host.PollEvents();
+
+        Assert.Equal(TextureFilter.Bilinear, backend.LastTextureFilter);
+    }
+
+    [Fact]
+    public void F10Hotkey_TogglesSmoothOff()
+    {
+        var backend = new FakeRaylibBackend();
+        var opts    = new DisplayOptions(Smooth: true);
+        using var host = new RaylibHost(displayOptions: opts, backend: backend);
+        // Filter was set Bilinear on init; now press F10 to toggle off
+        backend.SetKeyHeld(KeyboardKey.F10, true);
+        host.PollEvents();
+
+        Assert.Equal(TextureFilter.Point, backend.LastTextureFilter);
+    }
+
+    // ── scanlines ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void SubmitFrame_WithScanlines_DarkensOddRows()
+    {
+        var backend = new FakeRaylibBackend();
+        var opts    = new DisplayOptions(ScanlineIntensity: 0.5f);
+        // 2×2 frame: row 0 and row 1
+        using var host = new RaylibHost(
+            displayOptions: opts,
+            frameWidth:  2,
+            frameHeight: 2,
+            backend: backend);
+
+        // ARGB32: alpha=0xFF, R=200, G=100, B=50 → 0xFF_C8_64_32
+        uint inputPixel = 0xFF_C8_64_32u;
+        uint[] frame = [inputPixel, inputPixel, inputPixel, inputPixel]; // 4 pixels
+        host.SubmitFrame(frame, 2, 2);
+
+        // Row 0 (pixels 0,1): must be unchanged
+        // After ARGB→RGBA: r=200, g=100, b=50, a=255 → 0xFF_32_64_C8
+        uint expectedRow0 = 200u | (100u << 8) | (50u << 16) | (255u << 24);
+        Assert.Equal(expectedRow0, backend.LastTexturePixels![0]);
+        Assert.Equal(expectedRow0, backend.LastTexturePixels![1]);
+
+        // Row 1 (pixels 2,3): must be darkened by factor 0.5
+        uint expectedRow1 = 100u | (50u << 8) | (25u << 16) | (255u << 24);
+        Assert.Equal(expectedRow1, backend.LastTexturePixels![2]);
+        Assert.Equal(expectedRow1, backend.LastTexturePixels![3]);
+    }
+
+    [Fact]
+    public void SubmitFrame_WithNoScanlines_LeavesAllRowsUnchanged()
+    {
+        var backend = new FakeRaylibBackend();
+        using var host = new RaylibHost(
+            displayOptions: new DisplayOptions(ScanlineIntensity: 0f),
+            frameWidth:  2,
+            frameHeight: 2,
+            backend: backend);
+
+        uint inputPixel = 0xFF_C8_64_32u;
+        uint[] frame = [inputPixel, inputPixel, inputPixel, inputPixel];
+        host.SubmitFrame(frame, 2, 2);
+
+        // All 4 pixels must be the same (ARGB→RGBA conversion only, no darkening)
+        uint expectedPixel = 200u | (100u << 8) | (50u << 16) | (255u << 24);
+        Assert.All(backend.LastTexturePixels!, p => Assert.Equal(expectedPixel, p));
+    }
+
+    [Fact]
+    public void F11Hotkey_CyclesScanlineIntensity_ZeroToPoint3()
+    {
+        var backend = new FakeRaylibBackend();
+        var opts    = new DisplayOptions(ScanlineIntensity: 0f);
+        using var host = new RaylibHost(displayOptions: opts, backend: backend);
+
+        backend.SetKeyHeld(KeyboardKey.F11, true);
+        host.PollEvents();
+
+        Assert.Equal(0.3f, opts.ScanlineIntensity);
+    }
+
+    [Fact]
+    public void F11Hotkey_CyclesScanlineIntensity_Point3ToPoint5()
+    {
+        var backend = new FakeRaylibBackend();
+        var opts    = new DisplayOptions(ScanlineIntensity: 0.3f);
+        using var host = new RaylibHost(displayOptions: opts, backend: backend);
+
+        backend.SetKeyHeld(KeyboardKey.F11, true);
+        host.PollEvents();
+
+        Assert.Equal(0.5f, opts.ScanlineIntensity);
+    }
+
+    [Fact]
+    public void F11Hotkey_CyclesScanlineIntensity_Point5ToZero()
+    {
+        var backend = new FakeRaylibBackend();
+        var opts    = new DisplayOptions(ScanlineIntensity: 0.5f);
+        using var host = new RaylibHost(displayOptions: opts, backend: backend);
+
+        backend.SetKeyHeld(KeyboardKey.F11, true);
+        host.PollEvents();
+
+        Assert.Equal(0f, opts.ScanlineIntensity);
+    }
+
     private sealed class FakeRaylibBackend : IRaylibBackend
     {
         private readonly Queue<int> _keypresses = new();
@@ -74,6 +211,17 @@ public class RaylibHostTests
         public bool AudioProcessed { get; set; }
         public int LastAudioCount { get; private set; }
         public short[]? LastAudioSamples { get; private set; }
+
+        // --- new tracking ---
+        public TextureFilter? LastTextureFilter { get; private set; }
+        public uint[]? LastTexturePixels { get; private set; }
+        private readonly Dictionary<KeyboardKey, bool> _keysHeld = new();
+
+        public void SetKeyHeld(KeyboardKey key, bool held)
+        {
+            if (held) _keysHeld[key] = true;
+            else      _keysHeld.Remove(key);
+        }
 
         public void EnqueueKeypress(int key) => _keypresses.Enqueue(key);
 
@@ -88,8 +236,15 @@ public class RaylibHostTests
         public bool WindowShouldClose() => false;
         public void PollInputEvents() { }
         public int GetKeyPressed() => _keypresses.Count > 0 ? _keypresses.Dequeue() : 0;
-        public void UpdateTexture(Texture2D texture, ReadOnlySpan<uint> pixels) { }
-        public void SetTextureFilter(Texture2D texture, TextureFilter filter) { }
+
+        public void UpdateTexture(Texture2D texture, ReadOnlySpan<uint> pixels)
+        {
+            LastTexturePixels = pixels.ToArray();
+        }
+
+        public void SetTextureFilter(Texture2D texture, TextureFilter filter) =>
+            LastTextureFilter = filter;
+
         public void BeginDrawing() { }
         public void ClearBackground(Color color) { }
         public void DrawTextureEx(Texture2D texture, Vector2 position, float rotation, float scale, Color tint) { }
@@ -105,7 +260,9 @@ public class RaylibHostTests
             LastAudioSamples = samples[..count].ToArray();
         }
 
-        public bool IsKeyDown(KeyboardKey key) => false;
+        public bool IsKeyDown(KeyboardKey key) =>
+            _keysHeld.TryGetValue(key, out bool held) && held;
+
         public void UnloadTexture(Texture2D texture) { }
         public void UnloadAudioStream(AudioStream stream) { }
         public void CloseAudioDevice() { }
