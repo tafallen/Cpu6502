@@ -1,191 +1,98 @@
 # Cpu6502
 
-A cycle-accurate MOS 6502 CPU emulator in C#. All 151 legal opcodes, correct flag behaviour, page-cross timing penalties, BCD mode, and the classic indirect-JMP page-wrap bug.
+[![CI](https://github.com/tafallen/Cpu6502/actions/workflows/ci.yml/badge.svg)](https://github.com/tafallen/Cpu6502/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![.NET 8.0](https://img.shields.io/badge/.NET-8.0-purple.svg)](https://dotnet.microsoft.com/)
 
-Designed for composing real 80s machine emulators — the CPU knows nothing about the machine it is in, it only talks to an `IBus`. Other chips and chipsets are also implemented so you can compose the emulator for the 6502 based machine you want. Currently the *Vic20*, *Acorn Atom* and *Acorn Electron* are supported with more to come
+A cycle-accurate, zero-allocation MOS 6502 CPU emulator written in C#. Includes support for all 151 legal opcodes, precise status flag behaviors, BCD mode, page-cross timing penalties, and the classic indirect-JMP `$xxFF` page-wrap bug.
 
+Designed for composing real 80s machine emulators — the CPU knows nothing about the machine it is in, it only talks to an `IBus`. Other chips and chipsets are also implemented so you can compose the emulator for the 6502 based machine you want. Currently the *Vic20*, *Acorn Atom* and *Acorn Electron* are supported with more to come.
 
 Oh, and it's __fast__ for a C# emulator. Really, really fast.
 
-## Quick start
+> 🚀 **Performance Headline**: **`Cpu6502` is the fastest cycle-accurate 6502 CPU emulator written in C#**, reaching **> 107.9 Million instructions/second** (**9.38 ns** per mixed opcode) and **0 Bytes managed heap allocations**.
+
+---
+
+## Quick Start
 
 ```csharp
 using Cpu6502.Core;
 
-// 1. Create a 64 KB flat RAM bus
+// 1. Create a 64 KB flat RAM bus and load program at $0200
 var ram = new Ram(0x10000);
+ram.Load(0x0200, new byte[] { 0xA9, 0x01, 0x69, 0x01, 0x8D, 0x00, 0x03, 0x00 });
 
-// 2. Load a small program at $0200
-ram.Load(0x0200, new byte[]
-{
-    0xA9, 0x01,   // LDA #$01
-    0x69, 0x01,   // ADC #$01
-    0x8D, 0x00,   // STA $0300    (lo)
-    0x03,         //              (hi)
-    0x00          // BRK
-});
-
-// 3. Point the RESET vector at the program
+// 2. Set RESET vector to $0200
 ram.Write(0xFFFC, 0x00);
-ram.Write(0xFFFD, 0x02);   // → $0200
+ram.Write(0xFFFD, 0x02);
 
-// 4. Create the CPU, reset, and run
+// 3. Instantiate CPU, reset, and step
 var cpu = new Cpu(ram);
 cpu.Reset();
 
-while (true)
-{
+while (ram.Read(0x0300) == 0)
     cpu.Step();
-    if (ram.Read(0x0300) != 0) break;   // wait for result to appear
-}
 
-Console.WriteLine($"Result: {ram.Read(0x0300)}");   // → 2
-Console.WriteLine($"Cycles: {cpu.TotalCycles}");
+Console.WriteLine($"Result: {ram.Read(0x0300)}, Cycles: {cpu.TotalCycles}"); // → Result: 2
 ```
 
-## Performance & benchmarks
+---
 
-**`Cpu6502` is the fastest cycle-accurate 6502 CPU emulator written in C# by a wide margin**, outperforming traditional managed 6502 emulators by **3.5x to 10x** and reaching **> 107.9 Million instructions/second** (**9.38 ns** per mixed opcode).
-
-The engine achieves native C/C++ performance parity using RyuJIT dense `switch (opcode)` hardware jump-table dispatch, fast-path direct array memory backing (`IDirectMemoryDevice`), a packed status byte (`byte P`) with precomputed `ZnTable`, and AVX2/Vector256 SIMD display pipelines.
-
-See **[docs/performance-comparison.md](docs/performance-comparison.md)** for a full competitive breakdown against other open-source 6502 emulators.
-
-### Benchmark Metrics
-
-Captured via `BenchmarkDotNet v0.15.8` on .NET 8.0.25 (RyuJIT x86-64-v4, AMD Ryzen AI 7 350):
+## Performance Summary
 
 | Component | Benchmark | Latency | Peak Throughput | Allocation |
 |---|---|---|---|---|
 | **CPU Execution Engine** | `Step_Mix_LoadStoreBranch` | **9.38 ns** / opcode | **> 107.9 Million opcodes/sec** | **0 B** |
-| **CPU Instruction Engine** | `Step_NOP_100k` | **10.63 ns** / opcode | **~94.0 Million opcodes/sec** | **0 B** |
 | **Address Bus Decoder** | `Read_RAM_1M` | **0.66 ns** / access | **> 1.51 Billion bus ops/sec** | **0 B** |
-| **Address Bus Decoder** | `Write_RAM_1M` | **0.65 ns** / access | **> 1.53 Billion bus ops/sec** | **0 B** |
 | **MC6847 VDG Display** | `RenderFrame_100` | **13.86 μs** / 100 frames | **> 7.2 Million frames/sec** | **0 B (Zero GC)** |
 | **VIC-I Video Chip** | `RenderFrame_100` | **12.35 μs** / 100 frames | **> 8.0 Million frames/sec** | **0 B (Zero GC)** |
 | **SIMD Pixel Converter** | ARGB32 → RGBA32 | **39.18 ns** / frame | **> 25.5 Million frames/sec** | **0 B** |
 
-To run the benchmark suite locally:
+For detailed competitive analysis against other 6502 emulators, see **[docs/performance-comparison.md](docs/performance-comparison.md)**.
+
+---
+
+## Emulated Machine Targets
+
+`Cpu6502` includes full runnable machine target executables built on top of the core CPU:
+
+* 🕹️ **Acorn Atom** (`Host.Atom`): Full 6502 @ 1 MHz, Intel 8255 PPI, Motorola MC6847 VDG, cassette UEF playback, and sound. See **[docs/atom.md](docs/atom.md)**.
+* 🕹️ **Commodore VIC-20** (`Host.Vic20`): Full 6502 @ 1.108 MHz, MOS 6560/6561 VIC-I video/audio, dual MOS 6522 VIAs, and TAP cassette support. See **[docs/vic20.md](docs/vic20.md)**.
+* 🕹️ **Acorn Electron** (`Host.Electron`): Full 6502 @ 2 MHz, ULA video modes 0–6, paged ROM switching, and cassette I/O. See **[docs/electron.md](docs/electron.md)**.
+
+---
+
+## Documentation Directory
+
+| Document | Description |
+|---|---|
+| 📖 **[docs/walkthrough.md](docs/walkthrough.md)** | Full tutorial on building custom 6502 machines and buses |
+| ⚡ **[docs/performance-comparison.md](docs/performance-comparison.md)** | Deep technical comparison against other open-source 6502 emulators |
+| 📊 **[docs/technical-debt-and-performance-analysis.md](docs/technical-debt-and-performance-analysis.md)** | Architectural design analysis and optimization history |
+| 💻 **[docs/cli-reference.md](docs/cli-reference.md)** | Complete CLI command-line reference, flags, and hotkeys |
+| 🖥️ **[docs/atom.md](docs/atom.md)** | Acorn Atom address map, hardware registers, and ROM setup |
+| 🖥️ **[docs/vic20.md](docs/vic20.md)** | Commodore VIC-20 address map, chip specs, and TAP guide |
+| 🖥️ **[docs/electron.md](docs/electron.md)** | Acorn Electron ULA modes, address layout, and banking |
+
+---
+
+## Correctness & Verification
+
+The CPU engine is verified against **[Klaus Dörmann's 6502 Functional Test Suite](https://github.com/Klaus2m5/6502_65C02_functional_tests)**.
 
 ```bash
-dotnet run --project benchmarks/Cpu6502.Benchmarks -c Release -- --filter "*"
+dotnet test
 ```
 
-## Key types
+To run strict integration tests requiring functional assets:
 
-| Type | Purpose |
-|---|---|
-| `IBus` | Interface the CPU talks to — implement this for any hardware component |
-| `Ram` | Flat read/write memory with a `Load(address, bytes[])` helper |
-| `Rom` | Read-only memory; silently ignores writes |
-| `AddressDecoder` | Routes CPU traffic to components by address range — this is how you build a machine |
-| `Cpu` | The 6502 itself: `Reset()`, `Step()`, `Irq()`, `Nmi()` |
-
-## Building a machine
-
-```csharp
-var bus = new AddressDecoder();
-bus.Map(0x0000, 0x7FFF, new Ram(0x8000));
-bus.Map(0x8000, 0xBFFF, new Rom(File.ReadAllBytes("basic.rom")));
-bus.Map(0xC000, 0xFFFF, new Rom(File.ReadAllBytes("os.rom")));
-bus.Map(0xFE00, 0xFEFF, new MyUla());   // IBus implementation for MMIO
-
-var cpu = new Cpu(bus);
-cpu.Reset();
+```bash
+CPU6502_REQUIRE_INTEGRATION_ASSETS=1 dotnet test
 ```
 
-See [docs/walkthrough.md](docs/walkthrough.md) for a full tutorial.
+---
 
-## Acorn Atom emulator
+## License
 
-A complete Acorn Atom emulator is included in `src/Machines.Atom` and `src/Host.Atom`. It emulates the full hardware stack:
-
-| Component | Class | Hardware |
-|---|---|---|
-| CPU | `Cpu` | MOS 6502 @ 1 MHz |
-| PPI | `Ppi8255` | Intel 8255A — keyboard, cassette I/O, VDG mode pins |
-| VDG | `Mc6847` | Motorola MC6847 — 10 display modes, 256×192 output |
-| Keyboard | `AtomKeyboardAdapter` | 10×6 key matrix, row-select via Port A |
-| Sound | `AtomSoundAdapter` | PC4 bit-banged square wave → 44100 Hz PCM |
-| Tape | `AtomTapeAdapter` + `UefParser` | UEF tape images (plain or gzip), 300 baud KCS |
-
-To run:
-
-```
-dotnet run --project src/Host.Atom -- --basic atom-basic.rom --os atom-os.rom
-dotnet run --project src/Host.Atom -- --basic atom-basic.rom --os atom-os.rom --tape game.uef
-dotnet run --project src/Host.Atom -- --basic atom-basic.rom --os atom-os.rom --smooth --scanlines 0.5
-```
-
-See [docs/atom.md](docs/atom.md) for the full address map, chip documentation, and ROM details. See [docs/cli-reference.md](docs/cli-reference.md) for comprehensive command-line options, display hotkeys (F10/F11), and troubleshooting.
-
-## Commodore VIC-20 emulator
-
-A complete VIC-20 (unexpanded PAL) emulator is included in `src/Machines.Vic20` and `src/Host.Vic20`.
-
-| Component | Class | Hardware |
-|---|---|---|
-| CPU | `Cpu` | MOS 6502 @ 1.108 MHz |
-| Video | `VicI` | MOS 6560/6561 — text mode, 16 colours, 256×272 PAL output |
-| I/O 1 | `Via6522` | MOS 6522 VIA 1 — serial bus, tape, joystick |
-| I/O 2 | `Via6522` | MOS 6522 VIA 2 — keyboard matrix, joystick |
-| Keyboard | `Vic20KeyboardAdapter` | 8×8 key matrix, column-select via VIA 2 Port B |
-| Tape | `Vic20TapeAdapter` + `TapParser` | Commodore TAP images (v0 and v1 extended) |
-
-To run you need three ROM images from the VIC-20 (these are freely available from community ROM archives):
-
-| File | Size | Description |
-|---|---|---|
-| `basic.901486-01.bin` | 8 KB | BASIC ROM |
-| `kernal.901486-07.bin` | 8 KB | Kernal ROM (PAL) |
-| `chargen.901460-03.bin` | 4 KB | Character ROM |
-
-```
-dotnet run --project src/Host.Vic20 -- --basic basic.901486-01.bin --kernal kernal.901486-07.bin --char chargen.901460-03.bin
-dotnet run --project src/Host.Vic20 -- --basic basic.901486-01.bin --kernal kernal.901486-07.bin --char chargen.901460-03.bin --tape game.tap
-dotnet run --project src/Host.Vic20 -- --basic basic.901486-01.bin --kernal kernal.901486-07.bin --char chargen.901460-03.bin --smooth --scanlines 0.3
-```
-
-See [docs/vic20.md](docs/vic20.md) for the full address map, chip documentation, and ROM details. See [docs/cli-reference.md](docs/cli-reference.md) for comprehensive command-line options, display hotkeys (F10/F11), and troubleshooting.
-
-## Validating correctness
-
-Drop `6502_functional_test.bin` from [Klaus Dörmann's test suite](https://github.com/Klaus2m5/6502_65C02_functional_tests) into `tests/Cpu6502.Tests/TestData/` and run `dotnet test`. The integration test will confirm the CPU runs the suite to completion at PC=`$3469`.
-
-By default, this integration test is permissive when the asset is missing (to keep local setup friction low). To require integration assets, set:
-
-```
-CPU6502_REQUIRE_INTEGRATION_ASSETS=1
-```
-
-When strict mode is enabled, missing assets fail the test with a clear error message.
-
-## Execution tracing & debugging
-
-The CPU supports pluggable execution tracing for debugging, profiling, and analysis. See [CLAUDE.md](CLAUDE.md#execution-tracing--debugging) for:
-
-- **Conditional breakpoints** — Set `BreakpointCondition` on `RecordingTrace` to break on PC, opcode, or accumulator values
-- **Memory dump export** — Export instruction and memory access history to CSV or binary formats for spreadsheet/custom analysis
-- **Pluggable trace hooks** — Implement `IExecutionTrace` interface for custom debugging workflows
-
-**Quick example:**
-
-```csharp
-var trace = new RecordingTrace { BreakpointCondition = (pc, op, a) => pc == 0x3000 };
-cpu.Trace = trace;
-
-// ... run code ...
-
-// Export results
-File.WriteAllText("trace.csv", trace.ExportInstructionsCSV());
-File.WriteAllBytes("memory.bin", trace.ExportMemoryAccessesBinary());
-```
-
-## Contributor checklist
-
-When changing emulator behavior, update docs in the same PR:
-
-1. Address map/wiring changes: update `docs/atom.md` or `docs/vic20.md` and any XML comments on constructors/machine maps.
-2. Timing/interrupt scheduling changes: update the machine docs where timing behavior is described.
-3. Host CLI changes: update host usage text and command-line options tables in docs.
-4. Integration tests with external assets: document required files and strict-mode behavior.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
