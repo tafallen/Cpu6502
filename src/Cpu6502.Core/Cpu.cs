@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Cpu6502.Core;
 
 /// <summary>
@@ -13,22 +15,45 @@ public sealed partial class Cpu
     public byte   SP { get; private set; }
     public ushort PC { get; private set; }
 
-    // ── Status flags ──────────────────────────────────────────────────────────
-    public bool C { get; private set; }   // Carry
-    public bool Z { get; private set; }   // Zero
-    public bool I { get; private set; }   // Interrupt disable
-    public bool D { get; private set; }   // Decimal
-    public bool V { get; private set; }   // Overflow
-    public bool N { get; private set; }   // Negative
+    // ── Processor Status Register (P) ─────────────────────────────────────────
+    public byte P { get; private set; }
+
+    public bool C
+    {
+        get => (P & (byte)StatusFlags.Carry) != 0;
+        private set => P = value ? (byte)(P | (byte)StatusFlags.Carry) : (byte)(P & ~(byte)StatusFlags.Carry);
+    }
+    public bool Z
+    {
+        get => (P & (byte)StatusFlags.Zero) != 0;
+        private set => P = value ? (byte)(P | (byte)StatusFlags.Zero) : (byte)(P & ~(byte)StatusFlags.Zero);
+    }
+    public bool I
+    {
+        get => (P & (byte)StatusFlags.InterruptDisable) != 0;
+        private set => P = value ? (byte)(P | (byte)StatusFlags.InterruptDisable) : (byte)(P & ~(byte)StatusFlags.InterruptDisable);
+    }
+    public bool D
+    {
+        get => (P & (byte)StatusFlags.Decimal) != 0;
+        private set => P = value ? (byte)(P | (byte)StatusFlags.Decimal) : (byte)(P & ~(byte)StatusFlags.Decimal);
+    }
+    public bool V
+    {
+        get => (P & (byte)StatusFlags.Overflow) != 0;
+        private set => P = value ? (byte)(P | (byte)StatusFlags.Overflow) : (byte)(P & ~(byte)StatusFlags.Overflow);
+    }
+    public bool N
+    {
+        get => (P & (byte)StatusFlags.Negative) != 0;
+        private set => P = value ? (byte)(P | (byte)StatusFlags.Negative) : (byte)(P & ~(byte)StatusFlags.Negative);
+    }
 
     // ── Cycle counter ─────────────────────────────────────────────────────────
     public ulong TotalCycles { get; private set; }
 
     // ── Hardware ─────────────────────────────────────────────────────────────
     private readonly IBus _bus;
-
-    // ── Dispatch table ───────────────────────────────────────────────────────
-    private readonly Action[] _ops = new Action[256];
 
     // ── Pending interrupt state ───────────────────────────────────────────────
     private bool _nmiPending;
@@ -38,10 +63,25 @@ public sealed partial class Cpu
     private IExecutionTrace _trace = NullTrace.Instance;
     private ulong _memoryAccessCount;  // Counter for sampling
 
+    // ── Precomputed ZN Lookup Table ─────────────────────────────────────────
+    private static readonly byte[] ZnTable = BuildZnTable();
+
+    private static byte[] BuildZnTable()
+    {
+        var table = new byte[256];
+        table[0] = (byte)StatusFlags.Zero;
+        for (int i = 1; i < 256; i++)
+        {
+            byte flags = 0;
+            if ((i & 0x80) != 0) flags |= (byte)StatusFlags.Negative;
+            table[i] = flags;
+        }
+        return table;
+    }
+
     public Cpu(IBus bus)
     {
         _bus = bus;
-        BuildDispatchTable();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -58,12 +98,7 @@ public sealed partial class Cpu
         X  = 0;
         Y  = 0;
         SP = CpuConstants.INITIAL_STACK_POINTER;
-        C  = false;
-        Z  = false;
-        D  = false;
-        V  = false;
-        N  = false;
-        I  = true;   // Interrupts disabled after reset
+        P  = (byte)(StatusFlags.Unused | StatusFlags.InterruptDisable);
 
         PC = ReadWord(CpuConstants.RESET_VECTOR);
         TotalCycles += 7;
@@ -82,18 +117,18 @@ public sealed partial class Cpu
         else
         {
             ushort pcBefore = PC;
-            byte opcode = Peek();  // Peek at opcode without incrementing or tracing
+            byte opcode = Fetch();  // Fetch opcode (increments PC and records memory access)
             
             _trace.OnInstructionFetched(pcBefore, opcode);
             
-            // Check for conditional breakpoint (before execution and before PC advances)
+            // Check for conditional breakpoint (before execution)
             if (_trace.ShouldBreak(pcBefore, opcode, A))
+            {
+                PC = pcBefore;
                 throw new BreakException(pcBefore, opcode, A);
+            }
             
-            Fetch();  // Now fetch (increments PC and records memory access)
-            // (ignore return value since we already have opcode from Peek())
-            
-            _ops[opcode]();
+            ExecuteOpcode(opcode);
             
             int consumed = (int)(TotalCycles - before);
             _trace.OnInstructionExecuted(pcBefore, opcode, consumed, A, GetStatus());
@@ -134,27 +169,16 @@ public sealed partial class Cpu
     /// Returns the processor status byte.
     /// Bit 5 (Unused) is always set. Bit 4 (Break) reflects <paramref name="breakFlag"/>.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public byte GetStatus(bool breakFlag = false)
     {
-        byte s = (byte)StatusFlags.Unused;
-        if (C) s |= (byte)StatusFlags.Carry;
-        if (Z) s |= (byte)StatusFlags.Zero;
-        if (I) s |= (byte)StatusFlags.InterruptDisable;
-        if (D) s |= (byte)StatusFlags.Decimal;
-        if (breakFlag) s |= (byte)StatusFlags.Break;
-        if (V) s |= (byte)StatusFlags.Overflow;
-        if (N) s |= (byte)StatusFlags.Negative;
-        return s;
+        return (byte)(P | (byte)StatusFlags.Unused | (breakFlag ? (byte)StatusFlags.Break : 0));
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void SetStatus(byte value)
     {
-        C = (value & (byte)StatusFlags.Carry)            != 0;
-        Z = (value & (byte)StatusFlags.Zero)             != 0;
-        I = (value & (byte)StatusFlags.InterruptDisable) != 0;
-        D = (value & (byte)StatusFlags.Decimal)          != 0;
-        V = (value & (byte)StatusFlags.Overflow)         != 0;
-        N = (value & (byte)StatusFlags.Negative)         != 0;
+        P = (byte)((value & ~(byte)StatusFlags.Break) | (byte)StatusFlags.Unused);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -255,411 +279,391 @@ public sealed partial class Cpu
     // Flag helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void SetZN(byte v) { Z = v == 0; N = (v & CpuConstants.BIT_7_MASK) != 0; }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SetZN(byte v) => P = (byte)((P & ~0x82) | ZnTable[v]);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Dispatch table builder
+    // Native Jump-Table Opcode Dispatcher
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void BuildDispatchTable()
+    private void ExecuteOpcode(byte opcode)
     {
-        // Fill with illegal-opcode handler
-        for (int i = 0; i < 256; i++)
-            _ops[i] = IllegalOpcode;
-
-        // NOP
-        _ops[0xEA] = () => { TotalCycles += 2; };
-
-        // ── Load / Store ──────────────────────────────────────────────────────
-        // Consolidated using ExecuteLoad/ExecuteStore helpers to eliminate 31 duplicate methods
-        // Each addressing mode is now handled by the generic helper with a parameter
-        
-        // LDA (Load Accumulator) - 8 addressing modes
-        _ops[0xA9] = LDA_Immediate;
-        _ops[0xA5] = LDA_ZeroPage;
-        _ops[0xB5] = LDA_ZeroPageX;
-        _ops[0xAD] = LDA_Absolute;
-        _ops[0xBD] = LDA_AbsoluteX;
-        _ops[0xB9] = LDA_AbsoluteY;
-        _ops[0xA1] = LDA_IndirectX;
-        _ops[0xB1] = LDA_IndirectY;
-
-        // LDX (Load X Register) - 5 addressing modes
-        _ops[0xA2] = LDX_Immediate;
-        _ops[0xA6] = LDX_ZeroPage;
-        _ops[0xB6] = LDX_ZeroPageY;
-        _ops[0xAE] = LDX_Absolute;
-        _ops[0xBE] = LDX_AbsoluteY;
-
-        // LDY (Load Y Register) - 5 addressing modes
-        _ops[0xA0] = LDY_Immediate;
-        _ops[0xA4] = LDY_ZeroPage;
-        _ops[0xB4] = LDY_ZeroPageX;
-        _ops[0xAC] = LDY_Absolute;
-        _ops[0xBC] = LDY_AbsoluteX;
-
-        // STA (Store Accumulator) - 7 addressing modes
-        _ops[0x85] = STA_ZeroPage;
-        _ops[0x95] = STA_ZeroPageX;
-        _ops[0x8D] = STA_Absolute;
-        _ops[0x9D] = STA_AbsoluteX;
-        _ops[0x99] = STA_AbsoluteY;
-        _ops[0x81] = STA_IndirectX;
-        _ops[0x91] = STA_IndirectY;
-
-        // STX (Store X Register) - 3 addressing modes
-        _ops[0x86] = STX_ZeroPage;
-        _ops[0x96] = STX_ZeroPageY;
-        _ops[0x8E] = STX_Absolute;
-
-        // STY (Store Y Register) - 3 addressing modes
-        _ops[0x84] = STY_ZeroPage;
-        _ops[0x94] = STY_ZeroPageX;
-        _ops[0x8C] = STY_Absolute;
-
-        // ── Register transfers ────────────────────────────────────────────────
-        _ops[0xAA] = TAX; _ops[0x8A] = TXA;
-        _ops[0xA8] = TAY; _ops[0x98] = TYA;
-        _ops[0xBA] = TSX; _ops[0x9A] = TXS;
-
-        // ── Stack ─────────────────────────────────────────────────────────────
-        _ops[0x48] = PHA; _ops[0x68] = PLA;
-        _ops[0x08] = PHP; _ops[0x28] = PLP;
-
-        // ── Arithmetic ────────────────────────────────────────────────────────
-        // Consolidated using ExecuteArithmetic helper to eliminate 16 duplicate methods
-        
-        // ADC (Add with Carry) - 8 addressing modes
-        _ops[0x69] = ADC_Immediate;
-        _ops[0x65] = ADC_ZeroPage;
-        _ops[0x75] = ADC_ZeroPageX;
-        _ops[0x6D] = ADC_Absolute;
-        _ops[0x7D] = ADC_AbsoluteX;
-        _ops[0x79] = ADC_AbsoluteY;
-        _ops[0x61] = ADC_IndirectX;
-        _ops[0x71] = ADC_IndirectY;
-
-        // SBC (Subtract with Carry) - 8 addressing modes
-        _ops[0xE9] = SBC_Immediate;
-        _ops[0xE5] = SBC_ZeroPage;
-        _ops[0xF5] = SBC_ZeroPageX;
-        _ops[0xED] = SBC_Absolute;
-        _ops[0xFD] = SBC_AbsoluteX;
-        _ops[0xF9] = SBC_AbsoluteY;
-        _ops[0xE1] = SBC_IndirectX;
-        _ops[0xF1] = SBC_IndirectY;
-
-        _ops[0xE6] = () => ExecuteRMW(v => (byte)(v + 1), AddressingMode.ZeroPage);
-        _ops[0xF6] = () => ExecuteRMW(v => (byte)(v + 1), AddressingMode.ZeroPageX);
-        _ops[0xEE] = () => ExecuteRMW(v => (byte)(v + 1), AddressingMode.Absolute);
-        _ops[0xFE] = () => ExecuteRMW(v => (byte)(v + 1), AddressingMode.AbsoluteX);
-        _ops[0xE8] = INX;      _ops[0xC8] = INY;
-
-        _ops[0xC6] = DEC_ZeroPage;
-        _ops[0xD6] = DEC_ZeroPageX;
-        _ops[0xCE] = DEC_Absolute;
-        _ops[0xDE] = DEC_AbsoluteX;
-        _ops[0xCA] = DEX;      _ops[0x88] = DEY;
-
-        // ── Logic ─────────────────────────────────────────────────────────────
-        // Consolidated using ExecuteLogic helper to eliminate 26 duplicate methods
-        
-        // AND (Bitwise AND) - 8 addressing modes
-        _ops[0x29] = AND_Immediate;
-        _ops[0x25] = AND_ZeroPage;
-        _ops[0x35] = AND_ZeroPageX;
-        _ops[0x2D] = AND_Absolute;
-        _ops[0x3D] = AND_AbsoluteX;
-        _ops[0x39] = AND_AbsoluteY;
-        _ops[0x21] = AND_IndirectX;
-        _ops[0x31] = AND_IndirectY;
-
-        // ORA (Bitwise OR) - 8 addressing modes
-        _ops[0x09] = ORA_Immediate;
-        _ops[0x05] = ORA_ZeroPage;
-        _ops[0x15] = ORA_ZeroPageX;
-        _ops[0x0D] = ORA_Absolute;
-        _ops[0x1D] = ORA_AbsoluteX;
-        _ops[0x19] = ORA_AbsoluteY;
-        _ops[0x01] = ORA_IndirectX;
-        _ops[0x11] = ORA_IndirectY;
-
-        // EOR (Bitwise XOR) - 8 addressing modes
-        _ops[0x49] = EOR_Immediate;
-        _ops[0x45] = EOR_ZeroPage;
-        _ops[0x55] = EOR_ZeroPageX;
-        _ops[0x4D] = EOR_Absolute;
-        _ops[0x5D] = EOR_AbsoluteX;
-        _ops[0x59] = EOR_AbsoluteY;
-        _ops[0x41] = EOR_IndirectX;
-        _ops[0x51] = EOR_IndirectY;
-
-        // BIT (Test bits) - 2 addressing modes (handled separately as it doesn't store in A)
-        _ops[0x24] = BIT_ZeroPage;
-        _ops[0x2C] = BIT_Absolute;
-
-        // ── Shifts & Rotates ──────────────────────────────────────────────────
-        // Consolidated using ExecuteShiftAccumulator and ExecuteShiftMemory to eliminate 20 duplicate methods
-        
-        // ASL (Arithmetic Shift Left) - accumulator + 4 memory addressing modes
-        _ops[0x0A] = ASL_Accumulator;
-        _ops[0x06] = ASL_ZeroPage;
-        _ops[0x16] = ASL_ZeroPageX;
-        _ops[0x0E] = ASL_Absolute;
-        _ops[0x1E] = ASL_AbsoluteX;
-
-        // LSR (Logical Shift Right) - accumulator + 4 memory addressing modes
-        _ops[0x4A] = LSR_Accumulator;
-        _ops[0x46] = LSR_ZeroPage;
-        _ops[0x56] = LSR_ZeroPageX;
-        _ops[0x4E] = LSR_Absolute;
-        _ops[0x5E] = LSR_AbsoluteX;
-
-        // ROL (Rotate Left through Carry) - accumulator + 4 memory addressing modes
-        _ops[0x2A] = ROL_Accumulator;
-        _ops[0x26] = ROL_ZeroPage;
-        _ops[0x36] = ROL_ZeroPageX;
-        _ops[0x2E] = ROL_Absolute;
-        _ops[0x3E] = ROL_AbsoluteX;
-
-        // ROR (Rotate Right through Carry) - accumulator + 4 memory addressing modes
-        _ops[0x6A] = ROR_Accumulator;
-        _ops[0x66] = ROR_ZeroPage;
-        _ops[0x76] = ROR_ZeroPageX;
-        _ops[0x6E] = ROR_Absolute;
-        _ops[0x7E] = ROR_AbsoluteX;
-
-        // ── Compare ───────────────────────────────────────────────────────────
-        // Consolidated using ExecuteCompare helper to eliminate 13 duplicate methods
-        
-        // CMP (Compare Accumulator) - 8 addressing modes
-        _ops[0xC9] = CMP_Immediate;
-        _ops[0xC5] = CMP_ZeroPage;
-        _ops[0xD5] = CMP_ZeroPageX;
-        _ops[0xCD] = CMP_Absolute;
-        _ops[0xDD] = CMP_AbsoluteX;
-        _ops[0xD9] = CMP_AbsoluteY;
-        _ops[0xC1] = CMP_IndirectX;
-        _ops[0xD1] = CMP_IndirectY;
-
-        // CPX (Compare X Register) - 3 addressing modes
-        _ops[0xE0] = CPX_Immediate;
-        _ops[0xE4] = CPX_ZeroPage;
-        _ops[0xEC] = CPX_Absolute;
-
-        // CPY (Compare Y Register) - 3 addressing modes
-        _ops[0xC0] = CPY_Immediate;
-        _ops[0xC4] = CPY_ZeroPage;
-        _ops[0xCC] = CPY_Absolute;
-
-        // ── Branches ──────────────────────────────────────────────────────────
-        _ops[0x90] = BCC; _ops[0xB0] = BCS;
-        _ops[0xF0] = BEQ; _ops[0xD0] = BNE;
-        _ops[0x30] = BMI; _ops[0x10] = BPL;
-        _ops[0x70] = BVS; _ops[0x50] = BVC;
-
-        // ── Jumps / Calls ─────────────────────────────────────────────────────
-        _ops[0x4C] = JMP_Abs; _ops[0x6C] = JMP_Ind;
-        _ops[0x20] = JSR;     _ops[0x60] = RTS;
-        _ops[0x00] = BRK;     _ops[0x40] = RTI;
-
-        // ── Flag instructions ─────────────────────────────────────────────────
-        _ops[0x18] = CLC; _ops[0x38] = SEC;
-        _ops[0x58] = CLI; _ops[0x78] = SEI;
-        _ops[0xD8] = CLD; _ops[0xF8] = SED;
-        _ops[0xB8] = CLV;
-
-        // ── Illegal / undocumented (NMOS 6502) ───────────────────────────────
-        // NOP variants — consume operand bytes and cycles, discard result
-        // Implied 1-byte 2-cycle
-        _ops[0x1A] = _ops[0x3A] = _ops[0x5A] = _ops[0x7A] =
-        _ops[0xDA] = _ops[0xFA] = () => { TotalCycles += 2; };
-        // Immediate 2-byte 2-cycle
-        _ops[0x80] = _ops[0x82] = _ops[0x89] = _ops[0xC2] = _ops[0xE2] =
-            () => { Fetch(); TotalCycles += 2; };
-        // Zero-page 2-byte 3-cycle
-        _ops[0x04] = _ops[0x44] = _ops[0x64] =
-            () => { ReadByte((ushort)Fetch()); TotalCycles += 3; };
-        // Zero-page,X 2-byte 4-cycle
-        _ops[0x14] = _ops[0x34] = _ops[0x54] = _ops[0x74] =
-        _ops[0xD4] = _ops[0xF4] =
-            () => { ReadByte((ushort)((Fetch() + X) & 0xFF)); TotalCycles += 4; };
-        // Absolute 3-byte 4-cycle
-        _ops[0x0C] = () => { ushort a = (ushort)(Fetch() | (Fetch() << 8)); ReadByte(a); TotalCycles += 4; };
-        // Absolute,X 3-byte 4-cycle (no page-cross penalty on NOPs)
-        Action nopAbsX = () =>
+        switch (opcode)
         {
-            ushort b = (ushort)(Fetch() | (Fetch() << 8));
-            ReadByte((ushort)(b + X));
-            TotalCycles += 4;
-        };
-        _ops[0x1C] = _ops[0x3C] = _ops[0x5C] = _ops[0x7C] =
-        _ops[0xDC] = _ops[0xFC] = nopAbsX;
+            // NOP
+            case 0xEA: TotalCycles += 2; break;
 
-        // LAX — LDA + LDX same value (sets Z and N)
-        _ops[0xA3] = () => { byte v = ReadByte(AddrIndexedIndirect());   A = X = v; SetZN(v); TotalCycles += 6; };
-        _ops[0xA7] = () => { byte v = ReadByte(AddrZeroPage());          A = X = v; SetZN(v); TotalCycles += 3; };
-        _ops[0xAF] = () => { byte v = ReadByte(AddrAbsolute());          A = X = v; SetZN(v); TotalCycles += 4; };
-        _ops[0xB3] = () => { byte v = ReadByte(AddrIndirectIndexed());   A = X = v; SetZN(v); TotalCycles += 5; };
-        _ops[0xB7] = () => { byte v = ReadByte(AddrZeroPageY());         A = X = v; SetZN(v); TotalCycles += 4; };
-        _ops[0xBF] = () => { byte v = ReadByte(AddrAbsoluteY());         A = X = v; SetZN(v); TotalCycles += 4; };
+            // LDA
+            case 0xA9: LDA_Immediate(); break;
+            case 0xA5: LDA_ZeroPage(); break;
+            case 0xB5: LDA_ZeroPageX(); break;
+            case 0xAD: LDA_Absolute(); break;
+            case 0xBD: LDA_AbsoluteX(); break;
+            case 0xB9: LDA_AbsoluteY(); break;
+            case 0xA1: LDA_IndirectX(); break;
+            case 0xB1: LDA_IndirectY(); break;
 
-        // SAX — store A & X (no flags)
-        _ops[0x83] = () => { WriteByte(AddrIndexedIndirect(), (byte)(A & X)); TotalCycles += 6; };
-        _ops[0x87] = () => { WriteByte(AddrZeroPage(),        (byte)(A & X)); TotalCycles += 3; };
-        _ops[0x8F] = () => { WriteByte(AddrAbsolute(),        (byte)(A & X)); TotalCycles += 4; };
-        _ops[0x97] = () => { WriteByte(AddrZeroPageY(),       (byte)(A & X)); TotalCycles += 4; };
+            // LDX
+            case 0xA2: LDX_Immediate(); break;
+            case 0xA6: LDX_ZeroPage(); break;
+            case 0xB6: LDX_ZeroPageY(); break;
+            case 0xAE: LDX_Absolute(); break;
+            case 0xBE: LDX_AbsoluteY(); break;
 
-        // DCP — DEC memory then CMP A (sets C, Z, N like CMP)
-        // DCP — Decrement then Compare (all addressing modes)
-        _ops[0xC3] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.IndirectX);
-        _ops[0xC7] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.ZeroPage);
-        _ops[0xCF] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.Absolute);
-        _ops[0xD3] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.IndirectY);
-        _ops[0xD7] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.ZeroPageX);
-        _ops[0xDB] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.AbsoluteY);
-        _ops[0xDF] = () => ExecuteIllegalRMW(v => (byte)(v - 1), result => DoCMP(A, result), AddressingMode.AbsoluteX);
+            // LDY
+            case 0xA0: LDY_Immediate(); break;
+            case 0xA4: LDY_ZeroPage(); break;
+            case 0xB4: LDY_ZeroPageX(); break;
+            case 0xAC: LDY_Absolute(); break;
+            case 0xBC: LDY_AbsoluteX(); break;
 
-        // ISB/ISC — INC memory then SBC A
-        // ISB — Increment then SBC (all addressing modes)
-        _ops[0xE3] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.IndirectX);
-        _ops[0xE7] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.ZeroPage);
-        _ops[0xEF] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.Absolute);
-        _ops[0xF3] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.IndirectY);
-        _ops[0xF7] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.ZeroPageX);
-        _ops[0xFB] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.AbsoluteY);
-        _ops[0xFF] = () => ExecuteIllegalRMW(v => (byte)(v + 1), result => SbcCore(result), AddressingMode.AbsoluteX);
+            // STA
+            case 0x85: STA_ZeroPage(); break;
+            case 0x95: STA_ZeroPageX(); break;
+            case 0x8D: STA_Absolute(); break;
+            case 0x9D: STA_AbsoluteX(); break;
+            case 0x99: STA_AbsoluteY(); break;
+            case 0x81: STA_IndirectX(); break;
+            case 0x91: STA_IndirectY(); break;
 
-        // SLO — ASL memory then ORA A
-        // SLO — Shift Left then ORA (all addressing modes)
-        _ops[0x03] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.IndirectX);
-        _ops[0x07] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.ZeroPage);
-        _ops[0x0F] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.Absolute);
-        _ops[0x13] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.IndirectY);
-        _ops[0x17] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.ZeroPageX);
-        _ops[0x1B] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.AbsoluteY);
-        _ops[0x1F] = () => ExecuteIllegalRMW(v => { C = (v & 0x80) != 0; return (byte)(v << 1); }, result => { A |= result; SetZN(A); }, AddressingMode.AbsoluteX);
+            // STX
+            case 0x86: STX_ZeroPage(); break;
+            case 0x96: STX_ZeroPageY(); break;
+            case 0x8E: STX_Absolute(); break;
 
-        // RLA — ROL memory then AND A
-        // RLA — Rotate Left then AND (all addressing modes)
-        _ops[0x23] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.IndirectX);
-        _ops[0x27] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.ZeroPage);
-        _ops[0x2F] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.Absolute);
-        _ops[0x33] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.IndirectY);
-        _ops[0x37] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.ZeroPageX);
-        _ops[0x3B] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.AbsoluteY);
-        _ops[0x3F] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)1 : (byte)0; C = (v & 0x80) != 0; return (byte)((v << 1) | c); }, result => { A &= result; SetZN(A); }, AddressingMode.AbsoluteX);
+            // STY
+            case 0x84: STY_ZeroPage(); break;
+            case 0x94: STY_ZeroPageX(); break;
+            case 0x8C: STY_Absolute(); break;
 
-        // SRE — LSR memory then EOR A
-        // SRE — Shift Right then EOR (all addressing modes)
-        _ops[0x43] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.IndirectX);
-        _ops[0x47] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.ZeroPage);
-        _ops[0x4F] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.Absolute);
-        _ops[0x53] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.IndirectY);
-        _ops[0x57] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.ZeroPageX);
-        _ops[0x5B] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.AbsoluteY);
-        _ops[0x5F] = () => ExecuteIllegalRMW(v => { C = (v & 1) != 0; return (byte)(v >> 1); }, result => { A ^= result; SetZN(A); }, AddressingMode.AbsoluteX);
+            // Register transfers
+            case 0xAA: TAX(); break;
+            case 0x8A: TXA(); break;
+            case 0xA8: TAY(); break;
+            case 0x98: TYA(); break;
+            case 0xBA: TSX(); break;
+            case 0x9A: TXS(); break;
 
-        // RRA — ROR memory then ADC A
-        // RRA — Rotate Right then ADC (all addressing modes)
-        _ops[0x63] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.IndirectX);
-        _ops[0x67] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.ZeroPage);
-        _ops[0x6F] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.Absolute);
-        _ops[0x73] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.IndirectY);
-        _ops[0x77] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.ZeroPageX);
-        _ops[0x7B] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.AbsoluteY);
-        _ops[0x7F] = () => ExecuteIllegalRMW(v => { byte c = C ? (byte)0x80 : (byte)0; C = (v & 1) != 0; return (byte)((v >> 1) | c); }, result => AdcCore(result), AddressingMode.AbsoluteX);
+            // Stack
+            case 0x48: PHA(); break;
+            case 0x68: PLA(); break;
+            case 0x08: PHP(); break;
+            case 0x28: PLP(); break;
 
-        // ANC ($0B/$2B) — AND imm, carry = bit 7 of result
-        _ops[0x0B] = _ops[0x2B] = () =>
-        {
-            A &= Fetch(); SetZN(A); C = (A & 0x80) != 0; TotalCycles += 2;
-        };
+            // ADC
+            case 0x69: ADC_Immediate(); break;
+            case 0x65: ADC_ZeroPage(); break;
+            case 0x75: ADC_ZeroPageX(); break;
+            case 0x6D: ADC_Absolute(); break;
+            case 0x7D: ADC_AbsoluteX(); break;
+            case 0x79: ADC_AbsoluteY(); break;
+            case 0x61: ADC_IndirectX(); break;
+            case 0x71: ADC_IndirectY(); break;
 
-        // ALR ($4B) — AND imm then LSR accumulator
-        _ops[0x4B] = () =>
-        {
-            A &= Fetch(); C = (A & 0x01) != 0; A >>= 1; SetZN(A); TotalCycles += 2;
-        };
+            // SBC
+            case 0xE9: SBC_Immediate(); break;
+            case 0xE5: SBC_ZeroPage(); break;
+            case 0xF5: SBC_ZeroPageX(); break;
+            case 0xED: SBC_Absolute(); break;
+            case 0xFD: SBC_AbsoluteX(); break;
+            case 0xF9: SBC_AbsoluteY(); break;
+            case 0xE1: SBC_IndirectX(); break;
+            case 0xF1: SBC_IndirectY(); break;
 
-        // ARR ($6B) — AND imm then ROR accumulator (complex flags)
-        _ops[0x6B] = () =>
-        {
-            byte imm = Fetch();
-            A &= imm;
-            byte r = (byte)((A >> 1) | (C ? 0x80 : 0));
-            C = (r & 0x40) != 0;
-            V = ((r ^ (r << 1)) & 0x40) != 0;
-            A = r; SetZN(A); TotalCycles += 2;
-        };
+            // INC
+            case 0xE6: INC_Zp(); break;
+            case 0xF6: INC_ZpX(); break;
+            case 0xEE: INC_Abs(); break;
+            case 0xFE: INC_AbsX(); break;
+            case 0xE8: INX(); break;
+            case 0xC8: INY(); break;
 
-        // SBX/AXS ($CB) — (A & X) - imm → X; sets C,Z,N like CMP
-        _ops[0xCB] = () =>
-        {
-            byte imm = Fetch();
-            int r = (A & X) - imm;
-            C = r >= 0; X = (byte)r; SetZN(X); TotalCycles += 2;
-        };
+            // DEC
+            case 0xC6: DEC_Zp(); break;
+            case 0xD6: DEC_ZpX(); break;
+            case 0xCE: DEC_Abs(); break;
+            case 0xDE: DEC_AbsX(); break;
+            case 0xCA: DEX(); break;
+            case 0x88: DEY(); break;
 
-        // USBC ($EB) — SBC immediate (duplicate of $E9)
-        _ops[0xEB] = () => { SbcCore(Fetch()); TotalCycles += 2; };
+            // AND
+            case 0x29: AND_Immediate(); break;
+            case 0x25: AND_ZeroPage(); break;
+            case 0x35: AND_ZeroPageX(); break;
+            case 0x2D: AND_Absolute(); break;
+            case 0x3D: AND_AbsoluteX(); break;
+            case 0x39: AND_AbsoluteY(); break;
+            case 0x21: AND_IndirectX(); break;
+            case 0x31: AND_IndirectY(); break;
 
-        // LAS/LAR ($BB) — (SP & mem) → A, X, SP; abs,Y
-        _ops[0xBB] = () =>
-        {
-            byte v = (byte)(ReadByte(AddrAbsoluteY()) & SP);
-            A = X = SP = v; SetZN(v); TotalCycles += 4;
-        };
+            // ORA
+            case 0x09: ORA_Immediate(); break;
+            case 0x05: ORA_ZeroPage(); break;
+            case 0x15: ORA_ZeroPageX(); break;
+            case 0x0D: ORA_Absolute(); break;
+            case 0x1D: ORA_AbsoluteX(); break;
+            case 0x19: ORA_AbsoluteY(); break;
+            case 0x01: ORA_IndirectX(); break;
+            case 0x11: ORA_IndirectY(); break;
 
-        // XAA/ANE ($8B) — unstable; treat as A = (A | 0xEE) & X & imm
-        _ops[0x8B] = () => { A = (byte)((A | 0xEE) & X & Fetch()); SetZN(A); TotalCycles += 2; };
+            // EOR
+            case 0x49: EOR_Immediate(); break;
+            case 0x45: EOR_ZeroPage(); break;
+            case 0x55: EOR_ZeroPageX(); break;
+            case 0x4D: EOR_Absolute(); break;
+            case 0x5D: EOR_AbsoluteX(); break;
+            case 0x59: EOR_AbsoluteY(); break;
+            case 0x41: EOR_IndirectX(); break;
+            case 0x51: EOR_IndirectY(); break;
 
-        // LXA/OAL ($AB) — A = X = (A | 0xEE) & imm (unstable; common magic = 0xFF)
-        _ops[0xAB] = () => { byte v = (byte)((A | 0xEE) & Fetch()); A = X = v; SetZN(v); TotalCycles += 2; };
+            // BIT
+            case 0x24: BIT_ZeroPage(); break;
+            case 0x2C: BIT_Absolute(); break;
 
-        // TAS/XAS ($9B) — SP = A & X; store A & X & (addr_hi+1) abs,Y
-        _ops[0x9B] = () =>
-        {
-            ushort base16 = (ushort)(Fetch() | (Fetch() << 8));
-            SP = (byte)(A & X);
-            WriteByte((ushort)(base16 + Y), (byte)(SP & ((base16 >> 8) + 1)));
-            TotalCycles += 5;
-        };
+            // Shifts
+            case 0x0A: ASL_Acc(); break;
+            case 0x06: ASL_Zp(); break;
+            case 0x16: ASL_ZpX(); break;
+            case 0x0E: ASL_Abs(); break;
+            case 0x1E: ASL_AbsX(); break;
 
-        // SHY ($9C) — Store Y & (addr_hi + 1), abs,X
-        _ops[0x9C] = () =>
-        {
-            ushort base16 = (ushort)(Fetch() | (Fetch() << 8));
-            ushort ea     = (ushort)(base16 + X);
-            WriteByte(ea, (byte)(Y & ((base16 >> 8) + 1)));
-            TotalCycles += 5;
-        };
+            case 0x4A: LSR_Acc(); break;
+            case 0x46: LSR_Zp(); break;
+            case 0x56: LSR_ZpX(); break;
+            case 0x4E: LSR_Abs(); break;
+            case 0x5E: LSR_AbsX(); break;
 
-        // SHX ($9E) — Store X & (addr_hi + 1), abs,Y
-        _ops[0x9E] = () =>
-        {
-            ushort base16 = (ushort)(Fetch() | (Fetch() << 8));
-            ushort ea     = (ushort)(base16 + Y);
-            WriteByte(ea, (byte)(X & ((base16 >> 8) + 1)));
-            TotalCycles += 5;
-        };
+            case 0x2A: ROL_Acc(); break;
+            case 0x26: ROL_Zp(); break;
+            case 0x36: ROL_ZpX(); break;
+            case 0x2E: ROL_Abs(); break;
+            case 0x3E: ROL_AbsX(); break;
 
-        // SHA ($9F abs,Y; $93 (ind),Y) — Store A & X & (addr_hi + 1)
-        _ops[0x9F] = () =>
-        {
-            ushort base16 = (ushort)(Fetch() | (Fetch() << 8));
-            ushort ea     = (ushort)(base16 + Y);
-            WriteByte(ea, (byte)(A & X & ((base16 >> 8) + 1)));
-            TotalCycles += 5;
-        };
-        _ops[0x93] = () =>
-        {
-            byte zp       = Fetch();
-            ushort base16 = ReadWordBug(zp);
-            ushort ea     = (ushort)(base16 + Y);
-            WriteByte(ea, (byte)(A & X & ((base16 >> 8) + 1)));
-            TotalCycles += 6;
-        };
+            case 0x6A: ROR_Acc(); break;
+            case 0x66: ROR_Zp(); break;
+            case 0x76: ROR_ZpX(); break;
+            case 0x6E: ROR_Abs(); break;
+            case 0x7E: ROR_AbsX(); break;
+
+            // Compare
+            case 0xC9: CMP_Immediate(); break;
+            case 0xC5: CMP_ZeroPage(); break;
+            case 0xD5: CMP_ZeroPageX(); break;
+            case 0xCD: CMP_Absolute(); break;
+            case 0xDD: CMP_AbsoluteX(); break;
+            case 0xD9: CMP_AbsoluteY(); break;
+            case 0xC1: CMP_IndirectX(); break;
+            case 0xD1: CMP_IndirectY(); break;
+
+            case 0xE0: CPX_Immediate(); break;
+            case 0xE4: CPX_ZeroPage(); break;
+            case 0xEC: CPX_Absolute(); break;
+
+            case 0xC0: CPY_Immediate(); break;
+            case 0xC4: CPY_ZeroPage(); break;
+            case 0xCC: CPY_Absolute(); break;
+
+            // Branches
+            case 0x90: BCC(); break;
+            case 0xB0: BCS(); break;
+            case 0xF0: BEQ(); break;
+            case 0xD0: BNE(); break;
+            case 0x30: BMI(); break;
+            case 0x10: BPL(); break;
+            case 0x70: BVS(); break;
+            case 0x50: BVC(); break;
+
+            // Jumps / Calls
+            case 0x4C: JMP_Abs(); break;
+            case 0x6C: JMP_Ind(); break;
+            case 0x20: JSR(); break;
+            case 0x60: RTS(); break;
+            case 0x00: BRK(); break;
+            case 0x40: RTI(); break;
+
+            // Flags
+            case 0x18: CLC(); break;
+            case 0x38: SEC(); break;
+            case 0x58: CLI(); break;
+            case 0x78: SEI(); break;
+            case 0xD8: CLD(); break;
+            case 0xF8: SED(); break;
+            case 0xB8: CLV(); break;
+
+            // Illegal opcodes
+            case 0x1A: case 0x3A: case 0x5A: case 0x7A: case 0xDA: case 0xFA: TotalCycles += 2; break;
+            case 0x80: case 0x82: case 0x89: case 0xC2: case 0xE2: Fetch(); TotalCycles += 2; break;
+            case 0x04: case 0x44: case 0x64: ReadByte((ushort)Fetch()); TotalCycles += 3; break;
+            case 0x14: case 0x34: case 0x54: case 0x74: case 0xD4: case 0xF4: ReadByte((ushort)((Fetch() + X) & 0xFF)); TotalCycles += 4; break;
+            case 0x0C: { ushort a = (ushort)(Fetch() | (Fetch() << 8)); ReadByte(a); TotalCycles += 4; break; }
+            case 0x1C: case 0x3C: case 0x5C: case 0x7C: case 0xDC: case 0xFC:
+                { ushort b = (ushort)(Fetch() | (Fetch() << 8)); ReadByte((ushort)(b + X)); TotalCycles += 4; break; }
+
+            // LAX
+            case 0xA3: { byte v = ReadByte(AddrIndexedIndirect()); A = X = v; SetZN(v); TotalCycles += 6; break; }
+            case 0xA7: { byte v = ReadByte(AddrZeroPage()); A = X = v; SetZN(v); TotalCycles += 3; break; }
+            case 0xAF: { byte v = ReadByte(AddrAbsolute()); A = X = v; SetZN(v); TotalCycles += 4; break; }
+            case 0xB3: { byte v = ReadByte(AddrIndirectIndexed()); A = X = v; SetZN(v); TotalCycles += 5; break; }
+            case 0xB7: { byte v = ReadByte(AddrZeroPageY()); A = X = v; SetZN(v); TotalCycles += 4; break; }
+            case 0xBF: { byte v = ReadByte(AddrAbsoluteY()); A = X = v; SetZN(v); TotalCycles += 4; break; }
+
+            // SAX
+            case 0x83: WriteByte(AddrIndexedIndirect(), (byte)(A & X)); TotalCycles += 6; break;
+            case 0x87: WriteByte(AddrZeroPage(), (byte)(A & X)); TotalCycles += 3; break;
+            case 0x8F: WriteByte(AddrAbsolute(), (byte)(A & X)); TotalCycles += 4; break;
+            case 0x97: WriteByte(AddrZeroPageY(), (byte)(A & X)); TotalCycles += 4; break;
+
+            // DCP
+            case 0xC3: DcpAt(AddrIndexedIndirect()); TotalCycles += 8; break;
+            case 0xC7: DcpAt(AddrZeroPage()); TotalCycles += 5; break;
+            case 0xCF: DcpAt(AddrAbsolute()); TotalCycles += 6; break;
+            case 0xD3: DcpAt(AddrIndirectIndexed()); TotalCycles += 8; break;
+            case 0xD7: DcpAt(AddrZeroPageX()); TotalCycles += 6; break;
+            case 0xDB: DcpAt(AddrAbsoluteY()); TotalCycles += 7; break;
+            case 0xDF: DcpAt(AddrAbsoluteX()); TotalCycles += 7; break;
+
+            // ISB
+            case 0xE3: IsbAt(AddrIndexedIndirect()); TotalCycles += 8; break;
+            case 0xE7: IsbAt(AddrZeroPage()); TotalCycles += 5; break;
+            case 0xEF: IsbAt(AddrAbsolute()); TotalCycles += 6; break;
+            case 0xF3: IsbAt(AddrIndirectIndexed()); TotalCycles += 8; break;
+            case 0xF7: IsbAt(AddrZeroPageX()); TotalCycles += 6; break;
+            case 0xFB: IsbAt(AddrAbsoluteY()); TotalCycles += 7; break;
+            case 0xFF: IsbAt(AddrAbsoluteX()); TotalCycles += 7; break;
+
+            // SLO
+            case 0x03: SloAt(AddrIndexedIndirect()); TotalCycles += 8; break;
+            case 0x07: SloAt(AddrZeroPage()); TotalCycles += 5; break;
+            case 0x0F: SloAt(AddrAbsolute()); TotalCycles += 6; break;
+            case 0x13: SloAt(AddrIndirectIndexed()); TotalCycles += 8; break;
+            case 0x17: SloAt(AddrZeroPageX()); TotalCycles += 6; break;
+            case 0x1B: SloAt(AddrAbsoluteY()); TotalCycles += 7; break;
+            case 0x1F: SloAt(AddrAbsoluteX()); TotalCycles += 7; break;
+
+            // RLA
+            case 0x23: RlaAt(AddrIndexedIndirect()); TotalCycles += 8; break;
+            case 0x27: RlaAt(AddrZeroPage()); TotalCycles += 5; break;
+            case 0x2F: RlaAt(AddrAbsolute()); TotalCycles += 6; break;
+            case 0x33: RlaAt(AddrIndirectIndexed()); TotalCycles += 8; break;
+            case 0x37: RlaAt(AddrZeroPageX()); TotalCycles += 6; break;
+            case 0x3B: RlaAt(AddrAbsoluteY()); TotalCycles += 7; break;
+            case 0x3F: RlaAt(AddrAbsoluteX()); TotalCycles += 7; break;
+
+            // SRE
+            case 0x43: SreAt(AddrIndexedIndirect()); TotalCycles += 8; break;
+            case 0x47: SreAt(AddrZeroPage()); TotalCycles += 5; break;
+            case 0x4F: SreAt(AddrAbsolute()); TotalCycles += 6; break;
+            case 0x53: SreAt(AddrIndirectIndexed()); TotalCycles += 8; break;
+            case 0x57: SreAt(AddrZeroPageX()); TotalCycles += 6; break;
+            case 0x5B: SreAt(AddrAbsoluteY()); TotalCycles += 7; break;
+            case 0x5F: SreAt(AddrAbsoluteX()); TotalCycles += 7; break;
+
+            // RRA
+            case 0x63: RraAt(AddrIndexedIndirect()); TotalCycles += 8; break;
+            case 0x67: RraAt(AddrZeroPage()); TotalCycles += 5; break;
+            case 0x6F: RraAt(AddrAbsolute()); TotalCycles += 6; break;
+            case 0x73: RraAt(AddrIndirectIndexed()); TotalCycles += 8; break;
+            case 0x77: RraAt(AddrZeroPageX()); TotalCycles += 6; break;
+            case 0x7B: RraAt(AddrAbsoluteY()); TotalCycles += 7; break;
+            case 0x7F: RraAt(AddrAbsoluteX()); TotalCycles += 7; break;
+
+            // ANC
+            case 0x0B: case 0x2B: A &= Fetch(); SetZN(A); C = (A & 0x80) != 0; TotalCycles += 2; break;
+
+            // ALR
+            case 0x4B: A &= Fetch(); C = (A & 0x01) != 0; A >>= 1; SetZN(A); TotalCycles += 2; break;
+
+            // ARR
+            case 0x6B:
+                {
+                    byte imm = Fetch();
+                    A &= imm;
+                    byte r = (byte)((A >> 1) | (C ? 0x80 : 0));
+                    C = (r & 0x40) != 0;
+                    V = ((r ^ (r << 1)) & 0x40) != 0;
+                    A = r; SetZN(A); TotalCycles += 2;
+                    break;
+                }
+
+            // SBX
+            case 0xCB:
+                {
+                    byte imm = Fetch();
+                    int r = (A & X) - imm;
+                    C = r >= 0; X = (byte)r; SetZN(X); TotalCycles += 2;
+                    break;
+                }
+
+            // USBC
+            case 0xEB: SbcCore(Fetch()); TotalCycles += 2; break;
+
+            // LAS
+            case 0xBB:
+                {
+                    byte v = (byte)(ReadByte(AddrAbsoluteY()) & SP);
+                    A = X = SP = v; SetZN(v); TotalCycles += 4;
+                    break;
+                }
+
+            // XAA
+            case 0x8B: A = (byte)((A | 0xEE) & X & Fetch()); SetZN(A); TotalCycles += 2; break;
+
+            // LXA
+            case 0xAB: { byte v = (byte)((A | 0xEE) & Fetch()); A = X = v; SetZN(v); TotalCycles += 2; break; }
+
+            // TAS
+            case 0x9B:
+                {
+                    ushort base16 = (ushort)(Fetch() | (Fetch() << 8));
+                    SP = (byte)(A & X);
+                    WriteByte((ushort)(base16 + Y), (byte)(SP & ((base16 >> 8) + 1)));
+                    TotalCycles += 5;
+                    break;
+                }
+
+            // SHY
+            case 0x9C:
+                {
+                    ushort base16 = (ushort)(Fetch() | (Fetch() << 8));
+                    ushort ea = (ushort)(base16 + X);
+                    WriteByte(ea, (byte)(Y & ((base16 >> 8) + 1)));
+                    TotalCycles += 5;
+                    break;
+                }
+
+            // SHX
+            case 0x9E:
+                {
+                    ushort base16 = (ushort)(Fetch() | (Fetch() << 8));
+                    ushort ea = (ushort)(base16 + Y);
+                    WriteByte(ea, (byte)(X & ((base16 >> 8) + 1)));
+                    TotalCycles += 5;
+                    break;
+                }
+
+            // SHA
+            case 0x9F:
+                {
+                    ushort base16 = (ushort)(Fetch() | (Fetch() << 8));
+                    ushort ea = (ushort)(base16 + Y);
+                    WriteByte(ea, (byte)(A & X & ((base16 >> 8) + 1)));
+                    TotalCycles += 5;
+                    break;
+                }
+            case 0x93:
+                {
+                    byte zp = Fetch();
+                    ushort base16 = ReadWordBug(zp);
+                    ushort ea = (ushort)(base16 + Y);
+                    WriteByte(ea, (byte)(A & X & ((base16 >> 8) + 1)));
+                    TotalCycles += 6;
+                    break;
+                }
+
+            default:
+                IllegalOpcode();
+                break;
+        }
     }
 
     private void IllegalOpcode()

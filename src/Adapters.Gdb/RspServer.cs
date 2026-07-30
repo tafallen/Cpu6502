@@ -246,7 +246,7 @@ public sealed class RspServer : IDisposable
     private string SetBreakpoint(string args)
     {
         // Format: Z<type>,<addr>,<kind>
-        // Type: 0=soft, 1=hard, 2=write, 3=read, 4=access
+        // Type: 0=soft, 1=hard, 2=write watchpoint, 3=read watchpoint, 4=access watchpoint
         int firstComma = args.IndexOf(',');
         int secondComma = args.LastIndexOf(',');
 
@@ -255,7 +255,7 @@ public sealed class RspServer : IDisposable
 
         if (!int.TryParse(args[..firstComma], System.Globalization.NumberStyles.HexNumber, null, out int type))
             return "E01";
-        if (type != 1)  // Only support hardware breakpoints
+        if (type < 0 || type > 4)
             return "";
 
         string addrStr = args[(firstComma + 1)..secondComma];
@@ -277,7 +277,7 @@ public sealed class RspServer : IDisposable
 
         if (!int.TryParse(args[..firstComma], System.Globalization.NumberStyles.HexNumber, null, out int type))
             return "E01";
-        if (type != 1)
+        if (type < 0 || type > 4)
             return "";
 
         string addrStr = args[(firstComma + 1)..secondComma];

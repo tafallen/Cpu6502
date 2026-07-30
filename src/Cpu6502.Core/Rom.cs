@@ -5,7 +5,7 @@ namespace Cpu6502.Core;
 /// matching real hardware — there is no bus error when the CPU writes to a ROM address.
 /// Out-of-bounds reads return 0xFF (open bus); out-of-bounds writes are silently ignored.
 /// </summary>
-public sealed class Rom : IBusValidator
+public sealed class Rom : IBusValidator, IDirectMemoryDevice
 {
     private readonly byte[] _data;
     private readonly int _size;
@@ -14,6 +14,23 @@ public sealed class Rom : IBusValidator
     {
         _data = (byte[])data.Clone();
         _size = data.Length;
+    }
+
+    /// <summary>Direct array buffer for fast-path address decoder reads.</summary>
+    public byte[]? DirectReadBuffer => _data;
+
+    /// <summary>Direct array buffer for fast-path address decoder writes (null for ROM).</summary>
+    public byte[]? DirectWriteBuffer => null;
+
+    public bool TryGetSpan(ushort address, int length, out ReadOnlySpan<byte> span)
+    {
+        if (address + length <= _size)
+        {
+            span = _data.AsSpan(address, length);
+            return true;
+        }
+        span = default;
+        return false;
     }
 
     public void ValidateAddress(ushort address)

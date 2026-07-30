@@ -142,7 +142,10 @@ public sealed class Vic20Machine : IComponent
 
     public void Step()
     {
+        ulong before = Cpu.TotalCycles;
         Cpu.Step();
+        int cycles = (int)(Cpu.TotalCycles - before);
+        AdvanceTiming(cycles);
     }
 
     private void AdvanceTiming(int cycles)

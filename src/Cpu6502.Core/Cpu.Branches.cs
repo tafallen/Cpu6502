@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Cpu6502.Core;
 
 public sealed partial class Cpu
@@ -11,16 +13,19 @@ public sealed partial class Cpu
     private void BVS() => Branch(V);
     private void BVC() => Branch(!V);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Branch(bool condition)
     {
         sbyte offset = (sbyte)Fetch();  // signed relative offset
-        TotalCycles += (ulong)GetCycleInfo(AddressingMode.Relative, AccessType.Read).BaseCycles;
+        TotalCycles += 2;               // base cycles for branch instruction
 
         if (!condition) return;
 
-        ushort newPc = (ushort)(PC + offset);
-        TotalCycles++;                              // +1 for taken branch
-        ApplyBranchPageCrossPenalty(PC, newPc);
-        PC = newPc;
+        ushort pcAfterFetch = PC;
+        ushort target = (ushort)(pcAfterFetch + offset);
+        TotalCycles++;                  // +1 for taken branch
+        if ((pcAfterFetch & 0xFF00) != (target & 0xFF00))
+            TotalCycles++;              // +1 for page cross boundary
+        PC = target;
     }
 }

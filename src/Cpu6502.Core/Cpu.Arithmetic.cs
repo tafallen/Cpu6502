@@ -71,19 +71,26 @@ public sealed partial class Cpu
     }
 
     // ── INC / DEC (memory) ────────────────────────────────────────────────────
-    private void INC_Zp()   { var a = AddrZeroPage();              RMW(a, v => ++v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPage, AccessType.Rmw).BaseCycles; }
-    private void INC_ZpX()  { var a = AddrZeroPageX();             RMW(a, v => ++v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPageX, AccessType.Rmw).BaseCycles; }
-    private void INC_Abs()  { var a = AddrAbsolute();              RMW(a, v => ++v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.Absolute, AccessType.Rmw).BaseCycles; }
-    private void INC_AbsX() { var a = AddrAbsoluteX(); RMW(a, v => ++v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.AbsoluteX, AccessType.Rmw).BaseCycles; }
+    private void INC_Zp()   { IncMem(AddrZeroPage());  TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPage, AccessType.Rmw).BaseCycles; }
+    private void INC_ZpX()  { IncMem(AddrZeroPageX()); TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPageX, AccessType.Rmw).BaseCycles; }
+    private void INC_Abs()  { IncMem(AddrAbsolute());  TotalCycles += (ulong)GetCycleInfo(AddressingMode.Absolute, AccessType.Rmw).BaseCycles; }
+    private void INC_AbsX() { IncMem(AddrAbsoluteX()); TotalCycles += (ulong)GetCycleInfo(AddressingMode.AbsoluteX, AccessType.Rmw).BaseCycles; }
 
-    private void DEC_Zp()   { var a = AddrZeroPage();              RMW(a, v => --v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPage, AccessType.Rmw).BaseCycles; }
-    private void DEC_ZpX()  { var a = AddrZeroPageX();             RMW(a, v => --v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPageX, AccessType.Rmw).BaseCycles; }
-    private void DEC_Abs()  { var a = AddrAbsolute();              RMW(a, v => --v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.Absolute, AccessType.Rmw).BaseCycles; }
-    private void DEC_AbsX() { var a = AddrAbsoluteX(); RMW(a, v => --v); TotalCycles += (ulong)GetCycleInfo(AddressingMode.AbsoluteX, AccessType.Rmw).BaseCycles; }
+    private void DEC_Zp()   { DecMem(AddrZeroPage());  TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPage, AccessType.Rmw).BaseCycles; }
+    private void DEC_ZpX()  { DecMem(AddrZeroPageX()); TotalCycles += (ulong)GetCycleInfo(AddressingMode.ZeroPageX, AccessType.Rmw).BaseCycles; }
+    private void DEC_Abs()  { DecMem(AddrAbsolute());  TotalCycles += (ulong)GetCycleInfo(AddressingMode.Absolute, AccessType.Rmw).BaseCycles; }
+    private void DEC_AbsX() { DecMem(AddrAbsoluteX()); TotalCycles += (ulong)GetCycleInfo(AddressingMode.AbsoluteX, AccessType.Rmw).BaseCycles; }
 
-    private void RMW(ushort address, Func<byte, byte> op)
+    private void IncMem(ushort address)
     {
-        byte result = op(ReadByte(address));
+        byte result = (byte)(ReadByte(address) + 1);
+        WriteByte(address, result);
+        SetZN(result);
+    }
+
+    private void DecMem(ushort address)
+    {
+        byte result = (byte)(ReadByte(address) - 1);
         WriteByte(address, result);
         SetZN(result);
     }

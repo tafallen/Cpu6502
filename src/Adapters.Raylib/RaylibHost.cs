@@ -1,6 +1,8 @@
 using Machines.Common;
 using Raylib_cs;
 using System.Numerics;
+using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 
 namespace Adapters.Raylib;
 
@@ -147,21 +149,60 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     // ── IVideoSink ────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Converts the ARGB32 pixel buffer to RGBA32 (Raylib's native format),
+    /// Converts the ARGB32 pixel buffer to RGBA32 (Raylib's native format) via SIMD vectorization,
     /// applies scanlines if configured, uploads it to the GPU texture, and draws it scaled to the window.
     /// </summary>
     public void SubmitFrame(ReadOnlySpan<uint> pixels, int width, int height)
     {
         // Convert ARGB32 (0xAARRGGBB) → RGBA32 (memory: R G B A = 0xAABBGGRR as uint)
         int count = Math.Min(pixels.Length, _rgbaBuffer.Length);
-        for (int i = 0; i < count; i++)
+        int i = 0;
+
+        if (Vector256.IsHardwareAccelerated && count >= Vector256<uint>.Count)
+        {
+            var maskAG = Vector256.Create(0xFF00FF00u);
+            var maskR  = Vector256.Create(0x00FF0000u);
+            var maskB  = Vector256.Create(0x000000FFu);
+
+            int vectorCount = count - (count % Vector256<uint>.Count);
+            ref readonly uint srcRef = ref MemoryMarshal.GetReference(pixels);
+            ref uint dstRef = ref MemoryMarshal.GetArrayDataReference(_rgbaBuffer);
+
+            for (; i < vectorCount; i += Vector256<uint>.Count)
+            {
+                var v  = Vector256.LoadUnsafe(in srcRef, (uint)i);
+                var ag = Vector256.BitwiseAnd(v, maskAG);
+                var r  = Vector256.ShiftRightLogical(Vector256.BitwiseAnd(v, maskR), 16);
+                var b  = Vector256.ShiftLeft(Vector256.BitwiseAnd(v, maskB), 16);
+                var rgba = Vector256.BitwiseOr(ag, Vector256.BitwiseOr(r, b));
+                rgba.StoreUnsafe(ref dstRef, (uint)i);
+            }
+        }
+        else if (Vector128.IsHardwareAccelerated && count >= Vector128<uint>.Count)
+        {
+            var maskAG = Vector128.Create(0xFF00FF00u);
+            var maskR  = Vector128.Create(0x00FF0000u);
+            var maskB  = Vector128.Create(0x000000FFu);
+
+            int vectorCount = count - (count % Vector128<uint>.Count);
+            ref readonly uint srcRef = ref MemoryMarshal.GetReference(pixels);
+            ref uint dstRef = ref MemoryMarshal.GetArrayDataReference(_rgbaBuffer);
+
+            for (; i < vectorCount; i += Vector128<uint>.Count)
+            {
+                var v  = Vector128.LoadUnsafe(in srcRef, (uint)i);
+                var ag = Vector128.BitwiseAnd(v, maskAG);
+                var r  = Vector128.ShiftRightLogical(Vector128.BitwiseAnd(v, maskR), 16);
+                var b  = Vector128.ShiftLeft(Vector128.BitwiseAnd(v, maskB), 16);
+                var rgba = Vector128.BitwiseOr(ag, Vector128.BitwiseOr(r, b));
+                rgba.StoreUnsafe(ref dstRef, (uint)i);
+            }
+        }
+
+        for (; i < count; i++)
         {
             uint argb = pixels[i];
-            uint r = (argb >> 16) & 0xFF;
-            uint g = (argb >>  8) & 0xFF;
-            uint b =  argb        & 0xFF;
-            uint a = (argb >> 24) & 0xFF;
-            _rgbaBuffer[i] = r | (g << 8) | (b << 16) | (a << 24);
+            _rgbaBuffer[i] = (argb & 0xFF00FF00u) | ((argb & 0x00FF0000u) >> 16) | ((argb & 0x000000FFu) << 16);
         }
 
         // Apply scanlines if configured

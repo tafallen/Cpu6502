@@ -117,7 +117,6 @@ public sealed class AtomMachine : IComponent
         Bus = _bus;
         Cpu = new Cpu(_bus);
         _scheduler = new TimingScheduler(_clock);
-        Cpu.OnCyclesConsumed = OnCyclesConsumed;
 
         // Validate initialization before wiring optional callbacks
         ValidateInitialization();
@@ -186,7 +185,11 @@ public sealed class AtomMachine : IComponent
     /// <summary>Execute one CPU instruction and notify the sound and tape adapters of any PC change.</summary>
     public void Step()
     {
+        ulong before = Cpu.TotalCycles;
         Cpu.Step();
+        int cycles = (int)(Cpu.TotalCycles - before);
+        _clock.Advance(cycles);
+        _scheduler.RunDue(_clock.Now);
 
         byte portC = Ppi.PortCLatch;
         if (portC == _lastPortC) return;

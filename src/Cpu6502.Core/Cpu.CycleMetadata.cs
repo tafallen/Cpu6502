@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Cpu6502.Core;
 
 public sealed partial class Cpu
@@ -41,81 +43,73 @@ public sealed partial class Cpu
     public readonly record struct CycleInfo(int BaseCycles, bool PageCrossPenalty);
 
     /// <summary>
-    /// Comprehensive cycle lookup table for all 6502 instructions by addressing mode and access type.
-    /// 
-    /// Read cycles: Includes page-cross penalty flag (applied in AddressingMode helpers or ReadWithCycles helper).
-    ///   - LDA #$42 (Immediate, Read) = 2 cycles, no penalty (page cross impossible)
-    ///   - LDA $42,X (ZeroPageX, Read) = 4 cycles, no penalty (wraps within zero page)
-    ///   - LDA $1234,X (AbsoluteX, Read) = 4 cycles + 1 if page cross
-    /// 
-    /// Write cycles: No page-cross penalty applies; base always includes full cost.
-    ///   - STA $42 (ZeroPage, Write) = 3 cycles
-    ///   - STA $1234,X (AbsoluteX, Write) = 5 cycles (always 5, indexed writes don't cross penalty)
-    /// 
-    /// RMW cycles: Base always includes page-cross overhead; no penalty flag.
-    ///   - INC $42 (ZeroPage, Rmw) = 5 cycles
-    ///   - INC $1234,X (AbsoluteX, Rmw) = 7 cycles (always 7, includes page cross if applicable)
+    /// Comprehensive 2D cycle lookup table for all 6502 instructions by addressing mode and access type.
+    /// Indexed directly by [(int)mode, (int)access] for O(1) direct array performance.
     /// </summary>
-    private static readonly Dictionary<(AddressingMode, AccessType), CycleInfo> CycleTable = new()
+    private static readonly CycleInfo[,] CycleTable = InitCycleTable();
+
+    private static CycleInfo[,] InitCycleTable()
     {
+        var table = new CycleInfo[11, 3];
+
         // ── Immediate (no page cross possible; always 2 base) ─────────────────────
-        { (AddressingMode.Immediate, AccessType.Read),  new(2, false) },
+        table[(int)AddressingMode.Immediate, (int)AccessType.Read]  = new(2, false);
 
         // ── Zero Page (no page cross possible within zero page; fixed count) ──────
-        { (AddressingMode.ZeroPage,   AccessType.Read),  new(3, false) },
-        { (AddressingMode.ZeroPage,   AccessType.Write), new(3, false) },
-        { (AddressingMode.ZeroPage,   AccessType.Rmw),   new(5, false) },
+        table[(int)AddressingMode.ZeroPage,  (int)AccessType.Read]  = new(3, false);
+        table[(int)AddressingMode.ZeroPage,  (int)AccessType.Write] = new(3, false);
+        table[(int)AddressingMode.ZeroPage,  (int)AccessType.Rmw]   = new(5, false);
 
         // ── Zero Page, X (wraps within zero page; fixed count) ───────────────────
-        { (AddressingMode.ZeroPageX,  AccessType.Read),  new(4, false) },
-        { (AddressingMode.ZeroPageX,  AccessType.Write), new(4, false) },
-        { (AddressingMode.ZeroPageX,  AccessType.Rmw),   new(6, false) },
+        table[(int)AddressingMode.ZeroPageX, (int)AccessType.Read]  = new(4, false);
+        table[(int)AddressingMode.ZeroPageX, (int)AccessType.Write] = new(4, false);
+        table[(int)AddressingMode.ZeroPageX, (int)AccessType.Rmw]   = new(6, false);
 
         // ── Zero Page, Y (wraps within zero page; fixed count; only LDX, STX) ───
-        { (AddressingMode.ZeroPageY,  AccessType.Read),  new(4, false) },
-        { (AddressingMode.ZeroPageY,  AccessType.Write), new(4, false) },
+        table[(int)AddressingMode.ZeroPageY, (int)AccessType.Read]  = new(4, false);
+        table[(int)AddressingMode.ZeroPageY, (int)AccessType.Write] = new(4, false);
 
         // ── Absolute (no page cross possible; fixed count) ──────────────────────
-        { (AddressingMode.Absolute,   AccessType.Read),  new(4, false) },
-        { (AddressingMode.Absolute,   AccessType.Write), new(4, false) },
-        { (AddressingMode.Absolute,   AccessType.Rmw),   new(6, false) },
+        table[(int)AddressingMode.Absolute,  (int)AccessType.Read]  = new(4, false);
+        table[(int)AddressingMode.Absolute,  (int)AccessType.Write] = new(4, false);
+        table[(int)AddressingMode.Absolute,  (int)AccessType.Rmw]   = new(6, false);
 
         // ── Absolute, X (page cross penalty possible on read; write bakes cost) ──
-        { (AddressingMode.AbsoluteX,  AccessType.Read),  new(4, true) },   // 4 base, +1 if page cross
-        { (AddressingMode.AbsoluteX,  AccessType.Write), new(5, false) },  // always 5 (includes page cross overhead)
-        { (AddressingMode.AbsoluteX,  AccessType.Rmw),   new(7, false) },  // always 7 (includes page cross overhead)
+        table[(int)AddressingMode.AbsoluteX, (int)AccessType.Read]  = new(4, true);   // 4 base, +1 if page cross
+        table[(int)AddressingMode.AbsoluteX, (int)AccessType.Write] = new(5, false);  // always 5
+        table[(int)AddressingMode.AbsoluteX, (int)AccessType.Rmw]   = new(7, false);  // always 7
 
         // ── Absolute, Y (page cross penalty possible on read; write bakes cost) ──
-        { (AddressingMode.AbsoluteY,  AccessType.Read),  new(4, true) },   // 4 base, +1 if page cross
-        { (AddressingMode.AbsoluteY,  AccessType.Write), new(5, false) },  // always 5 (includes page cross overhead)
-        { (AddressingMode.AbsoluteY,  AccessType.Rmw),   new(7, false) },  // always 7 (includes page cross overhead)
+        table[(int)AddressingMode.AbsoluteY, (int)AccessType.Read]  = new(4, true);   // 4 base, +1 if page cross
+        table[(int)AddressingMode.AbsoluteY, (int)AccessType.Write] = new(5, false);  // always 5
+        table[(int)AddressingMode.AbsoluteY, (int)AccessType.Rmw]   = new(7, false);  // always 7
 
         // ── Indexed Indirect ($zp,X) (no page cross overhead; fixed cost) ────────
-        { (AddressingMode.IndirectX,  AccessType.Read),  new(6, false) },
-        { (AddressingMode.IndirectX,  AccessType.Write), new(6, false) },
-        { (AddressingMode.IndirectX,  AccessType.Rmw),   new(8, false) },
+        table[(int)AddressingMode.IndirectX, (int)AccessType.Read]  = new(6, false);
+        table[(int)AddressingMode.IndirectX, (int)AccessType.Write] = new(6, false);
+        table[(int)AddressingMode.IndirectX, (int)AccessType.Rmw]   = new(8, false);
 
         // ── Indirect Indexed ($zp),Y (page cross penalty possible on read) ──────
-        { (AddressingMode.IndirectY,  AccessType.Read),  new(5, true) },   // 5 base, +1 if page cross
-        { (AddressingMode.IndirectY,  AccessType.Write), new(6, false) },  // always 6
-        { (AddressingMode.IndirectY,  AccessType.Rmw),   new(8, false) },  // always 8
+        table[(int)AddressingMode.IndirectY, (int)AccessType.Read]  = new(5, true);   // 5 base, +1 if page cross
+        table[(int)AddressingMode.IndirectY, (int)AccessType.Write] = new(6, false);  // always 6
+        table[(int)AddressingMode.IndirectY, (int)AccessType.Rmw]   = new(8, false);  // always 8
 
         // ── Indirect (JMP only; no page cross penalty) ────────────────────────────
-        { (AddressingMode.Indirect,   AccessType.Read),  new(5, false) },
+        table[(int)AddressingMode.Indirect,  (int)AccessType.Read]  = new(5, false);
 
         // ── Relative (Branches; page cross penalty applies on branch taken) ──────
-        { (AddressingMode.Relative,   AccessType.Read),  new(2, true) },   // 2 base, +1 if branch taken, +2 if page cross
-    };
+        table[(int)AddressingMode.Relative,  (int)AccessType.Read]  = new(2, true);
+
+        return table;
+    }
 
     /// <summary>
     /// Retrieve cycle information for a given addressing mode and access type.
+    /// Fast inlined 2D array lookup.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static CycleInfo GetCycleInfo(AddressingMode mode, AccessType access)
     {
-        if (CycleTable.TryGetValue((mode, access), out var info))
-            return info;
-        
-        throw new InvalidOperationException(
-            $"No cycle metadata for {mode} + {access}. Check CycleTable.");
+        return CycleTable[(int)mode, (int)access];
     }
 }

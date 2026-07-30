@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Cpu6502.Core;
 
 public sealed partial class Cpu
@@ -5,26 +7,31 @@ public sealed partial class Cpu
     // ── Addressing mode helpers ───────────────────────────────────────────────
     // Each returns the effective address. Cycle penalties are applied inline.
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ushort AddrImmediate()
     {
         return PC++;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ushort AddrZeroPage()
     {
         return Fetch();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ushort AddrZeroPageX()
     {
         return (byte)(Fetch() + X);   // wraps within zero page
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ushort AddrZeroPageY()
     {
         return (byte)(Fetch() + Y);   // wraps within zero page
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ushort AddrAbsolute()
     {
         byte lo = Fetch();
@@ -33,6 +40,7 @@ public sealed partial class Cpu
     }
 
     /// <summary>Absolute,X with optional +1 cycle for page cross.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ushort AddrAbsoluteX(bool alwaysAddCycle = false)
     {
         ushort base_ = AddrAbsolute();
@@ -42,6 +50,7 @@ public sealed partial class Cpu
     }
 
     /// <summary>Absolute,Y with optional +1 cycle for page cross.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ushort AddrAbsoluteY(bool alwaysAddCycle = false)
     {
         ushort base_ = AddrAbsolute();
@@ -51,6 +60,7 @@ public sealed partial class Cpu
     }
 
     /// <summary>(Indirect,X) — pre-indexed indirect through zero page.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ushort AddrIndexedIndirect()
     {
         byte ptr = (byte)(Fetch() + X);
@@ -58,6 +68,7 @@ public sealed partial class Cpu
     }
 
     /// <summary>(Indirect),Y — post-indexed indirect with optional +1 cycle for page cross.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ushort AddrIndirectIndexed(bool alwaysAddCycle = false)
     {
         byte   zpAddr = Fetch();

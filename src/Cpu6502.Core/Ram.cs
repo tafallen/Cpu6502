@@ -1,7 +1,7 @@
 namespace Cpu6502.Core;
 
 /// <summary>Flat read/write RAM. Size is specified at construction.</summary>
-public sealed class Ram : IBusValidator
+public sealed class Ram : IBusValidator, IDirectMemoryDevice
 {
     private readonly byte[] _data;
     private readonly int _size;
@@ -12,12 +12,29 @@ public sealed class Ram : IBusValidator
         _data = new byte[size];
     }
 
+    /// <summary>Direct array buffer for fast-path address decoder reads.</summary>
+    public byte[]? DirectReadBuffer => _data;
+
+    /// <summary>Direct array buffer for fast-path address decoder writes.</summary>
+    public byte[]? DirectWriteBuffer => _data;
+
     /// <summary>Read-only access to the backing buffer — for chips (e.g. VDG) that share the bus.</summary>
     public ReadOnlyMemory<byte> Memory => _data.AsMemory();
 
     /// <summary>Direct access to the backing buffer — for chips (e.g. VDG) that share the bus.</summary>
     [Obsolete("Use Memory property instead, which returns ReadOnlyMemory<byte>")]
     public byte[] RawBytes => _data;
+
+    public bool TryGetSpan(ushort address, int length, out ReadOnlySpan<byte> span)
+    {
+        if (address + length <= _size)
+        {
+            span = _data.AsSpan(address, length);
+            return true;
+        }
+        span = default;
+        return false;
+    }
 
     public void ValidateAddress(ushort address)
     {

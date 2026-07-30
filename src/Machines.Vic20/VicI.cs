@@ -79,6 +79,7 @@ public sealed class VicI : IBus
 
     private readonly IAudioSink? _audio;
     private readonly short[]     _audioBuffer = new short[SamplesPerFrame];
+    private readonly AudioLowPassFilter _audioFilter = new(SampleRate, 4000f);
 
     // Per-oscillator phase accumulators (0.0–1.0)
     private double _phaseA, _phaseB, _phaseC;
@@ -153,17 +154,32 @@ public sealed class VicI : IBus
                 for (int py = 0; py < 8; py++)
                 {
                     int screenY = cellY + py;
-                    if (screenY < 0 || screenY >= FrameHeight) continue;
+                    if ((uint)screenY >= (uint)FrameHeight) continue;
 
                     byte bitmap = ReadVicMemory((ushort)((CharBase + code * 8 + py) & 0x3FFF));
 
-                    for (int px = 0; px < 8; px++)
+                    if (cellX >= 0 && cellX + 8 <= FrameWidth)
                     {
-                        int screenX = cellX + px;
-                        if (screenX < 0 || screenX >= FrameWidth) continue;
+                        int dstIdx = screenY * FrameWidth + cellX;
+                        _pixels[dstIdx]     = (bitmap & 0x80) != 0 ? fg : bg;
+                        _pixels[dstIdx + 1] = (bitmap & 0x40) != 0 ? fg : bg;
+                        _pixels[dstIdx + 2] = (bitmap & 0x20) != 0 ? fg : bg;
+                        _pixels[dstIdx + 3] = (bitmap & 0x10) != 0 ? fg : bg;
+                        _pixels[dstIdx + 4] = (bitmap & 0x08) != 0 ? fg : bg;
+                        _pixels[dstIdx + 5] = (bitmap & 0x04) != 0 ? fg : bg;
+                        _pixels[dstIdx + 6] = (bitmap & 0x02) != 0 ? fg : bg;
+                        _pixels[dstIdx + 7] = (bitmap & 0x01) != 0 ? fg : bg;
+                    }
+                    else
+                    {
+                        for (int px = 0; px < 8; px++)
+                        {
+                            int screenX = cellX + px;
+                            if ((uint)screenX >= (uint)FrameWidth) continue;
 
-                        bool set = (bitmap & (0x80 >> px)) != 0;
-                        _pixels[screenY * FrameWidth + screenX] = set ? fg : bg;
+                            bool set = (bitmap & (0x80 >> px)) != 0;
+                            _pixels[screenY * FrameWidth + screenX] = set ? fg : bg;
+                        }
                     }
                 }
             }
@@ -196,6 +212,7 @@ public sealed class VicI : IBus
             _audioBuffer[i] = (short)Math.Clamp(sample, short.MinValue, short.MaxValue);
         }
 
+        _audioFilter.ProcessBuffer(_audioBuffer);
         _audio.SubmitSamples(_audioBuffer, SampleRate);
     }
 

@@ -7,13 +7,13 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PublishAot>true</PublishAot>
-    <AssemblyName>vic20</AssemblyName>
+    <AssemblyName>electron</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Adapters.Gdb\Adapters.Gdb.csproj" />
     <ProjectReference Include="..\Adapters.Raylib\Adapters.Raylib.csproj" />
-    <ProjectReference Include="..\Machines.Vic20\Machines.Vic20.csproj" />
+    <ProjectReference Include="..\Machines.Electron\Machines.Electron.csproj" />
   </ItemGroup>
 
 </Project>

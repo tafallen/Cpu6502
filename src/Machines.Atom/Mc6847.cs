@@ -178,14 +178,15 @@ public sealed class Mc6847
     private byte VramRead(int offset) =>
         (offset >= 0 && offset < _vram.Length) ? _vram.Span[offset] : (byte)0;
 
+    private readonly uint[] _pixelBuffer = new uint[256 * 192];
+
     public void RenderFrame(IVideoSink sink)
     {
-        uint[] pixels = new uint[256 * 192];
         if (IsGraphics)
-            RenderGraphics(pixels);
+            RenderGraphics(_pixelBuffer);
         else
-            RenderAlphanumeric(pixels);
-        sink.SubmitFrame(pixels, 256, 192);
+            RenderAlphanumeric(_pixelBuffer);
+        sink.SubmitFrame(_pixelBuffer, 256, 192);
     }
 
     // ── Alphanumeric mode (32×16 chars, 8×12 px each) ──────────────────────
@@ -206,14 +207,17 @@ public sealed class Mc6847
                 for (int pixRow = 0; pixRow < 12; pixRow++)
                 {
                     byte bits = _charRom[charIdx * 12 + pixRow];
-                    int  yOut = charRow * 12 + pixRow;
+                    if (inv) bits = (byte)~bits;
 
-                    for (int pixCol = 0; pixCol < 8; pixCol++)
-                    {
-                        bool set = (bits & (0x80 >> pixCol)) != 0;
-                        if (inv) set = !set;
-                        pixels[yOut * 256 + charCol * 8 + pixCol] = set ? fg : bg;
-                    }
+                    int baseIdx = (charRow * 12 + pixRow) * 256 + charCol * 8;
+                    pixels[baseIdx]     = (bits & 0x80) != 0 ? fg : bg;
+                    pixels[baseIdx + 1] = (bits & 0x40) != 0 ? fg : bg;
+                    pixels[baseIdx + 2] = (bits & 0x20) != 0 ? fg : bg;
+                    pixels[baseIdx + 3] = (bits & 0x10) != 0 ? fg : bg;
+                    pixels[baseIdx + 4] = (bits & 0x08) != 0 ? fg : bg;
+                    pixels[baseIdx + 5] = (bits & 0x04) != 0 ? fg : bg;
+                    pixels[baseIdx + 6] = (bits & 0x02) != 0 ? fg : bg;
+                    pixels[baseIdx + 7] = (bits & 0x01) != 0 ? fg : bg;
                 }
             }
         }
@@ -254,15 +258,32 @@ public sealed class Mc6847
 
         for (int sy = 0; sy < srcH; sy++)
         {
+            int yBase = sy * scaleY * 256;
             for (int bx = 0; bx < bytesPerRow; bx++)
             {
                 byte bits = VramRead(sy * bytesPerRow + bx);
-                for (int bit = 0; bit < 8; bit++)
+                int xBase = bx * 8 * scaleX;
+
+                if (scaleX == 1 && scaleY == 1)
                 {
-                    bool set = (bits & (0x80 >> bit)) != 0;
-                    uint color = set ? fg : bg;
-                    int sx = bx * 8 + bit;
-                    PlotScaled(pixels, sx, sy, scaleX, scaleY, color);
+                    int dstIdx = yBase + xBase;
+                    pixels[dstIdx]     = (bits & 0x80) != 0 ? fg : bg;
+                    pixels[dstIdx + 1] = (bits & 0x40) != 0 ? fg : bg;
+                    pixels[dstIdx + 2] = (bits & 0x20) != 0 ? fg : bg;
+                    pixels[dstIdx + 3] = (bits & 0x10) != 0 ? fg : bg;
+                    pixels[dstIdx + 4] = (bits & 0x08) != 0 ? fg : bg;
+                    pixels[dstIdx + 5] = (bits & 0x04) != 0 ? fg : bg;
+                    pixels[dstIdx + 6] = (bits & 0x02) != 0 ? fg : bg;
+                    pixels[dstIdx + 7] = (bits & 0x01) != 0 ? fg : bg;
+                }
+                else
+                {
+                    for (int bit = 0; bit < 8; bit++)
+                    {
+                        uint color = (bits & (0x80 >> bit)) != 0 ? fg : bg;
+                        int sx = bx * 8 + bit;
+                        PlotScaled(pixels, sx, sy, scaleX, scaleY, color);
+                    }
                 }
             }
         }
