@@ -2,7 +2,10 @@
 
 A cycle-accurate MOS 6502 CPU emulator in C#. All 151 legal opcodes, correct flag behaviour, page-cross timing penalties, BCD mode, and the classic indirect-JMP page-wrap bug.
 
-Designed for composing real 80s machine emulators — the CPU knows nothing about the machine it is in, it only talks to an `IBus`.
+Designed for composing real 80s machine emulators — the CPU knows nothing about the machine it is in, it only talks to an `IBus`. Other chips and chipsets are also implemented so you can compose the emulator for the 6502 based machine you want. Currently the *Vic20*, *Acorn Atom* and *Acorn Electron* are supported with more to come
+
+
+Oh, and it's __fast__ for a C# emulator. Really, really fast.
 
 ## Quick start
 
