@@ -1,4 +1,5 @@
 using Machines.Vic20;
+using Machines.Common;
 
 namespace Machines.Vic20.Tests;
 

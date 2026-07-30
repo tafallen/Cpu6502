@@ -1,4 +1,5 @@
 using Cpu6502.Core;
+using Machines.Common;
 
 namespace Machines.BbcMicro;
 
@@ -18,15 +19,18 @@ public sealed class BbcSheilaBus : IBus
     private readonly BbcSidewaysRomBank _romBank;
     private readonly byte[] _registers = new byte[0x300];
 
-    public IBus? SystemVia { get; set; }
-    public IBus? UserVia { get; set; }
-    public IBus? Crtc { get; set; }
+    public Via6522 SystemViaController { get; } = new();
+    public Via6522 UserViaController { get; } = new();
+    public Mc6845 CrtcController { get; } = new();
+
+    public IBus SystemVia => SystemViaController;
+    public IBus UserVia => UserViaController;
+    public IBus Crtc => CrtcController;
     public IBus? Fdc { get; set; }
 
     public BbcSheilaBus(BbcSidewaysRomBank romBank)
     {
         _romBank = romBank ?? throw new ArgumentNullException(nameof(romBank));
-        Crtc = new Mc6845();
     }
 
     public byte Read(ushort address)
@@ -34,16 +38,16 @@ public sealed class BbcSheilaBus : IBus
         ushort offset = (ushort)(address & 0xFF);
 
         // $FE40–$FE5F: System VIA
-        if (offset >= 0x40 && offset <= 0x5F && SystemVia is not null)
-            return SystemVia.Read((ushort)(offset & 0x0F));
+        if (offset >= 0x40 && offset <= 0x5F)
+            return SystemViaController.Read((ushort)(offset & 0x0F));
 
         // $FE60–$FE7F: User VIA
-        if (offset >= 0x60 && offset <= 0x7F && UserVia is not null)
-            return UserVia.Read((ushort)(offset & 0x0F));
+        if (offset >= 0x60 && offset <= 0x7F)
+            return UserViaController.Read((ushort)(offset & 0x0F));
 
         // $FE00–$FE07: CRTC 6845
-        if (offset <= 0x07 && Crtc is not null)
-            return Crtc.Read((ushort)(offset & 0x01));
+        if (offset <= 0x07)
+            return CrtcController.Read((ushort)(offset & 0x01));
 
         // $FE08–$FE0F: 8271 FDC
         if (offset >= 0x08 && offset <= 0x0F && Fdc is not null)
@@ -65,23 +69,23 @@ public sealed class BbcSheilaBus : IBus
         }
 
         // $FE40–$FE5F: System VIA
-        if (offset >= 0x40 && offset <= 0x5F && SystemVia is not null)
+        if (offset >= 0x40 && offset <= 0x5F)
         {
-            SystemVia.Write((ushort)(offset & 0x0F), value);
+            SystemViaController.Write((ushort)(offset & 0x0F), value);
             return;
         }
 
         // $FE60–$FE7F: User VIA
-        if (offset >= 0x60 && offset <= 0x7F && UserVia is not null)
+        if (offset >= 0x60 && offset <= 0x7F)
         {
-            UserVia.Write((ushort)(offset & 0x0F), value);
+            UserViaController.Write((ushort)(offset & 0x0F), value);
             return;
         }
 
         // $FE00–$FE07: CRTC 6845
-        if (offset <= 0x07 && Crtc is not null)
+        if (offset <= 0x07)
         {
-            Crtc.Write((ushort)(offset & 0x01), value);
+            CrtcController.Write((ushort)(offset & 0x01), value);
             return;
         }
 

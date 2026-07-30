@@ -48,10 +48,23 @@ public sealed class BbcMicroMachine
     }
 
     public Saa5050 Teletext { get; } = new();
+    public BbcKeyboardAdapter Keyboard { get; } = new();
 
     public void Reset() => Cpu.Reset();
 
-    public void Step() => Cpu.Step();
+    public void Step()
+    {
+        ulong cyclesBefore = Cpu.TotalCycles;
+        Cpu.Step();
+        int delta = (int)(Cpu.TotalCycles - cyclesBefore);
+        SheilaBus.SystemViaController.Tick(delta);
+        SheilaBus.UserViaController.Tick(delta);
+
+        if (SheilaBus.SystemViaController.Irq || SheilaBus.UserViaController.Irq)
+        {
+            Cpu.Irq();
+        }
+    }
 
     public void RenderFrame(IVideoSink sink)
     {

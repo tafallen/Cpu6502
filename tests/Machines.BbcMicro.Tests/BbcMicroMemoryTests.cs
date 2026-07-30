@@ -55,4 +55,16 @@ public class BbcMicroMemoryTests
 
         Assert.Equal(0x3000, crtc.DisplayStartAddress);
     }
+
+    [Fact]
+    public void DualVia_RoutingAndKeyboardScan_Works()
+    {
+        byte[] osRom = new byte[0x4000];
+        var machine = new BbcMicroMachine(osRom);
+
+        machine.Keyboard.KeyDown(col: 2, row: 5);
+        byte scanned = machine.Keyboard.ScanColumn(2);
+
+        Assert.Equal(unchecked((byte)~(1 << 5)), scanned);
+    }
 }
