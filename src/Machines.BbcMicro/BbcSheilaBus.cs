@@ -26,6 +26,7 @@ public sealed class BbcSheilaBus : IBus
     public BbcSheilaBus(BbcSidewaysRomBank romBank)
     {
         _romBank = romBank ?? throw new ArgumentNullException(nameof(romBank));
+        Crtc = new Mc6845();
     }
 
     public byte Read(ushort address)

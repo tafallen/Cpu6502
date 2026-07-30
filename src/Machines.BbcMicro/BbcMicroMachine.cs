@@ -1,4 +1,5 @@
 using Cpu6502.Core;
+using Machines.Common;
 
 namespace Machines.BbcMicro;
 
@@ -46,16 +47,25 @@ public sealed class BbcMicroMachine
         Cpu = new Cpu(Bus);
     }
 
+    public Saa5050 Teletext { get; } = new();
+
     public void Reset() => Cpu.Reset();
 
     public void Step() => Cpu.Step();
 
-    public void RunFrame()
+    public void RenderFrame(IVideoSink sink)
+    {
+        Teletext.RenderMode7(Ram, 0x7C00, sink);
+    }
+
+    public void RunFrame(IVideoSink? sink = null)
     {
         ulong target = Cpu.TotalCycles + CyclesPerFrame;
         while (Cpu.TotalCycles < target)
         {
             Cpu.Step();
         }
+        if (sink is not null)
+            RenderFrame(sink);
     }
 }

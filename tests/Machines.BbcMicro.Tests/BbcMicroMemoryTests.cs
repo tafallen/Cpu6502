@@ -43,4 +43,16 @@ public class BbcMicroMemoryTests
         sheila.Write(0xFE30, 0x05);
         Assert.Equal(5, bank.ActiveBank);
     }
+
+    [Fact]
+    public void Crtc_ReadWriteRegisters_Works()
+    {
+        var crtc = new Mc6845();
+        crtc.Write(0xFE00, 12); // select R12
+        crtc.Write(0xFE01, 0x30); // set start address high
+        crtc.Write(0xFE00, 13); // select R13
+        crtc.Write(0xFE01, 0x00); // set start address low
+
+        Assert.Equal(0x3000, crtc.DisplayStartAddress);
+    }
 }

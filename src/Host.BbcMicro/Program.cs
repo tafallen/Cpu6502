@@ -28,7 +28,7 @@ using var display = new RaylibHost("Acorn BBC Micro Model B", new DisplayOptions
 while (display.IsRunning)
 {
     display.PollEvents();
-    machine.RunFrame();
+    machine.RunFrame(display);
 }
 
 return 0;
