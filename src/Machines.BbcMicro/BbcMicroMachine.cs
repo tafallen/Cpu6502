@@ -11,7 +11,7 @@ public sealed class BbcMicroMachine
 {
     public Cpu Cpu { get; }
     public Ram Ram { get; }
-    public Rom OsRom { get; }
+    public BbcOsRom OsRom { get; }
     public BbcSidewaysRomBank SidewaysRomBank { get; }
     public BbcSheilaBus SheilaBus { get; }
     public AddressDecoder Bus { get; }
@@ -22,12 +22,8 @@ public sealed class BbcMicroMachine
     {
         ArgumentNullException.ThrowIfNull(osRom);
 
-        byte[] osCopy = osRom.Length == 0x4000 ? osRom : new byte[0x4000];
-        if (osRom.Length > 0 && osRom.Length <= 0x4000)
-            Array.Copy(osRom, osCopy, osRom.Length);
-
         Ram = new Ram(0x8000); // 32 KB Main RAM ($0000–$7FFF)
-        OsRom = new Rom(osCopy);
+        OsRom = new BbcOsRom(osRom);
         SidewaysRomBank = new BbcSidewaysRomBank();
 
         if (basicRom is not null && basicRom.Length > 0)

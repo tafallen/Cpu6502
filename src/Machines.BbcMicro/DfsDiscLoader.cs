@@ -27,7 +27,7 @@ public static class DfsDiscLoader
         for (int i = 0; i < fileCount; i++)
         {
             int fnOff = i * 8;
-            int metaOff = 0x0100 + i * 8;
+            int metaOff = 0x0108 + i * 8;
 
             string name = System.Text.Encoding.ASCII.GetString(discData, fnOff, 7).Trim();
             byte dir = (byte)(discData[fnOff + 7] & 0x7F);
