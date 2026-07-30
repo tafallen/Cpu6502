@@ -50,6 +50,7 @@ public sealed class BbcMicroMachine
     public Saa5050 Teletext { get; } = new();
     public BbcKeyboardAdapter Keyboard { get; } = new();
     public Sn76489 Sound { get; } = new();
+    public Bbc8271Fdc Fdc => SheilaBus.FdcController;
 
     public void Reset() => Cpu.Reset();
 

@@ -22,11 +22,12 @@ public sealed class BbcSheilaBus : IBus
     public Via6522 SystemViaController { get; } = new();
     public Via6522 UserViaController { get; } = new();
     public Mc6845 CrtcController { get; } = new();
+    public Bbc8271Fdc FdcController { get; } = new();
 
     public IBus SystemVia => SystemViaController;
     public IBus UserVia => UserViaController;
     public IBus Crtc => CrtcController;
-    public IBus? Fdc { get; set; }
+    public IBus Fdc => FdcController;
 
     public BbcSheilaBus(BbcSidewaysRomBank romBank)
     {

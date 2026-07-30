@@ -78,4 +78,26 @@ public class BbcMicroMemoryTests
         Assert.Equal(5, psg.GetToneFrequency(0));
         Assert.Equal(3, psg.GetVolume(0));
     }
+
+    [Fact]
+    public void Fdc_LoadDiscAndReadStatus_Works()
+    {
+        var fdc = new Bbc8271Fdc();
+        byte[] dummyDisc = new byte[512];
+        fdc.LoadDiscImage(dummyDisc);
+
+        Assert.Equal(0x80, fdc.Read(0xFE08));
+    }
+
+    [Fact]
+    public void DfsDiscLoader_ParseCatalog_HandlesEmptyImage()
+    {
+        byte[] dummyDisc = new byte[512];
+        dummyDisc[0x0105] = 8; // 1 file (1 * 8)
+        Array.Copy(System.Text.Encoding.ASCII.GetBytes("GAME   $"), 0, dummyDisc, 0, 7);
+
+        var files = DfsDiscLoader.ParseCatalog(dummyDisc);
+        Assert.Single(files);
+        Assert.Equal("GAME", files[0].Filename);
+    }
 }
