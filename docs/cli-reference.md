@@ -277,9 +277,24 @@ Key: A (Atom row 2, col 1)
 
 2. **Bilinear filtering** (`--smooth`) has minimal overhead (single GPU filter mode).
 
-3. **CRT scanlines** (`--scanlines`) are CPU-side; collection doesn't significantly impact frame rate on modern hardware.
+---
 
-4. **Debug mode** (`--debug-keys`) adds overhead per keystroke; disable for normal use.
+## Acorn Electron
+
+### Options
+
+```bash
+dotnet run --project src/Host.Electron -- --os roms/electron/os.rom --basic roms/electron/basic.rom
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--os <path>` | `roms/electron/os.rom` | OS ROM image (16 KB) |
+| `--basic <path>` | `roms/electron/basic.rom` | BBC BASIC II ROM image (16 KB) |
+| `--tape <path>` | none | Load cassette image |
+| `--scale <n>` | 3 | Window scale factor (640×256 base) |
+| `--smooth` | off | Enable bilinear texture filtering |
+| `--scanlines <f>` | 0 | CRT scanline intensity (0.0–1.0) |
 
 ---
 
