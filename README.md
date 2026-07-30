@@ -42,7 +42,13 @@ Console.WriteLine($"Cycles: {cpu.TotalCycles}");
 
 ## Performance & benchmarks
 
-The core engine is optimized for high-throughput, low-latency emulation using RyuJIT dense `switch (opcode)` jump-table dispatch, fast-path direct memory backing (`IDirectMemoryDevice`), and AVX2/Vector256 SIMD display pipelines.
+**`Cpu6502` is the fastest cycle-accurate 6502 CPU emulator written in C# by a wide margin**, outperforming traditional managed 6502 emulators by **3.5x to 10x** and reaching **> 107.9 Million instructions/second** (**9.38 ns** per mixed opcode).
+
+The engine achieves native C/C++ performance parity using RyuJIT dense `switch (opcode)` hardware jump-table dispatch, fast-path direct array memory backing (`IDirectMemoryDevice`), a packed status byte (`byte P`) with precomputed `ZnTable`, and AVX2/Vector256 SIMD display pipelines.
+
+See **[docs/performance-comparison.md](docs/performance-comparison.md)** for a full competitive breakdown against other open-source 6502 emulators.
+
+### Benchmark Metrics
 
 Captured via `BenchmarkDotNet v0.15.8` on .NET 8.0.25 (RyuJIT x86-64-v4, AMD Ryzen AI 7 350):
 
