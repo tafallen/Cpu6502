@@ -12,6 +12,7 @@ namespace Cpu6502.Tests;
 /// A correct 6502 implementation runs the test to completion at PC=$3469.
 /// Any bug traps the CPU in an infinite loop at a different address.
 /// </summary>
+[Collection("IntegrationAssetTests")]
 public class IntegrationTests
 {
     private const string BinFileName = "6502_functional_test.bin";

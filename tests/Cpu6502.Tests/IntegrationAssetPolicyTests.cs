@@ -1,5 +1,8 @@
+using Xunit;
+
 namespace Cpu6502.Tests;
 
+[Collection("IntegrationAssetTests")]
 public class IntegrationAssetPolicyTests
 {
     [Theory]
