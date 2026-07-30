@@ -67,4 +67,15 @@ public class BbcMicroMemoryTests
 
         Assert.Equal(unchecked((byte)~(1 << 5)), scanned);
     }
+
+    [Fact]
+    public void Sn76489_ToneAndVolumeWrite_Works()
+    {
+        var psg = new Sn76489();
+        psg.Write(0x80 | (0 << 5) | 0x05); // Tone 0 low nibble = 5
+        psg.Write(0x90 | 0x03); // Tone 0 volume = 3
+
+        Assert.Equal(5, psg.GetToneFrequency(0));
+        Assert.Equal(3, psg.GetVolume(0));
+    }
 }
