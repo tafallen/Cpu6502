@@ -19,6 +19,7 @@ public sealed class BbcMasterMachine
     public Ram MainRam { get; }
     public Ram ShadowRam { get; }
     public BbcMasterAcccon Acccon { get; } = new();
+    public Mc146818Rtc Rtc { get; } = new();
     public Wd1770Fdc Fdc { get; } = new();
     public Mc6845 Crtc { get; } = new();
     public Saa5050 Teletext { get; } = new();
@@ -35,6 +36,7 @@ public sealed class BbcMasterMachine
 
         Bus = new AddressDecoder();
         Bus.Map(0x0000, 0x7FFF, MainRam);
+        Bus.Map(0xFE30, 0xFE31, Rtc);
         Bus.Map(0xFE34, 0xFE34, Acccon);
         Bus.Map(0xFE40, 0xFE4F, SystemVia);
         Bus.Map(0xFE60, 0xFE6F, UserVia);
