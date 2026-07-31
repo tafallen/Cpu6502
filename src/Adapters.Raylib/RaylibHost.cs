@@ -275,7 +275,7 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     /// </summary>
     private void ApplyScanlines()
     {
-        float darknessFactor = 1f - _displayOptions.ScanlineIntensity;
+        uint factor = (uint)Math.Round((1f - _displayOptions.ScanlineIntensity) * 65536f);
 
         for (int y = 1; y < _frameHeight; y += 2)
         {
@@ -285,11 +285,11 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
             for (int i = rowStart; i < rowEnd; i++)
             {
                 uint rgba = _rgbaBuffer[i];
-                byte r = (byte)((rgba & 0xFF) * darknessFactor);
-                byte g = (byte)(((rgba >> 8) & 0xFF) * darknessFactor);
-                byte b = (byte)(((rgba >> 16) & 0xFF) * darknessFactor);
-                byte a = (byte)((rgba >> 24) & 0xFF);
-                _rgbaBuffer[i] = r | ((uint)g << 8) | ((uint)b << 16) | ((uint)a << 24);
+                uint r = (((rgba & 0xFF) * factor) + 32768) >> 16;
+                uint g = ((((rgba >> 8) & 0xFF) * factor) + 32768) >> 16;
+                uint b = ((((rgba >> 16) & 0xFF) * factor) + 32768) >> 16;
+                uint a = (rgba >> 24) & 0xFF;
+                _rgbaBuffer[i] = r | (g << 8) | (b << 16) | (a << 24);
             }
         }
     }
