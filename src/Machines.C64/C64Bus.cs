@@ -14,6 +14,8 @@ namespace Machines.C64;
 public sealed class C64Bus : IBus
 {
     public Ram Ram { get; } = new(0x10000); // 64 KB RAM
+    public Cia6526 Cia1 { get; } = new(); // CIA1 at $DC00 (Keyboard, Joystick 2, IRQ)
+    public Cia6526 Cia2 { get; } = new(); // CIA2 at $DD00 (VIC-II Banking, NMI)
     public byte[] BasicRom { get; } = new byte[0x2000]; // 8 KB BASIC ROM ($A000–$BFFF)
     public byte[] KernalRom { get; } = new byte[0x2000]; // 8 KB KERNAL ROM ($E000–$FFFF)
     public byte[] CharRom { get; } = new byte[0x1000]; // 4 KB Character ROM ($D000–$DFFF)
@@ -46,7 +48,13 @@ public sealed class C64Bus : IBus
             {
                 return CharRom[address - 0xD000];
             }
-            // Default RAM fallback if I/O device not mapped
+
+            if (address >= 0xDC00 && address <= 0xDCFF)
+                return Cia1.Read(address);
+
+            if (address >= 0xDD00 && address <= 0xDDFF)
+                return Cia2.Read(address);
+
             return Ram.Read(address);
         }
 
@@ -71,6 +79,15 @@ public sealed class C64Bus : IBus
         {
             PortData = value;
             return;
+        }
+
+        if (address >= 0xDC00 && address <= 0xDCFF)
+        {
+            Cia1.Write(address, value);
+        }
+        else if (address >= 0xDD00 && address <= 0xDDFF)
+        {
+            Cia2.Write(address, value);
         }
 
         // CPU writes always go to underlying RAM regardless of ROM mapping
