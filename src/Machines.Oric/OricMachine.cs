@@ -39,6 +39,7 @@ public sealed class OricMachine
 
     public OricUlaVideo Video { get; } = new();
     public OricKeyboardAdapter Keyboard { get; } = new();
+    public Ay38912 Psg { get; } = new();
 
     public void Reset() => Cpu.Reset();
 

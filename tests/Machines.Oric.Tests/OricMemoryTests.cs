@@ -53,6 +53,20 @@ public class OricMemoryTests
         Assert.Equal(unchecked((byte)~(1 << 2)), result);
     }
 
+    [Fact]
+    public void Ay38912_SelectAndWriteRegister_Works()
+    {
+        var psg = new Ay38912();
+        psg.SelectRegister(0); // R0 = Channel A Tone Fine
+        psg.WriteData(0x80);
+
+        psg.SelectRegister(8); // R8 = Channel A Volume
+        psg.WriteData(0x0F);
+
+        Assert.Equal(0x80, psg.GetChannelFrequency(0));
+        Assert.Equal(15, psg.GetChannelVolume(0));
+    }
+
     private class DummyVideoSink : Machines.Common.IVideoSink
     {
         public void SubmitFrame(ReadOnlySpan<uint> pixelDataBuffer, int width, int height)
