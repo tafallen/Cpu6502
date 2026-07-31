@@ -61,6 +61,38 @@ Replaces the old Intel 8271 FDC to support **ADFS** (Acorn Disc Filing System - 
 
 ---
 
+## 4. Acorn Tube Coprocessor Interface Architecture ($FEE0–$FEEF)
+
+The **Tube Interface** is Acorn's high-speed dual-bus inter-processor communication system that connects the Host I/O processor (BBC Micro / Master 128) to an external Second Processor (e.g. 65C102 @ 3/4 MHz, Z80 @ 6 MHz, 80186 @ 8 MHz, or ARM1).
+
+```
++---------------------------+                     +---------------------------+
+|    HOST I/O PROCESSOR     |                     |     SECOND PROCESSOR      |
+|  BBC Micro / Master 128   |                     | (65C102 / Z80 / 80186 /   |
+|   (Handles Display, I/O,  |  Tube ULA ($FEE0)   |          ARM1)            |
+|     Sound, Keyboard)      | <=================> |  (Executes User Program,  |
+|                           |  4 Hardware FIFOs   |    Full 64 KB/512 KB RAM) |
++---------------------------+                     +---------------------------+
+```
+
+### Tube ULA Hardware Register Map ($FEE0–$FEEF)
+
+| Register | Host Address | Parasite Address | Capacity | Purpose / Protocol |
+|---|---|---|---|---|
+| **R1** | `$FEE0` (Status) / `$FEE1` (Data) | `$FEF0` / `$FEF1` | 1 byte | Asynchronous control commands, OSBYTE & OSWORD parameters |
+| **R2** | `$FEE2` (Status) / `$FEE3` (Data) | `$FEF2` / `$FEF3` | 1 byte | Command Line Interface (`*` OSCLI strings) |
+| **R3** | `$FEE4` (Status) / `$FEE5` (Data) | `$FEF4` / `$FEF5` | 2 bytes | Fast VDU screen graphics & text stream rendering |
+| **R4** | `$FEE6` (Status) / `$FEE7` (Data) | `$FEF6` / `$FEF7` | 24 bytes | High-speed block DMA data transfer (Disc/File RAM transfers) |
+
+### Dual CPU Execution Model in `Cpu6502`
+To emulate the Tube in `Cpu6502`:
+1. Create `TubeUla.cs` containing 4 bidirectional FIFO ring buffers (`R1Fifo`, `R2Fifo`, `R3Fifo`, `R4Fifo`).
+2. Map `TubeUla` into Host bus at `$FEE0–$FEEF`.
+3. Instantiate a second `Cpu` engine representing the 65C102 Second Processor (Parasite) mapped to its own 64 KB RAM bus.
+4. When Parasite writes to VDU or OSBYTE routines, parameters pass through `TubeUla` FIFOs to the Host CPU, leaving full 64 KB RAM free on the Second Processor for user code.
+
+---
+
 ## 4. Step-by-Step Implementation Roadmap
 
 ```mermaid
