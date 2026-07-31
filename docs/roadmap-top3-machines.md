@@ -65,3 +65,25 @@ Build a complete Commodore PET series emulator featuring monochrome video displa
   * Implement IEEE-488 bus protocol and `.prg` Commodore program auto-loader.
 * **[Story 3.5] Unit & Integration Testing Suite**
   * Create `tests/Machines.Pet.Tests` verifying keyboard matrix, video RAM, and PET ROM boot.
+
+---
+
+## Epic 4: Acorn BBC Master 128 & Tube Coprocessor Interface (`Machines.BbcMaster` & `Host.BbcMaster`)
+
+### Description
+Build a complete Acorn BBC Master 128 emulator featuring 128 KB RAM/Shadow RAM, WDC 65C102 processor, WD1770 FDC, MC146818 RTC/CMOS, and the Acorn Tube Coprocessor Interface.
+
+### User Stories & Implementation Tasks
+* **[Story 4.1] Core Memory Bus, 128 KB RAM & ACCCON Register ($FE34)** (#22)
+  * Create `src/Machines.BbcMaster` and `src/Host.BbcMaster`.
+  * Map $0000–$7FFF Main/Shadow RAM, $8000–$BFFF Sideways RAM/ROMs, ACCCON register ($FE34).
+* **[Story 4.2] Shadow Video RAM & Dual Display Buffer Switch** (#23)
+  * Implement Shadow Video RAM decoupling for full 32 KB user BASIC RAM in Modes 0–6.
+* **[Story 4.3] Western Digital 1770 FDC & ADFS Disc Loader (.adf / .adl)** (#24)
+  * Implement `Wd1770Fdc.cs` disk controller and double-density ADFS disc image loader.
+* **[Story 4.4] MC146818 Real-Time Clock (RTC) & 50-byte CMOS NVRAM** (#25)
+  * Implement `Mc146818Rtc.cs` ($FE30/$FE31) storing `*CONFIGURE` settings.
+* **[Story 4.5] Tube Interface: Tube ULA Hardware FIFOs & 65C102 Second Processor** (#26)
+  * Implement `TubeUla.cs` ($FEE0–$FEEF) 4-FIFO inter-processor communication controller and dual-CPU runner.
+* **[Story 4.6] Unit & Integration Testing Suite (Headless MOS 3.20 Boot)** (#27)
+  * Create `tests/Machines.BbcMaster.Tests` verifying ACCCON, Shadow RAM, WD1770, RTC, Tube FIFOs, and headless MOS 3.20 boot.
