@@ -87,3 +87,47 @@ Build a complete Acorn BBC Master 128 emulator featuring 128 KB RAM/Shadow RAM, 
   * Implement `TubeUla.cs` ($FEE0–$FEEF) 4-FIFO inter-processor communication controller and dual-CPU runner.
 * **[Story 4.6] Unit & Integration Testing Suite (Headless MOS 3.20 Boot)** (#27)
   * Create `tests/Machines.BbcMaster.Tests` verifying ACCCON, Shadow RAM, WD1770, RTC, Tube FIFOs, and headless MOS 3.20 boot.
+
+---
+
+## Epic 5: Commodore 64 (C64) Emulator Target (`Machines.C64` & `Host.C64`)
+
+### Description
+Build a complete Commodore 64 microcomputer target featuring MOS 6510 CPU with $00/$01 memory banking, dual MOS 6526 CIA controllers, MOS 6567/6569 VIC-II video engine with 8 hardware sprites, and MOS 6581/8580 SID audio synthesizer.
+
+### User Stories & Implementation Tasks
+* **[Story 5.1] C64: MOS 6510 CPU & Memory Bus Banking ($0000-$FFFF)** (#29)
+  * Create `src/Machines.C64` and `src/Host.C64`.
+  * Map 64 KB RAM, $00/$01 6510 I/O port, KERNAL ROM, BASIC ROM, and Character ROM.
+* **[Story 5.2] C64: MOS 6526 CIA (Complex Interface Adapter) & Keyboard Matrix** (#30)
+  * Implement `Cia6526.cs` in `Machines.Common` with dual 16-bit timers, TOD clock, and C64 matrix scanning.
+* **[Story 5.3] C64: MOS 6567/6569 VIC-II Video Graphics Generator & Sprites** (#31)
+  * Implement `Vic2Video.cs` with 320x200 text/multicolor bitmap graphics, 8 hardware sprites, and raster IRQs.
+* **[Story 5.4] C64: MOS 6581/8580 SID Sound Interface Device Synthesizer** (#32)
+  * Implement `Sid6581.cs` with 3-channel sound synthesis, ADSR envelopes, and audio filters.
+* **[Story 5.5] C64: Commodore .PRG & .D64 Disk Image Auto-Loader** (#33)
+  * Implement Commodore `.prg` memory loader and `.d64` 1541 floppy disk sector parser.
+* **[Story 5.6] C64: Unit & Integration Testing Suite (BASIC 2.0 Boot)** (#34)
+  * Create `tests/Machines.C64.Tests` verifying 6510 banking, CIA timers, VIC-II raster IRQs, and BASIC 2.0 boot.
+
+---
+
+## Epic 6: Atari 800XL / 800 Computer Target (`Machines.Atari800` & `Host.Atari800`)
+
+### Description
+Build a complete Atari 800XL microcomputer target featuring SALLY 6502C CPU, ANTIC Display List video DMA engine, GTIA graphics generator, POKEY 4-channel sound synthesizer, and PIA 6520 integration.
+
+### User Stories & Implementation Tasks
+* **[Story 6.1] Atari 800XL: SALLY 6502C CPU, Memory Map & PIA 6520 Integration** (#36)
+  * Create `src/Machines.Atari800` and `src/Host.Atari800`.
+  * Map SALLY 6502C HALT mechanism, 64 KB RAM, and PIA 6520 (`Pia6520.cs` reuse) for joysticks/banking.
+* **[Story 6.2] Atari 800XL: POKEY Chip 4-Channel Audio, Serial I/O & Keyboard** (#37)
+  * Implement `Pokey.cs` in `Machines.Common` with 4-channel audio synthesizer, high-pass filters, and keyboard scanning.
+* **[Story 6.3] Atari 800XL: ANTIC Display List Video DMA Processor** (#38)
+  * Implement `Antic.cs` display list processor with DMA instruction decoder, playfield modes 0-F, and NMI interrupts.
+* **[Story 6.4] Atari 800XL: GTIA Color Palette & Player-Missile Graphics** (#39)
+  * Implement `Gtia.cs` with 256-color palette registers, 4 player/missile hardware sprites, and collision detection.
+* **[Story 6.5] Atari 800XL: Atari .ATR / .XEX Executable & Disk Auto-Loader** (#40)
+  * Implement Atari `.xex` binary executable loader and `.atr` floppy disk image sector parser.
+* **[Story 6.6] Atari 800XL: Unit & Integration Testing Suite (Atari OS Boot)** (#41)
+  * Create `tests/Machines.Atari800.Tests` verifying SALLY CPU HALT, POKEY registers, ANTIC display lists, GTIA collision, and Atari OS boot.
