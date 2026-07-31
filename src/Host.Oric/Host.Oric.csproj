@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>oric</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Adapters.Gdb\Adapters.Gdb.csproj" />
+    <ProjectReference Include="..\Adapters.Raylib\Adapters.Raylib.csproj" />
+    <ProjectReference Include="..\Machines.Oric\Machines.Oric.csproj" />
+  </ItemGroup>
+
+</Project>
