@@ -21,9 +21,8 @@ public sealed class BbcOsRom : IBus
 
     public byte Read(ushort address)
     {
-        int offset = address - 0xC000;
-        if (offset >= 0 && offset < 0x4000)
-            return _data[offset];
+        if (address < 0x4000)
+            return _data[address];
         return 0xFF;
     }
 

@@ -10,9 +10,11 @@ public class BbcMicroBootIntegrationTests
     {
         // Construct OS 1.20 dummy ROM with valid RESET vector pointing to $D000
         byte[] osRom = new byte[0x4000];
-        // Reset vector at $FFFC/$FFFD -> offset $3FFC/$3FFD in 16KB OS ROM
+        // Reset vector at $FFFC/$FFFD and IRQ vector at $FFFE/$FFFF -> offset $3FFC–$3FFF
         osRom[0x3FFC] = 0x00;
         osRom[0x3FFD] = 0xD0; // $D000
+        osRom[0x3FFE] = 0x00;
+        osRom[0x3FFF] = 0xD0; // $D000
 
         // At $D000: SEI, CLD, LDX #$FF, TXS, LDA #$01, STA $00, BRK
         osRom[0x1000] = 0x78; // SEI
@@ -24,7 +26,7 @@ public class BbcMicroBootIntegrationTests
         osRom[0x1006] = 0x01;
         osRom[0x1007] = 0x85; // STA $00
         osRom[0x1008] = 0x00;
-        osRom[0x1009] = 0x00; // BRK
+        osRom[0x1009] = 0xEA; // NOP
 
         var machine = new BbcMicroMachine(osRom);
         machine.Reset();

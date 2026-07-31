@@ -36,9 +36,8 @@ public sealed class BbcMicroMachine
         Bus = new AddressDecoder();
         Bus.Map(0x0000, 0x7FFF, Ram);
         Bus.Map(0x8000, 0xBFFF, SidewaysRomBank);
-        Bus.Map(0xC000, 0xFBFF, OsRom);
+        Bus.Map(0xC000, 0xFFFF, OsRom);
         Bus.Map(0xFC00, 0xFEFF, SheilaBus);
-        Bus.Map(0xFF00, 0xFFFF, OsRom);
 
         Cpu = new Cpu(Bus);
     }
