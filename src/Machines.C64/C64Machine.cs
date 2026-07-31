@@ -12,6 +12,7 @@ public sealed class C64Machine
     public Cpu Cpu { get; }
     public C64Bus Bus { get; }
     public Vic2Video Vic => Bus.Vic;
+    public Sid6581 Sid => Bus.Sid;
     public Cia6526 Cia1 => Bus.Cia1;
     public Cia6526 Cia2 => Bus.Cia2;
     public C64KeyboardAdapter Keyboard { get; } = new();

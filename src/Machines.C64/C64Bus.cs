@@ -15,6 +15,7 @@ public sealed class C64Bus : IBus
 {
     public Ram Ram { get; } = new(0x10000); // 64 KB RAM
     public Vic2Video Vic { get; } = new(); // VIC-II at $D000
+    public Sid6581 Sid { get; } = new(); // SID at $D400
     public Cia6526 Cia1 { get; } = new(); // CIA1 at $DC00 (Keyboard, Joystick 2, IRQ)
     public Cia6526 Cia2 { get; } = new(); // CIA2 at $DD00 (VIC-II Banking, NMI)
     public byte[] BasicRom { get; } = new byte[0x2000]; // 8 KB BASIC ROM ($A000–$BFFF)
@@ -53,6 +54,9 @@ public sealed class C64Bus : IBus
             if (address >= 0xD000 && address <= 0xD03F)
                 return Vic.Read(address);
 
+            if (address >= 0xD400 && address <= 0xD7FF)
+                return Sid.Read(address);
+
             if (address >= 0xDC00 && address <= 0xDCFF)
                 return Cia1.Read(address);
 
@@ -88,6 +92,10 @@ public sealed class C64Bus : IBus
         if (address >= 0xD000 && address <= 0xD03F)
         {
             Vic.Write(address, value);
+        }
+        else if (address >= 0xD400 && address <= 0xD7FF)
+        {
+            Sid.Write(address, value);
         }
         else if (address >= 0xDC00 && address <= 0xDCFF)
         {
