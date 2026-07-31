@@ -57,6 +57,7 @@ For detailed competitive analysis against other 6502 emulators, see **[docs/perf
 
 `Cpu6502` includes full runnable machine target executables built on top of the core CPU:
 
+* 🕹️ **Commodore PET 2001 / 4032 / 8032** (`Host.Pet`): Full 6502 @ 1 MHz, 32 KB RAM, monochrome character video, PIA 6520, VIA 6522, and IEEE-488 bus auto-loader.
 * 🕹️ **Oric-1 / Oric Atmos** (`Host.Oric`): Full 6502 @ 1 MHz, ULA 240×200 video with serial attributes, MOS 6522 VIA, AY-3-8912 PSG sound, and TAP cassette loader.
 * 🕹️ **Acorn BBC Micro Model B** (`Host.BbcMicro`): Full 6502 @ 2 MHz, Motorola 6845 CRTC, SAA5050 Teletext, dual MOS 6522 VIAs, SN76489 sound, 16-bank Sideways ROMs, and 8271 FDC disk images.
 * 🕹️ **Acorn Atom** (`Host.Atom`): Full 6502 @ 1 MHz, Intel 8255 PPI, Motorola MC6847 VDG, cassette UEF playback, and sound. See **[docs/atom.md](docs/atom.md)**.
