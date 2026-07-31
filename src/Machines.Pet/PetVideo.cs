@@ -5,7 +5,8 @@ namespace Machines.Pet;
 
 /// <summary>
 /// Commodore PET 2001 / 4032 / 8032 monochrome text/character matrix video renderer.
-/// Renders 40 columns × 25 rows = 1,000 bytes from Video RAM ($8000–$83E7).
+/// High-performance linear scanline renderer for 40 columns × 25 rows = 1,000 bytes VRAM ($8000–$83E7).
+/// Optimized with linear memory writes for maximum L1 CPU cache locality.
 /// </summary>
 public sealed class PetVideo
 {
@@ -19,31 +20,30 @@ public sealed class PetVideo
 
     public void RenderFrame(Ram videoRam, IVideoSink sink)
     {
-        for (int row = 0; row < 25; row++)
+        ReadOnlySpan<byte> vramSpan = videoRam.DirectReadBuffer;
+
+        for (int y = 0; y < FrameHeight; y++)
         {
+            int row = y >> 3; // y / 8
+            int scanRow = y & 7; // y % 8
+            int rowOffset = row * 40;
+            int dstIdx = y * FrameWidth;
+
             for (int col = 0; col < 40; col++)
             {
-                ushort addr = (ushort)(row * 40 + col);
-                byte characterCode = videoRam.Read(addr);
+                byte characterCode = vramSpan.Length > 0 ? vramSpan[rowOffset + col] : videoRam.Read((ushort)(rowOffset + col));
 
                 bool inverse = (characterCode & 0x80) != 0;
                 int charIdx = characterCode & 0x7F;
 
-                for (int scanRow = 0; scanRow < 8; scanRow++)
+                byte lineBits = GetPetCharacterPattern(charIdx, scanRow);
+
+                for (int p = 0; p < 8; p++)
                 {
-                    int screenY = row * 8 + scanRow;
-                    int screenX = col * 8;
-                    int dstIdx = screenY * FrameWidth + screenX;
+                    bool bitSet = (lineBits & (0x80 >> p)) != 0;
+                    if (inverse) bitSet = !bitSet;
 
-                    byte lineBits = GetPetCharacterPattern(charIdx, scanRow);
-
-                    for (int p = 0; p < 8; p++)
-                    {
-                        bool bitSet = (lineBits & (0x80 >> p)) != 0;
-                        if (inverse) bitSet = !bitSet;
-
-                        _pixelBuffer[dstIdx + p] = bitSet ? GreenOn : GreenOff;
-                    }
+                    _pixelBuffer[dstIdx++] = bitSet ? GreenOn : GreenOff;
                 }
             }
         }
@@ -53,7 +53,6 @@ public sealed class PetVideo
 
     private static byte GetPetCharacterPattern(int charCode, int line)
     {
-        // Simple built-in 8x8 font pattern generator for PETSCII characters
         if (line == 0 || line == 7) return 0x00;
         return (byte)(charCode & 0x7F);
     }

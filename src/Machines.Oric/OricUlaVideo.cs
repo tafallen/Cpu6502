@@ -4,9 +4,8 @@ using Machines.Common;
 namespace Machines.Oric;
 
 /// <summary>
-/// Oric-1 / Oric Atmos ULA Video Hardware Renderer (240×200).
-/// Supports TEXT mode ($BB80–$BFDF) and HIRES mode ($A000–$BF3F) with serial attributes.
-/// Serial attribute bytes ($00–$1F) modify ink/paper color, blinking, and text/graphics mode.
+/// High-performance Oric-1 / Oric Atmos ULA Video Hardware Renderer (240×200).
+/// Optimized with direct RAM span access and fast scanline calculations.
 /// </summary>
 public sealed class OricUlaVideo
 {
@@ -30,7 +29,7 @@ public sealed class OricUlaVideo
 
     public void RenderFrame(Ram ram, IVideoSink sink)
     {
-        // Default to TEXT mode at $BB80 unless HIRES attribute encountered
+        ReadOnlySpan<byte> ramSpan = ram.DirectReadBuffer;
         bool isHiresMode = false;
 
         for (int y = 0; y < FrameHeight; y++)
@@ -38,24 +37,16 @@ public sealed class OricUlaVideo
             uint ink = Palette[7];   // White
             uint paper = Palette[0]; // Black
 
-            int textRow = y / 8;
-            int scanLineInChar = y % 8;
+            int textRow = y >> 3; // y / 8
+            int scanLineInChar = y & 7; // y % 8
+            int textRowOffset = 0xBB80 + textRow * 40;
+            int hiresRowOffset = 0xA000 + y * 40;
+            int dstIdx = y * FrameWidth;
 
             for (int col = 0; col < 40; col++)
             {
-                ushort addr;
-                if (isHiresMode && y < 176)
-                {
-                    // HIRES bitmap mode ($A000 + y*40 + col)
-                    addr = (ushort)(0xA000 + y * 40 + col);
-                }
-                else
-                {
-                    // TEXT mode ($BB80 + textRow*40 + col)
-                    addr = (ushort)(0xBB80 + textRow * 40 + col);
-                }
-
-                byte val = ram.Read(addr);
+                ushort addr = (isHiresMode && y < 176) ? (ushort)(hiresRowOffset + col) : (ushort)(textRowOffset + col);
+                byte val = ramSpan.Length > 0 ? ramSpan[addr] : ram.Read(addr);
 
                 // Serial Attributes ($00–$1F)
                 if ((val & 0x60) == 0x00)
@@ -80,9 +71,6 @@ public sealed class OricUlaVideo
                 }
 
                 // Render 6 pixels per byte
-                int dstX = col * 6;
-                int dstIdx = y * FrameWidth + dstX;
-
                 byte pixels;
                 if (isHiresMode && y < 176)
                 {
@@ -90,16 +78,16 @@ public sealed class OricUlaVideo
                 }
                 else
                 {
-                    // Character lookup from $B400 font table
-                    ushort fontAddr = (ushort)(0xB400 + (val & 0x7F) * 8 + scanLineInChar);
-                    pixels = (byte)(ram.Read(fontAddr) & 0x3F);
+                    int fontAddr = 0xB400 + (val & 0x7F) * 8 + scanLineInChar;
+                    pixels = (byte)((ramSpan.Length > 0 ? ramSpan[fontAddr] : ram.Read((ushort)fontAddr)) & 0x3F);
                 }
 
-                for (int p = 0; p < 6; p++)
-                {
-                    bool bitSet = (pixels & (0x20 >> p)) != 0;
-                    _pixelBuffer[dstIdx + p] = bitSet ? ink : paper;
-                }
+                _pixelBuffer[dstIdx++] = (pixels & 0x20) != 0 ? ink : paper;
+                _pixelBuffer[dstIdx++] = (pixels & 0x10) != 0 ? ink : paper;
+                _pixelBuffer[dstIdx++] = (pixels & 0x08) != 0 ? ink : paper;
+                _pixelBuffer[dstIdx++] = (pixels & 0x04) != 0 ? ink : paper;
+                _pixelBuffer[dstIdx++] = (pixels & 0x02) != 0 ? ink : paper;
+                _pixelBuffer[dstIdx++] = (pixels & 0x01) != 0 ? ink : paper;
             }
         }
 
