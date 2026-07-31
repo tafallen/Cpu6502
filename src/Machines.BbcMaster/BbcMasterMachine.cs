@@ -21,6 +21,7 @@ public sealed class BbcMasterMachine
     public BbcMasterAcccon Acccon { get; } = new();
     public Mc146818Rtc Rtc { get; } = new();
     public Wd1770Fdc Fdc { get; } = new();
+    public TubeUla Tube { get; } = new();
     public Mc6845 Crtc { get; } = new();
     public Saa5050 Teletext { get; } = new();
     public Via6522 SystemVia { get; } = new();
@@ -41,6 +42,7 @@ public sealed class BbcMasterMachine
         Bus.Map(0xFE40, 0xFE4F, SystemVia);
         Bus.Map(0xFE60, 0xFE6F, UserVia);
         Bus.Map(0xFE80, 0xFE83, Fdc);
+        Bus.Map(0xFEE0, 0xFEEF, Tube);
 
         if (osRomData.Length >= 0x4000)
         {
