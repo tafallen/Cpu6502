@@ -33,10 +33,9 @@ public sealed class PetMachine
         Bus = new AddressDecoder();
         Bus.Map(0x0000, 0x7FFF, Ram);
         Bus.Map(0x8000, 0x87FF, VideoRam);
-        Bus.Map(0x9000, 0xE80F, Rom);
+        Bus.Map(0x9000, 0xFFFF, Rom);
         Bus.Map(0xE810, 0xE813, Pia);
         Bus.Map(0xE840, 0xE84F, Via);
-        Bus.Map(0xE850, 0xFFFF, Rom);
 
         Pia.ReadPortB = () => Keyboard.ScanRow(Pia.PortALatch);
 

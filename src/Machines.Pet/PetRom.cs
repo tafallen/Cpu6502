@@ -4,8 +4,7 @@ namespace Machines.Pet;
 
 /// <summary>
 /// 28 KB ROM region for Commodore PET 2001 / 4032 / 8032 ($9000–$FFFF).
-/// Contains BASIC ROMs ($9000–$BFFF), Editor ROM ($E000–$E7FF),
-/// Kernel ROM ($F000–$FFFF), and MMIO window at $E800–$EFFF.
+/// AddressDecoder passes the 0-indexed relative offset from $9000 (0x0000–0x6FFF).
 /// </summary>
 public sealed class PetRom : IBus
 {
@@ -21,9 +20,8 @@ public sealed class PetRom : IBus
 
     public byte Read(ushort address)
     {
-        int offset = address - 0x9000;
-        if (offset >= 0 && offset < 0x7000)
-            return _data[offset];
+        if (address < _data.Length)
+            return _data[address];
         return 0xFF;
     }
 
