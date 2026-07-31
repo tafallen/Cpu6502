@@ -36,6 +36,18 @@ public class PetMemoryTests
         video.RenderFrame(machine.VideoRam, new DummyVideoSink());
     }
 
+    [Fact]
+    public void Keyboard_KeyDown_ScansRowCorrectly()
+    {
+        byte[] romData = new byte[0x7000];
+        var machine = new PetMachine(romData);
+
+        machine.Keyboard.KeyDown(col: 4, row: 1);
+        byte scanned = machine.Keyboard.ScanRow(4);
+
+        Assert.Equal(unchecked((byte)~(1 << 1)), scanned);
+    }
+
     private class DummyVideoSink : Machines.Common.IVideoSink
     {
         public void SubmitFrame(ReadOnlySpan<uint> pixelDataBuffer, int width, int height)

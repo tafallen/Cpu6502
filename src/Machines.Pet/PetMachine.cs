@@ -38,10 +38,13 @@ public sealed class PetMachine
         Bus.Map(0xE840, 0xE84F, Via);
         Bus.Map(0xE850, 0xFFFF, Rom);
 
+        Pia.ReadPortB = () => Keyboard.ScanRow(Pia.PortALatch);
+
         Cpu = new Cpu(Bus);
     }
 
     public PetVideo Video { get; } = new();
+    public PetKeyboardAdapter Keyboard { get; } = new();
 
     public void Reset() => Cpu.Reset();
 
