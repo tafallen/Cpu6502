@@ -371,3 +371,21 @@ dotnet run --project src/Host.Pet -- --rom roms/pet/pet2001.rom --prg program.pr
 | `--prg <path>` | (none) | Auto-load `.prg` program file directly into RAM at `$0401` |
 | `--scale <n>` | 3 | Window scale factor |
 
+---
+
+## Commodore 64 (`Host.C64`)
+
+```bash
+dotnet run --project src/Host.C64 -- --kernal roms/c64/kernal.rom --basic roms/c64/basic.rom --prg game.prg --scale 3
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--kernal <path>` | `roms/c64/kernal.rom` | 8 KB KERNAL OS ROM file ($E000–$FFFF) |
+| `--basic <path>` | `roms/c64/basic.rom` | 8 KB BASIC 2.0 ROM file ($A000–$BFFF) |
+| `--char <path>` | `roms/c64/chargen.rom` | 4 KB Character Generator ROM file ($D000–$DFFF) |
+| `--prg <path>` | (none) | Auto-load `.prg` program binary file directly into RAM |
+| `--scale <n>` | 3 | Window scale factor |
+| `--smooth` | off | Enable bilinear texture filtering for smooth scaling |
+| `--scanlines <f>` | 0 | CRT scanline intensity (0.0 = off, 0.5 = moderate, 1.0 = full) |
+

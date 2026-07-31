@@ -256,3 +256,45 @@ public class ElectronMachine
 ```
 
 With `osRom` and `basicRom` set to the real ROM images, `PowerOn()` followed by repeated `RunFrame()` calls will drive the CPU through the OS boot sequence at the correct speed.
+
+---
+
+## 7. Commodore 64 ($00/$01 Banking & Dual CIA Wiring)
+
+For machines with on-chip CPU ports (like the MOS 6510 in the Commodore 64), the bus handles `$00/$01` banking bits directly:
+
+```csharp
+public class C64ExampleMachine
+{
+    private readonly Cpu _cpu;
+    private readonly C64Bus _bus;
+
+    public C64ExampleMachine(byte[] kernalRom, byte[] basicRom, byte[] charRom)
+    {
+        _bus = new C64Bus();
+        Array.Copy(kernalRom, _bus.KernalRom, 0x2000);
+        Array.Copy(basicRom,  _bus.BasicRom,  0x2000);
+        Array.Copy(charRom,   _bus.CharRom,   0x1000);
+
+        _cpu = new Cpu(_bus);
+    }
+
+    public void Boot()
+    {
+        _cpu.Reset();
+        while (true)
+        {
+            ulong cyclesBefore = _cpu.TotalCycles;
+            _cpu.Step();
+            int delta = (int)(_cpu.TotalCycles - cyclesBefore);
+
+            _bus.Vic.Tick(delta);
+            _bus.Cia1.Tick(delta);
+            _bus.Cia2.Tick(delta);
+
+            if (_bus.Cia1.Irq || _bus.Vic.Irq) _cpu.Irq();
+            if (_bus.Cia2.Irq) _cpu.Nmi();
+        }
+    }
+}
+```

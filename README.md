@@ -57,8 +57,10 @@ For detailed competitive analysis against other 6502 emulators, see **[docs/perf
 
 `Cpu6502` includes full runnable machine target executables built on top of the core CPU:
 
-* 🕹️ **Commodore PET 2001 / 4032 / 8032** (`Host.Pet`): Full 6502 @ 1 MHz, 32 KB RAM, monochrome character video, PIA 6520, VIA 6522, and IEEE-488 bus auto-loader.
-* 🕹️ **Oric-1 / Oric Atmos** (`Host.Oric`): Full 6502 @ 1 MHz, ULA 240×200 video with serial attributes, MOS 6522 VIA, AY-3-8912 PSG sound, and TAP cassette loader.
+* 🕹️ **Commodore 64** (`Host.C64`): Full MOS 6510 @ 1.023 MHz, `$00/$01` banking, MOS 6567/6569 VIC-II video, dual MOS 6526 CIAs, MOS 6581 SID sound, `.prg` & `.d64` loaders. See **[docs/c64.md](docs/c64.md)**.
+* 🕹️ **Acorn BBC Master 128** (`Host.BbcMaster`): WDC 65C102 @ 2 MHz, 128 KB RAM & Shadow Video RAM, ACCCON register, WD1770 FDC, MC146818 RTC/CMOS, and Tube Coprocessor. See **[docs/bbcmaster.md](docs/bbcmaster.md)**.
+* 🕹️ **Commodore PET 2001 / 4032 / 8032** (`Host.Pet`): Full 6502 @ 1 MHz, 32 KB RAM, monochrome character video, PIA 6520, VIA 6522, and IEEE-488 bus auto-loader. See **[docs/pet.md](docs/pet.md)**.
+* 🕹️ **Oric-1 / Oric Atmos** (`Host.Oric`): Full 6502 @ 1 MHz, ULA 240×200 video with serial attributes, MOS 6522 VIA, AY-3-8912 PSG sound, and TAP cassette loader. See **[docs/oric.md](docs/oric.md)**.
 * 🕹️ **Acorn BBC Micro Model B** (`Host.BbcMicro`): Full 6502 @ 2 MHz, Motorola 6845 CRTC, SAA5050 Teletext, dual MOS 6522 VIAs, SN76489 sound, 16-bank Sideways ROMs, and 8271 FDC disk images.
 * 🕹️ **Acorn Atom** (`Host.Atom`): Full 6502 @ 1 MHz, Intel 8255 PPI, Motorola MC6847 VDG, cassette UEF playback, and sound. See **[docs/atom.md](docs/atom.md)**.
 * 🕹️ **Commodore VIC-20** (`Host.Vic20`): Full 6502 @ 1.108 MHz, MOS 6560/6561 VIC-I video/audio, dual MOS 6522 VIAs, and TAP cassette support. See **[docs/vic20.md](docs/vic20.md)**.
