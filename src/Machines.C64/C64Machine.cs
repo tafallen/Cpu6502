@@ -5,12 +5,13 @@ namespace Machines.C64;
 
 /// <summary>
 /// Machine container for Commodore 64 microcomputer target (1982).
-/// Features MOS 6510 CPU, 64 KB RAM, dual MOS 6526 CIA controllers, and keyboard matrix.
+/// Features MOS 6510 CPU, 64 KB RAM, VIC-II video generator, dual CIA controllers, and keyboard matrix.
 /// </summary>
 public sealed class C64Machine
 {
     public Cpu Cpu { get; }
     public C64Bus Bus { get; }
+    public Vic2Video Vic => Bus.Vic;
     public Cia6526 Cia1 => Bus.Cia1;
     public Cia6526 Cia2 => Bus.Cia2;
     public C64KeyboardAdapter Keyboard { get; } = new();
@@ -44,10 +45,11 @@ public sealed class C64Machine
         Cpu.Step();
         int delta = (int)(Cpu.TotalCycles - cyclesBefore);
 
+        Vic.Tick(delta);
         Cia1.Tick(delta);
         Cia2.Tick(delta);
 
-        if (Cia1.Irq)
+        if (Cia1.Irq || Vic.Irq)
         {
             Cpu.Irq();
         }
@@ -58,12 +60,17 @@ public sealed class C64Machine
         }
     }
 
-    public void RunFrame()
+    public void RunFrame(IVideoSink? sink = null)
     {
         ulong target = Cpu.TotalCycles + CyclesPerFrame;
         while (Cpu.TotalCycles < target)
         {
             Step();
+        }
+
+        if (sink is not null)
+        {
+            Vic.RenderFrame(Bus.Ram, Bus.CharRom, sink);
         }
     }
 }

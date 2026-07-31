@@ -28,7 +28,7 @@ using var display = new RaylibHost("Commodore 64", new DisplayOptions(scale: opt
 while (display.IsRunning)
 {
     display.PollEvents();
-    machine.RunFrame();
+    machine.RunFrame(display);
 }
 
 return 0;
