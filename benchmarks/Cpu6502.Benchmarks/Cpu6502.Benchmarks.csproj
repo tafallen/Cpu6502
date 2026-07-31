@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -16,6 +16,9 @@
     <ProjectReference Include="..\..\src\Machines.Common\Machines.Common.csproj" />
     <ProjectReference Include="..\..\src\Machines.Atom\Machines.Atom.csproj" />
     <ProjectReference Include="..\..\src\Machines.Vic20\Machines.Vic20.csproj" />
+    <ProjectReference Include="..\..\src\Machines.Oric\Machines.Oric.csproj" />
+    <ProjectReference Include="..\..\src\Machines.Pet\Machines.Pet.csproj" />
+    <ProjectReference Include="..\..\src\Machines.BbcMicro\Machines.BbcMicro.csproj" />
   </ItemGroup>
 
 </Project>

@@ -162,6 +162,11 @@ public class VideoRenderBenchmarks
 {
     private Mc6847 _vdg = null!;
     private VicI _vic = null!;
+    private Machines.Oric.OricUlaVideo _oricVideo = null!;
+    private Machines.Pet.PetVideo _petVideo = null!;
+    private Machines.BbcMicro.Saa5050 _saa5050 = null!;
+    private Ram _oricRam = null!;
+    private Ram _petVram = null!;
     private DummyVideoSink _sink = null!;
 
     private class DummyVideoSink : IVideoSink
@@ -177,6 +182,15 @@ public class VideoRenderBenchmarks
         _vdg = new Mc6847(vram);
         _vic = new VicI();
         _sink = new DummyVideoSink();
+
+        _oricRam = new Ram(0x10000);
+        Array.Fill(_oricRam.DirectWriteBuffer, (byte)0x41);
+        _oricVideo = new Machines.Oric.OricUlaVideo();
+
+        _petVram = new Ram(0x0800);
+        Array.Fill(_petVram.DirectWriteBuffer, (byte)0x41);
+        _petVideo = new Machines.Pet.PetVideo();
+        _saa5050 = new Machines.BbcMicro.Saa5050();
     }
 
     [Benchmark(OperationsPerInvoke = 100)]
@@ -194,6 +208,33 @@ public class VideoRenderBenchmarks
         for (int i = 0; i < 100; i++)
         {
             _vic.RenderFrame(_sink);
+        }
+    }
+
+    [Benchmark(OperationsPerInvoke = 100)]
+    public void OricUla_RenderFrame_100()
+    {
+        for (int i = 0; i < 100; i++)
+        {
+            _oricVideo.RenderFrame(_oricRam, _sink);
+        }
+    }
+
+    [Benchmark(OperationsPerInvoke = 100)]
+    public void PetVideo_RenderFrame_100()
+    {
+        for (int i = 0; i < 100; i++)
+        {
+            _petVideo.RenderFrame(_petVram, _sink);
+        }
+    }
+
+    [Benchmark(OperationsPerInvoke = 100)]
+    public void Saa5050_RenderMode7_100()
+    {
+        for (int i = 0; i < 100; i++)
+        {
+            _saa5050.RenderMode7(_oricRam, 0x7C00, _sink);
         }
     }
 }

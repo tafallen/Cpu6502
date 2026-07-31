@@ -5,13 +5,13 @@ namespace Machines.BbcMicro;
 
 /// <summary>
 /// Mullard SAA5050 Teletext character generator chip used in BBC Micro Mode 7.
-/// Renders 40 columns × 25 rows = 1,000 text/graphics characters from VRAM ($7C00–$7FBF).
-/// Supports 8 Teletext colors, alphanumeric and mosaic graphics modes.
+/// High-performance linear scanline renderer for 40 columns × 25 rows = 1,000 text/graphics characters VRAM ($7C00–$7FBF).
+/// Optimized with linear memory writes for maximum L1 CPU cache locality and zero GC allocations.
 /// </summary>
 public sealed class Saa5050
 {
     public const int FrameWidth = 640;
-    public const int FrameHeight = 256;
+    public const int FrameHeight = 250; // 25 rows * 10 scanlines
 
     private readonly uint[] _pixelBuffer = new uint[FrameWidth * FrameHeight];
 
@@ -30,11 +30,17 @@ public sealed class Saa5050
 
     public void RenderMode7(Ram ram, ushort vramBase, IVideoSink sink)
     {
+        ReadOnlySpan<byte> ramSpan = ram.DirectReadBuffer;
         uint defaultFg = Palette[7]; // White
         uint defaultBg = Palette[0]; // Black
 
-        for (int row = 0; row < 25; row++)
+        for (int y = 0; y < FrameHeight; y++)
         {
+            int row = y / 10;
+            int scanRow = y % 10;
+            ushort rowAddr = (ushort)(vramBase + row * 40);
+            int dstIdx = y * FrameWidth;
+
             uint fg = defaultFg;
             uint bg = defaultBg;
             bool graphicsMode = false;
@@ -42,8 +48,8 @@ public sealed class Saa5050
 
             for (int col = 0; col < 40; col++)
             {
-                ushort addr = (ushort)(vramBase + row * 40 + col);
-                byte code = ram.Read(addr);
+                ushort addr = (ushort)(rowAddr + col);
+                byte code = ramSpan.Length > 0 ? ramSpan[addr] : ram.Read(addr);
 
                 // Teletext Control Characters ($00–$1F)
                 if (code < 0x20)
@@ -69,24 +75,15 @@ public sealed class Saa5050
                     code = 0x20; // Render control char as space
                 }
 
-                // Render 12 line-scan rows per character
-                for (int scanRow = 0; scanRow < 10; scanRow++)
+                byte glyphBits = GetGlyphRow(code, scanRow, graphicsMode, contiguous);
+
+                // Expand 6 bits into 16 pixels (2x horizontal stretch)
+                for (int p = 0; p < 16; p++)
                 {
-                    int screenY = row * 10 + scanRow;
-                    if ((uint)screenY >= (uint)FrameHeight) continue;
-
-                    int xBase = col * 16;
-                    int dstIdx = screenY * FrameWidth + xBase;
-
-                    // Expand 6 pixel bits
-                    byte glyphBits = GetGlyphRow(code, scanRow, graphicsMode, contiguous);
-
-                    for (int p = 0; p < 16; p++)
-                    {
-                        int bitIdx = p / 2; // 2x horizontal scaling: 6 bits -> 12 px -> padded to 16 px
-                        bool bitSet = (glyphBits & (0x20 >> Math.Min(bitIdx, 5))) != 0;
-                        _pixelBuffer[dstIdx + p] = bitSet ? fg : bg;
-                    }
+                    int bitIdx = p >> 1; // p / 2
+                    if (bitIdx > 5) bitIdx = 5;
+                    bool bitSet = (glyphBits & (0x20 >> bitIdx)) != 0;
+                    _pixelBuffer[dstIdx++] = bitSet ? fg : bg;
                 }
             }
         }
