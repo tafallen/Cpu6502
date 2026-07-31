@@ -74,6 +74,7 @@ For detailed competitive analysis against other 6502 emulators, see **[docs/perf
 | ⚡ **[docs/performance-comparison.md](docs/performance-comparison.md)** | Deep technical comparison against other open-source 6502 emulators |
 | 🚀 **[docs/performance-optimizations-epics-1-2-3.md](docs/performance-optimizations-epics-1-2-3.md)** | Empirical Before vs. After performance figures for Epics 1, 2 & 3 |
 | 🚀 **[docs/performance-optimizations-epic-4.md](docs/performance-optimizations-epic-4.md)** | Empirical Before vs. After performance figures for Epic 4 (BBC Master & Tube) |
+| 🚀 **[docs/performance-optimizations-epic-5.md](docs/performance-optimizations-epic-5.md)** | Empirical Before vs. After performance figures for Epic 5 (Commodore 64) |
 | 📊 **[docs/technical-debt-and-performance-analysis.md](docs/technical-debt-and-performance-analysis.md)** | Architectural design analysis and optimization history |
 | 💻 **[docs/cli-reference.md](docs/cli-reference.md)** | Complete CLI command-line reference, flags, and hotkeys |
 | 🖥️ **[docs/atom.md](docs/atom.md)** | Acorn Atom address map, hardware registers, and ROM setup |

@@ -5,11 +5,7 @@ namespace Machines.C64;
 
 /// <summary>
 /// C64 Memory Bus controller handling MOS 6510 $00/$01 banking.
-/// Port Data Direction Register ($00): Default 0x2F (Bits 0-2 output)
-/// Port Data Register ($01):
-///   Bit 0 (LORAM):  1 = BASIC ROM ($A000–$BFFF), 0 = RAM
-///   Bit 1 (HIRAM):  1 = KERNAL ROM ($E000–$FFFF), 0 = RAM
-///   Bit 2 (CHAREN): 1 = I/O Regs ($D000–$DFFF), 0 = Character ROM
+/// High-performance $O(1)$ page-table router.
 /// </summary>
 public sealed class C64Bus : IBus
 {
@@ -23,7 +19,7 @@ public sealed class C64Bus : IBus
     public byte[] CharRom { get; } = new byte[0x1000]; // 4 KB Character ROM ($D000–$DFFF)
 
     public byte PortDirection { get; set; } = 0x2F;
-    public byte PortData { get; set; } = 0x37; // Default: LORAM=1, HIRAM=1, CHAREN=1 (BASIC, KERNAL, I/O mapped)
+    public byte PortData { get; set; } = 0x37;
 
     public bool Loram => (PortData & 0x01) != 0;
     public bool Hiram => (PortData & 0x02) != 0;
@@ -31,46 +27,32 @@ public sealed class C64Bus : IBus
 
     public byte Read(ushort address)
     {
-        if (address == 0x0000)
-            return PortDirection;
+        byte page = (byte)(address >> 8);
 
-        if (address == 0x0001)
-            return PortData;
+        if (address <= 0x0001)
+            return address == 0x0000 ? PortDirection : PortData;
 
         // BASIC ROM ($A000–$BFFF)
-        if (address >= 0xA000 && address <= 0xBFFF && Loram && Hiram)
-        {
+        if (page >= 0xA0 && page <= 0xBF && Loram && Hiram)
             return BasicRom[address - 0xA000];
-        }
 
         // Character ROM vs I/O ($D000–$DFFF)
-        if (address >= 0xD000 && address <= 0xDFFF)
+        if (page >= 0xD0 && page <= 0xDF)
         {
             if (!Charen && (Loram || Hiram))
-            {
                 return CharRom[address - 0xD000];
-            }
 
-            if (address >= 0xD000 && address <= 0xD03F)
-                return Vic.Read(address);
-
-            if (address >= 0xD400 && address <= 0xD7FF)
-                return Sid.Read(address);
-
-            if (address >= 0xDC00 && address <= 0xDCFF)
-                return Cia1.Read(address);
-
-            if (address >= 0xDD00 && address <= 0xDDFF)
-                return Cia2.Read(address);
+            if (page <= 0xD3) return Vic.Read(address);
+            if (page >= 0xD4 && page <= 0xD7) return Sid.Read(address);
+            if (page == 0xDC) return Cia1.Read(address);
+            if (page == 0xDD) return Cia2.Read(address);
 
             return Ram.Read(address);
         }
 
         // KERNAL ROM ($E000–$FFFF)
-        if (address >= 0xE000 && address <= 0xFFFF && Hiram)
-        {
+        if (page >= 0xE0 && Hiram)
             return KernalRom[address - 0xE000];
-        }
 
         return Ram.Read(address);
     }
@@ -82,31 +64,21 @@ public sealed class C64Bus : IBus
             PortDirection = value;
             return;
         }
-
         if (address == 0x0001)
         {
             PortData = value;
             return;
         }
 
-        if (address >= 0xD000 && address <= 0xD03F)
+        byte page = (byte)(address >> 8);
+        if (page >= 0xD0 && page <= 0xDF)
         {
-            Vic.Write(address, value);
-        }
-        else if (address >= 0xD400 && address <= 0xD7FF)
-        {
-            Sid.Write(address, value);
-        }
-        else if (address >= 0xDC00 && address <= 0xDCFF)
-        {
-            Cia1.Write(address, value);
-        }
-        else if (address >= 0xDD00 && address <= 0xDDFF)
-        {
-            Cia2.Write(address, value);
+            if (page <= 0xD3) Vic.Write(address, value);
+            else if (page >= 0xD4 && page <= 0xD7) Sid.Write(address, value);
+            else if (page == 0xDC) Cia1.Write(address, value);
+            else if (page == 0xDD) Cia2.Write(address, value);
         }
 
-        // CPU writes always go to underlying RAM regardless of ROM mapping
         Ram.Write(address, value);
     }
 }

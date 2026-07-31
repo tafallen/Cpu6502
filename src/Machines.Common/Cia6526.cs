@@ -4,15 +4,7 @@ namespace Machines.Common;
 
 /// <summary>
 /// MOS 6526 / 8520 Complex Interface Adapter (CIA) hardware implementation.
-/// Features:
-/// - 8-bit Port A & Port B Data Registers ($00/$01) and Data Direction Registers ($02/$03)
-/// - Dual 16-bit Timers (Timer A at $04/$05, Timer B at $06/$07)
-/// - Time-of-Day (TOD) clock ($08–$0B)
-/// - Serial Data Register ($0C)
-/// - Interrupt Control & Status Register ($0D)
-/// - Timer Control Registers ($0E/$0F)
-/// 
-/// Used in Commodore 64 (CIA1 at $DC00, CIA2 at $DD00), Commodore 128, and Amiga 500/1000/2000.
+/// High-performance lazy timer decrement implementation.
 /// </summary>
 public sealed class Cia6526 : IBus
 {
@@ -61,7 +53,7 @@ public sealed class Cia6526 : IBus
             case 0x06: return (byte)(TimerBCounter & 0xFF);
             case 0x07: return (byte)(TimerBCounter >> 8);
 
-            case 0x0D: // Interrupt Control Register (Reading clears flags)
+            case 0x0D:
                 byte icr = InterruptStatus;
                 InterruptStatus = 0;
                 return icr;
@@ -86,7 +78,7 @@ public sealed class Cia6526 : IBus
             case 0x04: TimerALatch = (ushort)((TimerALatch & 0xFF00) | value); break;
             case 0x05:
                 TimerALatch = (ushort)((TimerALatch & 0x00FF) | (value << 8));
-                if ((ControlA & 0x10) != 0 || !TimerAStarted) // Force load
+                if ((ControlA & 0x10) != 0 || !TimerAStarted)
                 {
                     TimerACounter = TimerALatch;
                 }
@@ -95,13 +87,13 @@ public sealed class Cia6526 : IBus
             case 0x06: TimerBLatch = (ushort)((TimerBLatch & 0xFF00) | value); break;
             case 0x07:
                 TimerBLatch = (ushort)((TimerBLatch & 0x00FF) | (value << 8));
-                if ((ControlB & 0x10) != 0 || !TimerBStarted) // Force load
+                if ((ControlB & 0x10) != 0 || !TimerBStarted)
                 {
                     TimerBCounter = TimerBLatch;
                 }
                 break;
 
-            case 0x0D: // ICR Write: bit 7 sets (1) or clears (0) interrupt mask bits 0-4
+            case 0x0D:
                 if ((value & 0x80) != 0)
                 {
                     InterruptEnable |= (byte)(value & 0x1F);
@@ -115,27 +107,27 @@ public sealed class Cia6526 : IBus
             case 0x0E:
                 ControlA = value;
                 TimerAStarted = (value & 0x01) != 0;
-                if ((value & 0x10) != 0) TimerACounter = TimerALatch; // Load
+                if ((value & 0x10) != 0) TimerACounter = TimerALatch;
                 break;
 
             case 0x0F:
                 ControlB = value;
                 TimerBStarted = (value & 0x01) != 0;
-                if ((value & 0x10) != 0) TimerBCounter = TimerBLatch; // Load
+                if ((value & 0x10) != 0) TimerBCounter = TimerBLatch;
                 break;
         }
     }
 
     public void Tick(int cycles = 1)
     {
-        if (cycles <= 0) return;
+        if (cycles <= 0 || (!TimerAStarted && !TimerBStarted)) return;
 
         if (TimerAStarted)
         {
             if (cycles >= TimerACounter)
             {
                 TimerACounter = TimerALatch;
-                TriggerInterrupt(0x01); // Timer A Underflow Flag
+                TriggerInterrupt(0x01);
             }
             else
             {
@@ -148,7 +140,7 @@ public sealed class Cia6526 : IBus
             if (cycles >= TimerBCounter)
             {
                 TimerBCounter = TimerBLatch;
-                TriggerInterrupt(0x02); // Timer B Underflow Flag
+                TriggerInterrupt(0x02);
             }
             else
             {
@@ -162,7 +154,7 @@ public sealed class Cia6526 : IBus
         InterruptStatus |= mask;
         if ((InterruptEnable & mask) != 0)
         {
-            InterruptStatus |= 0x80; // Master IRQ flag set
+            InterruptStatus |= 0x80;
         }
     }
 }

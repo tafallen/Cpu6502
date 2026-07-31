@@ -6,6 +6,8 @@ using BenchmarkDotNet.Toolchains.InProcess.Emit;
 using Cpu6502.Core;
 using Machines.Atom;
 using Machines.BbcMaster;
+using Machines.BbcMicro;
+using Machines.C64;
 using Machines.Common;
 using Machines.Vic20;
 using System.Runtime.InteropServices;
@@ -170,7 +172,7 @@ public class VideoRenderBenchmarks
     private Ram _petVram = null!;
     private DummyVideoSink _sink = null!;
 
-    private class DummyVideoSink : IVideoSink
+    public class DummyVideoSink : IVideoSink
     {
         public void SubmitFrame(ReadOnlySpan<uint> pixels, int width, int height) { }
     }
@@ -307,6 +309,77 @@ public class PixelConversionBenchmarks
                 uint a = (rgba >> 24) & 0xFF;
                 _dst[i] = r | (g << 8) | (b << 16) | (a << 24);
             }
+        }
+    }
+}
+
+[ShortRunJob]
+[MemoryDiagnoser]
+public class C64Benchmarks
+{
+    private C64Machine _machine = null!;
+    private byte[] _d64Image = null!;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        byte[] kernal = new byte[0x2000];
+        byte[] basic = new byte[0x2000];
+        byte[] chgen = new byte[0x1000];
+
+        _machine = new C64Machine(kernal, basic, chgen);
+
+        _d64Image = new byte[174848];
+        int dirOffset = 0x16600;
+        _d64Image[dirOffset + 0x02] = 0x82;
+        _d64Image[dirOffset + 0x03] = 18;
+        _d64Image[dirOffset + 0x04] = 2;
+        _d64Image[dirOffset + 0x05] = (byte)'G';
+        _d64Image[dirOffset + 0x06] = (byte)'A';
+        _d64Image[dirOffset + 0x07] = (byte)'M';
+        _d64Image[dirOffset + 0x08] = (byte)'E';
+        for (int i = 9; i < 21; i++) _d64Image[dirOffset + i] = 0xA0;
+    }
+
+    [Benchmark]
+    public void C64_Vic2_RenderFrame_100()
+    {
+        var sink = new VideoRenderBenchmarks.DummyVideoSink();
+        for (int i = 0; i < 100; i++)
+        {
+            _machine.Vic.RenderFrame(_machine.Bus.Ram, _machine.Bus.CharRom, sink);
+        }
+    }
+
+    [Benchmark]
+    public void C64_Bus_MemoryAccess_1k()
+    {
+        var bus = _machine.Bus;
+        for (int i = 0; i < 1000; i++)
+        {
+            bus.Read(0xDC00);
+            bus.Write(0xD020, 0x01);
+            bus.Read(0xA000);
+            bus.Read(0x0001);
+        }
+    }
+
+    [Benchmark]
+    public void C64_Cia_TimerTick_1k()
+    {
+        var cia = _machine.Cia1;
+        for (int i = 0; i < 1000; i++)
+        {
+            cia.Tick(2);
+        }
+    }
+
+    [Benchmark]
+    public void C64_ParseD64Catalog_100()
+    {
+        for (int i = 0; i < 100; i++)
+        {
+            C64ProgramLoader.ParseD64Catalog(_d64Image);
         }
     }
 }

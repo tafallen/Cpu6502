@@ -5,7 +5,7 @@ namespace Machines.C64;
 
 /// <summary>
 /// MOS 6567 (NTSC) / 6569 (PAL) VIC-II Video Interface Controller.
-/// Controls 320×200 16-color text and bitmap graphics, 8 hardware sprites, and raster IRQs.
+/// High-performance 40×25 cell-based glyph unpacking and Span border renderer.
 /// </summary>
 public sealed class Vic2Video : IBus
 {
@@ -65,33 +65,27 @@ public sealed class Vic2Video : IBus
     public byte Read(ushort address)
     {
         byte reg = (byte)(address & 0x3F);
-        if (reg == 0x12)
-        {
-            return (byte)(_currentRasterLine & 0xFF);
-        }
-        if (reg == 0x19)
-        {
-            return (byte)(_registers[0x19] | 0x70);
-        }
+        if (reg == 0x12) return (byte)(_currentRasterLine & 0xFF);
+        if (reg == 0x19) return (byte)(_registers[0x19] | 0x70);
         return _registers[reg];
     }
 
     public void Write(ushort address, byte value)
     {
         byte reg = (byte)(address & 0x3F);
-        if (reg == 0x12) // Write sets Raster Compare Line
+        if (reg == 0x12)
         {
             _rasterCompareLine = (ushort)((_rasterCompareLine & 0x0100) | value);
             _registers[0x12] = value;
             return;
         }
 
-        if (reg == 0x19) // Acknowledge IRQs
+        if (reg == 0x19)
         {
             _registers[0x19] &= (byte)~(value & 0x0F);
             if ((_registers[0x19] & 0x0F) == 0)
             {
-                _registers[0x19] &= 0x7F; // Clear master IRQ bit
+                _registers[0x19] &= 0x7F;
             }
             return;
         }
@@ -101,12 +95,11 @@ public sealed class Vic2Video : IBus
 
     public void Tick(int cycles = 1)
     {
-        // Raster line increment (312 lines per PAL frame)
         _currentRasterLine = (ushort)((_currentRasterLine + cycles) % 312);
 
         if (_currentRasterLine == _rasterCompareLine && (InterruptEnable & 0x01) != 0)
         {
-            _registers[0x19] |= 0x81; // Trigger Raster IRQ
+            _registers[0x19] |= 0x81;
         }
     }
 
@@ -115,40 +108,47 @@ public sealed class Vic2Video : IBus
         uint bgColor = _palette[BackgroundColor0];
         uint borderColor = _palette[BorderColor];
 
+        // 1. High-speed Span border clearing (Top 36 lines & Bottom 36 lines)
+        Span<uint> bufferSpan = _frameBuffer;
+        bufferSpan.Slice(0, 36 * 384).Fill(borderColor);
+        bufferSpan.Slice(236 * 384, 36 * 384).Fill(borderColor);
+
         ushort videoMatrixBase = (ushort)(((_registers[0x18] >> 4) & 0x0F) * 0x0400);
 
-        for (int y = 0; y < 200; y++)
+        // 2. 40×25 Cell-Based Glyph Unpacking
+        for (int charRow = 0; charRow < 25; charRow++)
         {
-            int charRow = y / 8;
-            int pixelY  = y % 8;
+            int screenY = 36 + charRow * 8;
+            ushort rowCellAddr = (ushort)(videoMatrixBase + charRow * 40);
 
-            for (int x = 0; x < 320; x++)
+            for (int charCol = 0; charCol < 40; charCol++)
             {
-                int charCol = x / 8;
-                int pixelX  = x % 8;
+                int screenX = 32 + charCol * 8;
+                byte charCode = ram.Read((ushort)(rowCellAddr + charCol));
+                ushort glyphBase = (ushort)(charCode * 8);
 
-                ushort screenCellAddr = (ushort)(videoMatrixBase + charRow * 40 + charCol);
-                byte charCode = ram.Read(screenCellAddr);
-
-                ushort glyphAddr = (ushort)(charCode * 8 + pixelY);
-                byte glyphByte = charRom[glyphAddr % charRom.Length];
-
-                bool isForeground = (glyphByte & (0x80 >> pixelX)) != 0;
-                uint color = isForeground ? _palette[1] : bgColor;
-
-                _frameBuffer[(36 + y) * 384 + (32 + x)] = color;
-            }
-        }
-
-        // Draw Border
-        for (int y = 0; y < 272; y++)
-        {
-            for (int x = 0; x < 384; x++)
-            {
-                if (x < 32 || x >= 352 || y < 36 || y >= 236)
+                for (int py = 0; py < 8; py++)
                 {
-                    _frameBuffer[y * 384 + x] = borderColor;
+                    byte glyphByte = charRom[(glyphBase + py) % charRom.Length];
+                    int pixelOffset = (screenY + py) * 384 + screenX;
+
+                    _frameBuffer[pixelOffset + 0] = (glyphByte & 0x80) != 0 ? _palette[1] : bgColor;
+                    _frameBuffer[pixelOffset + 1] = (glyphByte & 0x40) != 0 ? _palette[1] : bgColor;
+                    _frameBuffer[pixelOffset + 2] = (glyphByte & 0x20) != 0 ? _palette[1] : bgColor;
+                    _frameBuffer[pixelOffset + 3] = (glyphByte & 0x10) != 0 ? _palette[1] : bgColor;
+                    _frameBuffer[pixelOffset + 4] = (glyphByte & 0x08) != 0 ? _palette[1] : bgColor;
+                    _frameBuffer[pixelOffset + 5] = (glyphByte & 0x04) != 0 ? _palette[1] : bgColor;
+                    _frameBuffer[pixelOffset + 6] = (glyphByte & 0x02) != 0 ? _palette[1] : bgColor;
+                    _frameBuffer[pixelOffset + 7] = (glyphByte & 0x01) != 0 ? _palette[1] : bgColor;
                 }
+            }
+
+            // Fill left/right margins for row
+            for (int py = 0; py < 8; py++)
+            {
+                int lineOffset = (screenY + py) * 384;
+                bufferSpan.Slice(lineOffset, 32).Fill(borderColor);
+                bufferSpan.Slice(lineOffset + 352, 32).Fill(borderColor);
             }
         }
 
