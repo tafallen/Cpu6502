@@ -45,6 +45,7 @@ public sealed class PetMachine
 
     public PetVideo Video { get; } = new();
     public PetKeyboardAdapter Keyboard { get; } = new();
+    public Ieee488Bus Ieee488 { get; } = new();
 
     public void Reset() => Cpu.Reset();
 
