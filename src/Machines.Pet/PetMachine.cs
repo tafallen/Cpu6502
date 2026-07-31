@@ -41,6 +41,8 @@ public sealed class PetMachine
         Cpu = new Cpu(Bus);
     }
 
+    public PetVideo Video { get; } = new();
+
     public void Reset() => Cpu.Reset();
 
     public void Step()
@@ -62,6 +64,10 @@ public sealed class PetMachine
         while (Cpu.TotalCycles < target)
         {
             Step();
+        }
+        if (sink is not null)
+        {
+            Video.RenderFrame(VideoRam, sink);
         }
     }
 }

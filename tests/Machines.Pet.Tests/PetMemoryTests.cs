@@ -24,4 +24,24 @@ public class PetMemoryTests
         machine.Bus.Write(0x8000, 0x41); // 'A' in Video RAM
         Assert.Equal(0x41, machine.Bus.Read(0x8000));
     }
+
+    [Fact]
+    public void Video_RenderFrame_DoesNotThrow()
+    {
+        byte[] romData = new byte[0x7000];
+        var machine = new PetMachine(romData);
+
+        machine.VideoRam.Write(0x0000, 0x41); // 'A'
+        var video = new PetVideo();
+        video.RenderFrame(machine.VideoRam, new DummyVideoSink());
+    }
+
+    private class DummyVideoSink : Machines.Common.IVideoSink
+    {
+        public void SubmitFrame(ReadOnlySpan<uint> pixelDataBuffer, int width, int height)
+        {
+            Assert.Equal(320, width);
+            Assert.Equal(200, height);
+        }
+    }
 }
