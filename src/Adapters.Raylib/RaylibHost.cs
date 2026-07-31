@@ -276,20 +276,19 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
     private void ApplyScanlines()
     {
         uint factor = (uint)Math.Round((1f - _displayOptions.ScanlineIntensity) * 65536f);
+        Span<uint> buffer = _rgbaBuffer;
 
         for (int y = 1; y < _frameHeight; y += 2)
         {
-            int rowStart = y * _frameWidth;
-            int rowEnd = rowStart + _frameWidth;
-
-            for (int i = rowStart; i < rowEnd; i++)
+            Span<uint> row = buffer.Slice(y * _frameWidth, _frameWidth);
+            for (int i = 0; i < row.Length; i++)
             {
-                uint rgba = _rgbaBuffer[i];
+                uint rgba = row[i];
                 uint r = (((rgba & 0xFF) * factor) + 32768) >> 16;
                 uint g = ((((rgba >> 8) & 0xFF) * factor) + 32768) >> 16;
                 uint b = ((((rgba >> 16) & 0xFF) * factor) + 32768) >> 16;
                 uint a = (rgba >> 24) & 0xFF;
-                _rgbaBuffer[i] = r | (g << 8) | (b << 16) | (a << 24);
+                row[i] = r | (g << 8) | (b << 16) | (a << 24);
             }
         }
     }

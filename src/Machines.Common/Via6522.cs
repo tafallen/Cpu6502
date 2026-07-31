@@ -115,6 +115,8 @@ public sealed class Via6522 : IBus
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Tick(int cycles)
     {
+        if (cycles <= 0 || (!_t1Running && !_t2Running)) return;
+
         if (_t1Running)
         {
             _t1Counter -= cycles;
