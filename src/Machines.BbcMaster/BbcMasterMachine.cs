@@ -6,12 +6,7 @@ namespace Machines.BbcMaster;
 
 /// <summary>
 /// Master machine container for Acorn BBC Master 128 microcomputer target (1986).
-/// Features:
-/// - WDC 65C102 processor @ 2.0 MHz
-/// - 128 KB RAM (32 KB Main, 32 KB Shadow, 64 KB Sideways RAM/ROM)
-/// - Motorola 6845 CRTC & SAA5050 Teletext renderer
-/// - ACCCON Access Control Register ($FE34)
-/// - Dual MOS 6522 VIAs
+/// High-performance implementation with cached VRAM pointers and batched VIA ticks.
 /// </summary>
 public sealed class BbcMasterMachine
 {
@@ -28,12 +23,15 @@ public sealed class BbcMasterMachine
     public Via6522 UserVia { get; } = new();
     public AddressDecoder Bus { get; }
 
+    private Ram _activeVideoRam;
+
     public const int CyclesPerFrame = 40_000; // 2.0 MHz / 50 Hz PAL
 
     public BbcMasterMachine(byte[] osRomData)
     {
         MainRam = new Ram(0x8000);   // 32 KB Main RAM ($0000–$7FFF)
         ShadowRam = new Ram(0x8000); // 32 KB Shadow RAM ($0000–$7FFF)
+        _activeVideoRam = MainRam;
 
         Bus = new AddressDecoder();
         Bus.Map(0x0000, 0x7FFF, MainRam);
@@ -51,6 +49,13 @@ public sealed class BbcMasterMachine
         }
 
         Cpu = new Cpu(Bus);
+
+        Acccon.OnAccconChanged += (val) =>
+        {
+            _activeVideoRam = Acccon.DisplayShadowSelect ? ShadowRam : MainRam;
+            Ram executeRam = Acccon.MainRamSelect ? MainRam : ShadowRam;
+            Bus.Map(0x0000, 0x7FFF, executeRam);
+        };
     }
 
     public void Reset() => Cpu.Reset();
@@ -79,8 +84,7 @@ public sealed class BbcMasterMachine
 
         if (sink is not null)
         {
-            Ram activeVideoRam = Acccon.DisplayShadowSelect ? ShadowRam : MainRam;
-            Teletext.RenderMode7(activeVideoRam, 0x7C00, sink);
+            Teletext.RenderMode7(_activeVideoRam, 0x7C00, sink);
         }
     }
 }

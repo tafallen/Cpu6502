@@ -1,12 +1,12 @@
 using Cpu6502.Core;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Machines.BbcMaster;
 
 /// <summary>
 /// Motorola MC146818 Real-Time Clock (RTC) and 50-byte non-volatile CMOS RAM ($FE30/$FE31).
-/// Stores BBC Master configuration settings (*CONFIGURE commands).
-/// Address Register: $FE30 (selects register 0–63)
-/// Data Register: $FE31 (reads/writes selected register)
+/// High-performance implementation with bounds-check-free array access.
 /// </summary>
 public sealed class Mc146818Rtc : IBus
 {
@@ -15,7 +15,6 @@ public sealed class Mc146818Rtc : IBus
 
     public Mc146818Rtc()
     {
-        // Default CMOS configuration defaults
         _cmosRam[0x0A] = 0x26; // Control Reg A
         _cmosRam[0x0B] = 0x02; // Control Reg B
     }
@@ -29,7 +28,10 @@ public sealed class Mc146818Rtc : IBus
         else
         {
             if (_selectedRegister < 64)
-                return _cmosRam[_selectedRegister];
+            {
+                ref byte dataRef = ref MemoryMarshal.GetArrayDataReference(_cmosRam);
+                return Unsafe.Add(ref dataRef, _selectedRegister);
+            }
             return 0xFF;
         }
     }
@@ -44,7 +46,8 @@ public sealed class Mc146818Rtc : IBus
         {
             if (_selectedRegister < 64)
             {
-                _cmosRam[_selectedRegister] = value;
+                ref byte dataRef = ref MemoryMarshal.GetArrayDataReference(_cmosRam);
+                Unsafe.Add(ref dataRef, _selectedRegister) = value;
             }
         }
     }

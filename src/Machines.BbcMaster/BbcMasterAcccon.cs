@@ -4,7 +4,7 @@ namespace Machines.BbcMaster;
 
 /// <summary>
 /// Acorn BBC Master 128 ACCCON Access Control Register ($FE34).
-/// High-performance implementation with cached boolean flags.
+/// High-performance implementation with cached boolean flags and event callback.
 /// </summary>
 public sealed class BbcMasterAcccon : IBus
 {
@@ -13,6 +13,8 @@ public sealed class BbcMasterAcccon : IBus
     private bool _displayShadowSelect;
     private bool _executeShadowSelect;
     private bool _hazelSelect;
+
+    public event Action<byte>? OnAccconChanged;
 
     public byte Value => _value;
 
@@ -30,5 +32,7 @@ public sealed class BbcMasterAcccon : IBus
         _displayShadowSelect = (value & 0x02) != 0;
         _executeShadowSelect = (value & 0x04) != 0;
         _hazelSelect = (value & 0x08) != 0;
+
+        OnAccconChanged?.Invoke(value);
     }
 }

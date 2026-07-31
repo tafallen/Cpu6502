@@ -6,11 +6,13 @@ This document presents the technical analysis, architectural review, and empiric
 
 ## 1. Executive Summary & Optimization Strategy
 
-Profiling of `Machines.BbcMaster`, `Machines.Common/TubeUla.cs`, `Wd1770Fdc.cs`, and `AdfsDiscLoader.cs` revealed memory allocation overhead and branch evaluation latency:
+Profiling of `Machines.BbcMaster`, `Machines.Common/TubeUla.cs`, `Wd1770Fdc.cs`, `Mc146818Rtc.cs`, and `AdfsDiscLoader.cs` revealed memory allocation overhead, branch evaluation latency, and array boundary check penalties:
 
-1. **WD1770 Floppy Disk Controller (`Wd1770Fdc.cs`)**: Replaced `switch (address & 3)` register dispatch branches with direct 4-byte array indexing (`_registers[address & 3]`), eliminating branch mispredictions during disk DMA transfers.
-2. **ADFS Disc Catalog Parser (`AdfsDiscLoader.cs`)**: Utilized `ReadOnlySpan<byte>` slice trimming (`TrimEnd((byte)' ')`), reducing memory allocations by 40.8% per catalog parse.
-3. **Tube ULA Hardware FIFOs (`TubeUla.cs`)**: Replaced `Queue<byte>` with a zero-allocation `struct FastRingBuffer16` value-type ring buffer, eliminating heap node allocations during inter-processor streaming.
+1. **WD1770 Floppy Disk Controller (`Wd1770Fdc.cs`)**: Replaced `switch (address & 3)` register dispatch branches with direct 4-byte array indexing (`_registers[address & 3]`), eliminating branch mispredictions during disk DMA transfers (**10.5× speedup**).
+2. **ADFS Disc Catalog Parser (`AdfsDiscLoader.cs`)**: Utilized `ReadOnlySpan<byte>` slice trimming (`TrimEnd((byte)' ')`), reducing memory allocations by **40.8%** per catalog parse (**1.97× speedup**).
+3. **Tube ULA Hardware FIFOs (`TubeUla.cs`)**: Replaced `Queue<byte>` with a zero-allocation `FastRingBuffer16` value-type ring buffer, eliminating heap node allocations during inter-processor streaming (**1.22× speedup**).
+4. **Dynamic AddressDecoder Route Swapping (`BbcMasterAcccon.cs` & `BbcMasterMachine.cs`)**: Wired `OnAccconChanged` event to swap `$0000–$7FFF` page-map routes dynamically on ACCCON register writes, eliminating runtime conditional checks during frame rendering.
+5. **Fast RTC Array Access (`Mc146818Rtc.cs`)**: Implemented bounds-check-free array indexing using `MemoryMarshal.GetArrayDataReference(_cmosRam)` and `Unsafe.Add`.
 
 ---
 
@@ -21,7 +23,7 @@ All benchmarks were measured using **BenchmarkDotNet v0.15.8** on `.NET 8.0`.
 | Benchmark Module | Hardware Target | Before Optimization | After Optimization | Performance Gain | Allocation Reduction |
 |---|---|---|---|---|---|
 | **WD1770 FDC Register Access** (`Wd1770Fdc.cs`) | BBC Master 128 | `4.815 ns` / 1k ops | **`0.4588 ns`** / 1k ops | **10.5× Faster** | `0 B` |
-| **ADFS Disc Catalog Parser** (`AdfsDiscLoader.cs`) | BBC Master 128 | `493.11 ns` / 100 ops | **`250.55 ns`** / 100 ops | **1.97× Faster** | **40.8% Reduction** (1528 B → 904 B) |
+| **ADFS Disc Catalog Parser** (`AdfsDiscLoader.cs`) | BBC Master 128 | `493.11 ns` / 100 ops | **`250.55 ns`** / 100 ops | **1.97× Faster** | **40.8% Reduction** (1,528 B → 904 B) |
 | **Tube ULA Byte Streaming** (`TubeUla.cs`) | Tube Coprocessor | `3.150 ns` / 1k ops | **`2.586 ns`** / 1k ops | **1.22× Faster** | `0 B` |
 
 ---
