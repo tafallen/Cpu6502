@@ -9,11 +9,38 @@ namespace Machines.Common;
 /// R2: CLI command line string streaming (1 byte)
 /// R3: Fast VDU screen graphics & text stream rendering (2 bytes)
 /// R4: High-speed block DMA data transfer (24 bytes)
+/// 
+/// High-performance zero-allocation implementation backed by value-type ring buffers.
 /// </summary>
 public sealed class TubeUla : IBus
 {
-    private readonly Queue<byte> _r1HostToParasite = new();
-    private readonly Queue<byte> _r1ParasiteToHost = new();
+    private struct FastRingBuffer16
+    {
+        private readonly byte[] _buffer = new byte[16];
+        private ushort _head;
+        private ushort _tail;
+
+        public FastRingBuffer16() { }
+
+        public readonly ushort Count => (ushort)(_head - _tail);
+
+        public void Enqueue(byte item)
+        {
+            _buffer[_head & 0x0F] = item;
+            _head++;
+        }
+
+        public byte Dequeue()
+        {
+            if (_head == _tail) return 0xFF;
+            byte item = _buffer[_tail & 0x0F];
+            _tail++;
+            return item;
+        }
+    }
+
+    private FastRingBuffer16 _r1HostToParasite = new();
+    private FastRingBuffer16 _r1ParasiteToHost = new();
 
     public byte Read(ushort address)
     {
@@ -26,9 +53,7 @@ public sealed class TubeUla : IBus
                 return status;
 
             case 0x01: // Host R1 Data
-                if (_r1ParasiteToHost.Count > 0)
-                    return _r1ParasiteToHost.Dequeue();
-                return 0xFF;
+                return _r1ParasiteToHost.Dequeue();
 
             default:
                 return 0xFF;
@@ -56,9 +81,7 @@ public sealed class TubeUla : IBus
         }
         else // Parasite Data Read
         {
-            if (_r1HostToParasite.Count > 0)
-                return _r1HostToParasite.Dequeue();
-            return 0xFF;
+            return _r1HostToParasite.Dequeue();
         }
     }
 

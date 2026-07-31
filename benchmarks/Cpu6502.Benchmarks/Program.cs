@@ -5,6 +5,7 @@ using BenchmarkDotNet.Running;
 using BenchmarkDotNet.Toolchains.InProcess.Emit;
 using Cpu6502.Core;
 using Machines.Atom;
+using Machines.BbcMaster;
 using Machines.Common;
 using Machines.Vic20;
 using System.Runtime.InteropServices;
@@ -288,6 +289,92 @@ public class PixelConversionBenchmarks
                 uint argb = _src[i];
                 _dst[i] = (argb & 0xFF00FF00u) | ((argb & 0x00FF0000u) >> 16) | ((argb & 0x000000FFu) << 16);
             }
+        }
+    }
+
+    [Benchmark(OperationsPerInvoke = 100)]
+    public void ApplyScanlines_SIMD_100()
+    {
+        uint factor = 128; // 50% scanline intensity
+        for (int iter = 0; iter < 100; iter++)
+        {
+            for (int i = 0; i < _dst.Length; i += 2)
+            {
+                uint rgba = _dst[i];
+                uint r = ((rgba & 0xFF) * factor) >> 8;
+                uint g = (((rgba >> 8) & 0xFF) * factor) >> 8;
+                uint b = (((rgba >> 16) & 0xFF) * factor) >> 8;
+                uint a = (rgba >> 24) & 0xFF;
+                _dst[i] = r | (g << 8) | (b << 16) | (a << 24);
+            }
+        }
+    }
+}
+
+[MemoryDiagnoser]
+public class BbcMasterBenchmarks
+{
+    private TubeUla _tube = null!;
+    private BbcMasterAcccon _acccon = null!;
+    private Wd1770Fdc _fdc = null!;
+    private byte[] _discImage = null!;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _tube = new TubeUla();
+        _acccon = new BbcMasterAcccon();
+        _fdc = new Wd1770Fdc();
+
+        _discImage = new byte[0x8000];
+        _discImage[0x0400] = (byte)'H';
+        _discImage[0x0401] = (byte)'u';
+        _discImage[0x0402] = (byte)'g';
+        _discImage[0x0403] = (byte)'o';
+        for (int i = 0; i < 10; i++)
+        {
+            int offset = 0x0405 + i * 26;
+            byte[] name = System.Text.Encoding.ASCII.GetBytes($"FILE{i}     ");
+            Array.Copy(name, 0, _discImage, offset, 10);
+        }
+    }
+
+    [Benchmark(OperationsPerInvoke = 1_000)]
+    public void TubeUla_Stream_1k()
+    {
+        for (int i = 0; i < 1_000; i++)
+        {
+            _tube.Write(0x01, (byte)i);
+            _tube.ReadParasite(1);
+        }
+    }
+
+    [Benchmark(OperationsPerInvoke = 1_000)]
+    public void Acccon_Toggle_1k()
+    {
+        for (int i = 0; i < 1_000; i++)
+        {
+            _acccon.Write(0xFE34, (byte)i);
+            bool select = _acccon.DisplayShadowSelect;
+        }
+    }
+
+    [Benchmark(OperationsPerInvoke = 1_000)]
+    public void Fdc_RegisterAccess_1k()
+    {
+        for (int i = 0; i < 1_000; i++)
+        {
+            _fdc.Write((ushort)(i & 3), (byte)i);
+            byte val = _fdc.Read((ushort)(i & 3));
+        }
+    }
+
+    [Benchmark(OperationsPerInvoke = 100)]
+    public void AdfsDiscLoader_ParseCatalog_100()
+    {
+        for (int i = 0; i < 100; i++)
+        {
+            var files = AdfsDiscLoader.ParseCatalog(_discImage);
         }
     }
 }

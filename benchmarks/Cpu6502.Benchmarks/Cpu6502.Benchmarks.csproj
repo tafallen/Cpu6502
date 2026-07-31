@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\src\Machines.Oric\Machines.Oric.csproj" />
     <ProjectReference Include="..\..\src\Machines.Pet\Machines.Pet.csproj" />
     <ProjectReference Include="..\..\src\Machines.BbcMicro\Machines.BbcMicro.csproj" />
+    <ProjectReference Include="..\..\src\Machines.BbcMaster\Machines.BbcMaster.csproj" />
   </ItemGroup>
 
 </Project>
