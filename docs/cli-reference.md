@@ -342,3 +342,32 @@ Exception: Unknown tape format
 1. Reduce `--scale` factor
 2. Disable `--smooth` and `--scanlines`
 3. Close other applications to free CPU/GPU resources
+
+---
+
+## Oric-1 / Oric Atmos (`Host.Oric`)
+
+```bash
+dotnet run --project src/Host.Oric -- --os roms/oric/atmos.rom --tape game.tap --scale 3
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--os <path>` | `roms/oric/atmos.rom` | 16 KB BASIC / OS ROM file |
+| `--tape <path>` | (none) | Load `.tap` cassette image into RAM |
+| `--scale <n>` | 3 | Window scale factor |
+
+---
+
+## Commodore PET (`Host.Pet`)
+
+```bash
+dotnet run --project src/Host.Pet -- --rom roms/pet/pet2001.rom --prg program.prg --scale 3
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--rom <path>` | `roms/pet/pet2001.rom` | 28 KB PET system ROM file |
+| `--prg <path>` | (none) | Auto-load `.prg` program file directly into RAM at `$0401` |
+| `--scale <n>` | 3 | Window scale factor |
+

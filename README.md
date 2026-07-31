@@ -77,6 +77,8 @@ For detailed competitive analysis against other 6502 emulators, see **[docs/perf
 | 🖥️ **[docs/atom.md](docs/atom.md)** | Acorn Atom address map, hardware registers, and ROM setup |
 | 🖥️ **[docs/vic20.md](docs/vic20.md)** | Commodore VIC-20 address map, chip specs, and TAP guide |
 | 🖥️ **[docs/electron.md](docs/electron.md)** | Acorn Electron ULA modes, address layout, and banking |
+| 🖥️ **[docs/oric.md](docs/oric.md)** | Oric-1 / Oric Atmos address map, ULA video, and TAP guide |
+| 🖥️ **[docs/pet.md](docs/pet.md)** | Commodore PET address map, PIA/VIA registers, and IEEE-488 bus |
 
 ---
 
