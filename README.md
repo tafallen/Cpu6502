@@ -82,6 +82,7 @@ For detailed competitive analysis against other 6502 emulators, see **[docs/perf
 | 🖥️ **[docs/oric.md](docs/oric.md)** | Oric-1 / Oric Atmos address map, ULA video, and TAP guide |
 | 🖥️ **[docs/pet.md](docs/pet.md)** | Commodore PET address map, PIA/VIA registers, and IEEE-488 bus |
 | 🖥️ **[docs/bbcmaster.md](docs/bbcmaster.md)** | Acorn BBC Master 128 address map, ACCCON register, WD1770, and Tube ULA |
+| 🖥️ **[docs/c64.md](docs/c64.md)** | Commodore 64 address map, MOS 6510 $00/$01 banking control, and software setup |
 | 🏛️ **[docs/bbc-master-architecture-and-gap-analysis.md](docs/bbc-master-architecture-and-gap-analysis.md)** | BBC Master 128 architecture, gap analysis, and 65C102/Shadow RAM roadmap |
 
 ---
