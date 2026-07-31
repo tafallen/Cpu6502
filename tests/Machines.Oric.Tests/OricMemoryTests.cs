@@ -41,6 +41,18 @@ public class OricMemoryTests
         video.RenderFrame(machine.Ram, new DummyVideoSink());
     }
 
+    [Fact]
+    public void Keyboard_KeyDown_ScansColumnCorrectly()
+    {
+        byte[] osRom = new byte[0x4000];
+        var machine = new OricMachine(osRom);
+
+        machine.Keyboard.KeyDown(col: 3, row: 2);
+        byte result = machine.Keyboard.ScanColumn(3);
+
+        Assert.Equal(unchecked((byte)~(1 << 2)), result);
+    }
+
     private class DummyVideoSink : Machines.Common.IVideoSink
     {
         public void SubmitFrame(ReadOnlySpan<uint> pixelDataBuffer, int width, int height)

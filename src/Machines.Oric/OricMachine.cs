@@ -32,10 +32,13 @@ public sealed class OricMachine
         Bus.Map(0x0300, 0x030F, Via);
         Bus.Map(0xC000, 0xFFFF, OsRom);
 
+        Via.ReadPortB = () => Keyboard.ScanColumn(Via.PortALatch);
+
         Cpu = new Cpu(Bus);
     }
 
     public OricUlaVideo Video { get; } = new();
+    public OricKeyboardAdapter Keyboard { get; } = new();
 
     public void Reset() => Cpu.Reset();
 
