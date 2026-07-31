@@ -27,4 +27,26 @@ public class OricMemoryTests
 
         Assert.Equal(0xC000, machine.Cpu.PC);
     }
+
+    [Fact]
+    public void Video_RenderFrame_DoesNotThrow()
+    {
+        byte[] osRom = new byte[0x4000];
+        var machine = new OricMachine(osRom);
+
+        // Write attribute for Green Ink at $BB80
+        machine.Ram.Write(0xBB80, 0x02);
+
+        var video = new OricUlaVideo();
+        video.RenderFrame(machine.Ram, new DummyVideoSink());
+    }
+
+    private class DummyVideoSink : Machines.Common.IVideoSink
+    {
+        public void SubmitFrame(ReadOnlySpan<uint> pixelDataBuffer, int width, int height)
+        {
+            Assert.Equal(240, width);
+            Assert.Equal(200, height);
+        }
+    }
 }

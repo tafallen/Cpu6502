@@ -35,6 +35,8 @@ public sealed class OricMachine
         Cpu = new Cpu(Bus);
     }
 
+    public OricUlaVideo Video { get; } = new();
+
     public void Reset() => Cpu.Reset();
 
     public void Step()
@@ -56,6 +58,10 @@ public sealed class OricMachine
         while (Cpu.TotalCycles < target)
         {
             Step();
+        }
+        if (sink is not null)
+        {
+            Video.RenderFrame(Ram, sink);
         }
     }
 }
