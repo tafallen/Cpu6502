@@ -11,10 +11,16 @@ public sealed class C64Machine
 {
     public Cpu Cpu { get; }
     public C64Bus Bus { get; }
-    public Vic2Video Vic => Bus.Vic;
-    public Sid6581 Sid => Bus.Sid;
-    public Cia6526 Cia1 => Bus.Cia1;
-    public Cia6526 Cia2 => Bus.Cia2;
+
+    private readonly Vic2Video _vic;
+    private readonly Sid6581 _sid;
+    private readonly Cia6526 _cia1;
+    private readonly Cia6526 _cia2;
+
+    public Vic2Video Vic => _vic;
+    public Sid6581 Sid => _sid;
+    public Cia6526 Cia1 => _cia1;
+    public Cia6526 Cia2 => _cia2;
     public C64KeyboardAdapter Keyboard { get; } = new();
 
     public const int CyclesPerFrame = 20_000; // 1.023 MHz / 50 Hz PAL
@@ -22,6 +28,10 @@ public sealed class C64Machine
     public C64Machine(byte[]? kernalRom = null, byte[]? basicRom = null, byte[]? charRom = null)
     {
         Bus = new C64Bus();
+        _vic = Bus.Vic;
+        _sid = Bus.Sid;
+        _cia1 = Bus.Cia1;
+        _cia2 = Bus.Cia2;
 
         if (kernalRom is not null && kernalRom.Length >= 0x2000)
             Array.Copy(kernalRom, 0, Bus.KernalRom, 0, 0x2000);
@@ -32,8 +42,7 @@ public sealed class C64Machine
         if (charRom is not null && charRom.Length >= 0x1000)
             Array.Copy(charRom, 0, Bus.CharRom, 0, 0x1000);
 
-        // Connect CIA1 Port B keyboard row reader
-        Cia1.ReadPortB = () => Keyboard.ReadRowState(Cia1.Pra);
+        _cia1.ReadPortB = () => Keyboard.ReadRowState(_cia1.Pra);
 
         Cpu = new Cpu(Bus);
     }
@@ -46,16 +55,16 @@ public sealed class C64Machine
         Cpu.Step();
         int delta = (int)(Cpu.TotalCycles - cyclesBefore);
 
-        Vic.Tick(delta);
-        Cia1.Tick(delta);
-        Cia2.Tick(delta);
+        _vic.Tick(delta);
+        _cia1.Tick(delta);
+        _cia2.Tick(delta);
 
-        if (Cia1.Irq || Vic.Irq)
+        if (_cia1.Irq || _vic.Irq)
         {
             Cpu.Irq();
         }
 
-        if (Cia2.Irq)
+        if (_cia2.Irq)
         {
             Cpu.Nmi();
         }
@@ -71,7 +80,7 @@ public sealed class C64Machine
 
         if (sink is not null)
         {
-            Vic.RenderFrame(Bus.Ram, Bus.CharRom, sink);
+            _vic.RenderFrame(Bus.Ram, Bus.CharRom, sink);
         }
     }
 }

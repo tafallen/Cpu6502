@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Cpu6502.Core;
 using Machines.Common;
 
@@ -105,7 +107,11 @@ public sealed class Vic2Video : IBus
 
     public void RenderFrame(Ram ram, byte[] charRom, IVideoSink sink)
     {
+        byte[]? ramBuf = ram?.DirectWriteBuffer;
+        if (ramBuf is null || charRom is null) return;
+
         uint bgColor = _palette[BackgroundColor0];
+        uint fgColor = _palette[1];
         uint borderColor = _palette[BorderColor];
 
         Span<uint> bufferSpan = _frameBuffer;
@@ -113,6 +119,10 @@ public sealed class Vic2Video : IBus
         bufferSpan.Slice(236 * 384, 36 * 384).Fill(borderColor);
 
         ushort videoMatrixBase = (ushort)(((_registers[0x18] >> 4) & 0x0F) * 0x0400);
+
+        ref byte ramRef = ref MemoryMarshal.GetArrayDataReference(ramBuf);
+        ref byte charRomRef = ref MemoryMarshal.GetArrayDataReference(charRom);
+        ref uint fbRef = ref MemoryMarshal.GetArrayDataReference(_frameBuffer);
 
         for (int charRow = 0; charRow < 25; charRow++)
         {
@@ -122,22 +132,22 @@ public sealed class Vic2Video : IBus
             for (int charCol = 0; charCol < 40; charCol++)
             {
                 int screenX = 32 + charCol * 8;
-                byte charCode = ram.Read((ushort)(rowCellAddr + charCol));
+                byte charCode = Unsafe.Add(ref ramRef, (ushort)(rowCellAddr + charCol));
                 int glyphBase = charCode * 8;
 
                 for (int py = 0; py < 8; py++)
                 {
-                    byte glyphByte = charRom[(glyphBase + py) & 0x0FFF];
+                    byte glyphByte = Unsafe.Add(ref charRomRef, (glyphBase + py) & 0x0FFF);
                     int pixelOffset = (screenY + py) * 384 + screenX;
 
-                    _frameBuffer[pixelOffset + 0] = (glyphByte & 0x80) != 0 ? _palette[1] : bgColor;
-                    _frameBuffer[pixelOffset + 1] = (glyphByte & 0x40) != 0 ? _palette[1] : bgColor;
-                    _frameBuffer[pixelOffset + 2] = (glyphByte & 0x20) != 0 ? _palette[1] : bgColor;
-                    _frameBuffer[pixelOffset + 3] = (glyphByte & 0x10) != 0 ? _palette[1] : bgColor;
-                    _frameBuffer[pixelOffset + 4] = (glyphByte & 0x08) != 0 ? _palette[1] : bgColor;
-                    _frameBuffer[pixelOffset + 5] = (glyphByte & 0x04) != 0 ? _palette[1] : bgColor;
-                    _frameBuffer[pixelOffset + 6] = (glyphByte & 0x02) != 0 ? _palette[1] : bgColor;
-                    _frameBuffer[pixelOffset + 7] = (glyphByte & 0x01) != 0 ? _palette[1] : bgColor;
+                    Unsafe.Add(ref fbRef, pixelOffset + 0) = (glyphByte & 0x80) != 0 ? fgColor : bgColor;
+                    Unsafe.Add(ref fbRef, pixelOffset + 1) = (glyphByte & 0x40) != 0 ? fgColor : bgColor;
+                    Unsafe.Add(ref fbRef, pixelOffset + 2) = (glyphByte & 0x20) != 0 ? fgColor : bgColor;
+                    Unsafe.Add(ref fbRef, pixelOffset + 3) = (glyphByte & 0x10) != 0 ? fgColor : bgColor;
+                    Unsafe.Add(ref fbRef, pixelOffset + 4) = (glyphByte & 0x08) != 0 ? fgColor : bgColor;
+                    Unsafe.Add(ref fbRef, pixelOffset + 5) = (glyphByte & 0x04) != 0 ? fgColor : bgColor;
+                    Unsafe.Add(ref fbRef, pixelOffset + 6) = (glyphByte & 0x02) != 0 ? fgColor : bgColor;
+                    Unsafe.Add(ref fbRef, pixelOffset + 7) = (glyphByte & 0x01) != 0 ? fgColor : bgColor;
                 }
             }
 
