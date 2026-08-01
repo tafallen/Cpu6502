@@ -4,6 +4,7 @@ using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
 using BenchmarkDotNet.Toolchains.InProcess.Emit;
 using Cpu6502.Core;
+using Machines.Atari800;
 using Machines.Atom;
 using Machines.BbcMaster;
 using Machines.BbcMicro;
@@ -451,3 +452,55 @@ public class BbcMasterBenchmarks
         }
     }
 }
+
+[ShortRunJob]
+[MemoryDiagnoser]
+public class Atari800Benchmarks
+{
+    private Atari800Machine _machine = null!;
+    private VideoRenderBenchmarks.DummyVideoSink _sink = null!;
+    private byte[] _xexImage = null!;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _machine = new Atari800Machine();
+        _sink = new VideoRenderBenchmarks.DummyVideoSink();
+
+        _xexImage = new byte[100];
+        _xexImage[0] = 0xFF; _xexImage[1] = 0xFF;
+        _xexImage[2] = 0x00; _xexImage[3] = 0x06;
+        _xexImage[4] = 0x10; _xexImage[5] = 0x06;
+    }
+
+    [Benchmark]
+    public void Atari800_Antic_RenderFrame_100()
+    {
+        for (int i = 0; i < 100; i++)
+        {
+            _machine.Antic.RenderFrame(_machine.Bus.Ram, _machine.Gtia, _sink);
+        }
+    }
+
+    [Benchmark]
+    public void Atari800_Bus_MemoryAccess_1k()
+    {
+        var bus = _machine.Bus;
+        for (int i = 0; i < 1000; i++)
+        {
+            bus.Read(0xD000);
+            bus.Write(0x0200, 0x01);
+            bus.Read(0xA000);
+        }
+    }
+
+    [Benchmark]
+    public void Atari800_ParseXex_100()
+    {
+        for (int i = 0; i < 100; i++)
+        {
+            AtariProgramLoader.LoadXex(_xexImage, _machine.Bus);
+        }
+    }
+}
+

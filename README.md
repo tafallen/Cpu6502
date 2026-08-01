@@ -57,6 +57,7 @@ For detailed competitive analysis against other 6502 emulators, see **[docs/perf
 
 `Cpu6502` includes full runnable machine target executables built on top of the core CPU:
 
+* 🕹️ **Atari 800XL** (`Host.Atari800`): SALLY 6502C @ 1.79 MHz, 64 KB RAM, ANTIC display list DMA, GTIA 256-color palette, POKEY 4-channel audio, PIA 6520, `.xex` & `.atr` loaders. See **[docs/atari800.md](docs/atari800.md)**.
 * 🕹️ **Commodore 64** (`Host.C64`): Full MOS 6510 @ 1.023 MHz, `$00/$01` banking, MOS 6567/6569 VIC-II video, dual MOS 6526 CIAs, MOS 6581 SID sound, `.prg` & `.d64` loaders. See **[docs/c64.md](docs/c64.md)**.
 * 🕹️ **Acorn BBC Master 128** (`Host.BbcMaster`): WDC 65C102 @ 2 MHz, 128 KB RAM & Shadow Video RAM, ACCCON register, WD1770 FDC, MC146818 RTC/CMOS, and Tube Coprocessor. See **[docs/bbcmaster.md](docs/bbcmaster.md)**.
 * 🕹️ **Commodore PET 2001 / 4032 / 8032** (`Host.Pet`): Full 6502 @ 1 MHz, 32 KB RAM, monochrome character video, PIA 6520, VIA 6522, and IEEE-488 bus auto-loader. See **[docs/pet.md](docs/pet.md)**.
@@ -77,6 +78,7 @@ For detailed competitive analysis against other 6502 emulators, see **[docs/perf
 | 🚀 **[docs/performance-optimizations-epics-1-2-3.md](docs/performance-optimizations-epics-1-2-3.md)** | Empirical Before vs. After performance figures for Epics 1, 2 & 3 |
 | 🚀 **[docs/performance-optimizations-epic-4.md](docs/performance-optimizations-epic-4.md)** | Empirical Before vs. After performance figures for Epic 4 (BBC Master & Tube) |
 | 🚀 **[docs/performance-optimizations-epic-5.md](docs/performance-optimizations-epic-5.md)** | Empirical Before vs. After performance figures for Epic 5 (Commodore 64) |
+| 🚀 **[docs/performance-optimizations-epic-6.md](docs/performance-optimizations-epic-6.md)** | Empirical Before vs. After performance figures for Epic 6 (Atari 800XL) |
 | 🚀 **[docs/performance-optimizations-systemwide.md](docs/performance-optimizations-systemwide.md)** | Empirical Before vs. After performance figures for system-wide core optimizations |
 | 📊 **[docs/technical-debt-and-performance-analysis.md](docs/technical-debt-and-performance-analysis.md)** | Architectural design analysis and optimization history |
 | 💻 **[docs/cli-reference.md](docs/cli-reference.md)** | Complete CLI command-line reference, flags, and hotkeys |
@@ -87,6 +89,7 @@ For detailed competitive analysis against other 6502 emulators, see **[docs/perf
 | 🖥️ **[docs/pet.md](docs/pet.md)** | Commodore PET address map, PIA/VIA registers, and IEEE-488 bus |
 | 🖥️ **[docs/bbcmaster.md](docs/bbcmaster.md)** | Acorn BBC Master 128 address map, ACCCON register, WD1770, and Tube ULA |
 | 🖥️ **[docs/c64.md](docs/c64.md)** | Commodore 64 address map, MOS 6510 $00/$01 banking control, and software setup |
+| 🖥️ **[docs/atari800.md](docs/atari800.md)** | Atari 800XL address map, ANTIC display lists, GTIA palette, POKEY, and software setup |
 | 🏛️ **[docs/bbc-master-architecture-and-gap-analysis.md](docs/bbc-master-architecture-and-gap-analysis.md)** | BBC Master 128 architecture, gap analysis, and 65C102/Shadow RAM roadmap |
 
 ---
