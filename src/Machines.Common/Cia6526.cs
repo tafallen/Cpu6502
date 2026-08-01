@@ -4,10 +4,12 @@ namespace Machines.Common;
 
 /// <summary>
 /// MOS 6526 / 8520 Complex Interface Adapter (CIA) hardware implementation.
-/// High-performance lazy timer decrement implementation.
+/// High-performance lazy timer decrement and cached IRQ status flag implementation.
 /// </summary>
 public sealed class Cia6526 : IBus
 {
+    private bool _cachedIrq;
+
     public byte Pra { get; set; } = 0xFF;
     public byte Prb { get; set; } = 0xFF;
     public byte Ddra { get; set; }
@@ -27,7 +29,7 @@ public sealed class Cia6526 : IBus
     public byte InterruptEnable { get; private set; }
     public byte InterruptStatus { get; private set; }
 
-    public bool Irq => (InterruptStatus & 0x80) != 0;
+    public bool Irq => _cachedIrq;
 
     public Func<byte>? ReadPortA { get; set; }
     public Func<byte>? ReadPortB { get; set; }
@@ -56,6 +58,7 @@ public sealed class Cia6526 : IBus
             case 0x0D:
                 byte icr = InterruptStatus;
                 InterruptStatus = 0;
+                _cachedIrq = false;
                 return icr;
 
             case 0x0E: return ControlA;
@@ -102,6 +105,7 @@ public sealed class Cia6526 : IBus
                 {
                     InterruptEnable &= (byte)~(value & 0x1F);
                 }
+                UpdateIrqState();
                 break;
 
             case 0x0E:
@@ -152,9 +156,20 @@ public sealed class Cia6526 : IBus
     private void TriggerInterrupt(byte mask)
     {
         InterruptStatus |= mask;
-        if ((InterruptEnable & mask) != 0)
+        UpdateIrqState();
+    }
+
+    private void UpdateIrqState()
+    {
+        if ((InterruptStatus & InterruptEnable & 0x1F) != 0)
         {
             InterruptStatus |= 0x80;
+            _cachedIrq = true;
+        }
+        else
+        {
+            InterruptStatus &= 0x7F;
+            _cachedIrq = false;
         }
     }
 }

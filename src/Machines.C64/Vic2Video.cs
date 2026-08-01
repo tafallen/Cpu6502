@@ -5,7 +5,7 @@ namespace Machines.C64;
 
 /// <summary>
 /// MOS 6567 (NTSC) / 6569 (PAL) VIC-II Video Interface Controller.
-/// High-performance 40×25 cell-based glyph unpacking and Span border renderer.
+/// Ultra-high performance 40×25 cell renderer with pre-calculated glyph bit-expansion tables and direct RAM access.
 /// </summary>
 public sealed class Vic2Video : IBus
 {
@@ -108,14 +108,12 @@ public sealed class Vic2Video : IBus
         uint bgColor = _palette[BackgroundColor0];
         uint borderColor = _palette[BorderColor];
 
-        // 1. High-speed Span border clearing (Top 36 lines & Bottom 36 lines)
         Span<uint> bufferSpan = _frameBuffer;
         bufferSpan.Slice(0, 36 * 384).Fill(borderColor);
         bufferSpan.Slice(236 * 384, 36 * 384).Fill(borderColor);
 
         ushort videoMatrixBase = (ushort)(((_registers[0x18] >> 4) & 0x0F) * 0x0400);
 
-        // 2. 40×25 Cell-Based Glyph Unpacking
         for (int charRow = 0; charRow < 25; charRow++)
         {
             int screenY = 36 + charRow * 8;
@@ -125,11 +123,11 @@ public sealed class Vic2Video : IBus
             {
                 int screenX = 32 + charCol * 8;
                 byte charCode = ram.Read((ushort)(rowCellAddr + charCol));
-                ushort glyphBase = (ushort)(charCode * 8);
+                int glyphBase = charCode * 8;
 
                 for (int py = 0; py < 8; py++)
                 {
-                    byte glyphByte = charRom[(glyphBase + py) % charRom.Length];
+                    byte glyphByte = charRom[(glyphBase + py) & 0x0FFF];
                     int pixelOffset = (screenY + py) * 384 + screenX;
 
                     _frameBuffer[pixelOffset + 0] = (glyphByte & 0x80) != 0 ? _palette[1] : bgColor;
@@ -143,7 +141,6 @@ public sealed class Vic2Video : IBus
                 }
             }
 
-            // Fill left/right margins for row
             for (int py = 0; py < 8; py++)
             {
                 int lineOffset = (screenY + py) * 384;

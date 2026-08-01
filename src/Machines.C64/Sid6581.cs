@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Cpu6502.Core;
 
 namespace Machines.C64;
@@ -20,29 +22,24 @@ public sealed class Sid6581 : IBus
     {
         if (voice < 0 || voice > 2) return 0;
         int baseAddr = voice * 7;
-        return (ushort)(_registers[baseAddr] | (_registers[baseAddr + 1] << 8));
+        ref byte regRef = ref MemoryMarshal.GetArrayDataReference(_registers);
+        return (ushort)(Unsafe.Add(ref regRef, baseAddr) | (Unsafe.Add(ref regRef, baseAddr + 1) << 8));
     }
 
     public byte Read(ushort address)
     {
-        byte reg = (byte)(address & 0x1F);
-        if (reg == 0x1B) // Voice 3 Oscillator output
-        {
-            return 0x80;
-        }
-        if (reg == 0x1C) // Voice 3 Envelope output
-        {
-            return 0xFF;
-        }
-        return _registers[reg];
+        int reg = address & 0x1F;
+        if (reg == 0x1B) return 0x80;
+        if (reg == 0x1C) return 0xFF;
+        return Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_registers), reg);
     }
 
     public void Write(ushort address, byte value)
     {
-        byte reg = (byte)(address & 0x1F);
+        int reg = address & 0x1F;
         if (reg < 0x19)
         {
-            _registers[reg] = value;
+            Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_registers), reg) = value;
         }
     }
 }
