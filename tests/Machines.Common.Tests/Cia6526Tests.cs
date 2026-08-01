@@ -51,4 +51,15 @@ public class Cia6526Tests
         byte icr = cia.Read(0x0D);
         Assert.True((icr & 0x02) != 0);
     }
+
+    [Fact]
+    public void Cia_ControlRegisters_ReadWrite_Succeeds()
+    {
+        var cia = new Cia6526();
+        cia.Write(0x0E, 0x11);
+        cia.Write(0x0F, 0x11);
+
+        Assert.Equal(0x11, cia.Read(0x0E));
+        Assert.Equal(0x11, cia.Read(0x0F));
+    }
 }

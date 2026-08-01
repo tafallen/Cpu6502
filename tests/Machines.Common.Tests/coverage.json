@@ -7686,13 +7686,13 @@
       "Machines.Common.Cia6526": {
         "System.Byte Machines.Common.Cia6526::get_Pra()": {
           "Lines": {
-            "13": 5
+            "13": 6
           },
           "Branches": []
         },
         "System.Byte Machines.Common.Cia6526::get_Prb()": {
           "Lines": {
-            "14": 3
+            "14": 4
           },
           "Branches": []
         },
@@ -7710,49 +7710,49 @@
         },
         "System.UInt16 Machines.Common.Cia6526::get_TimerACounter()": {
           "Lines": {
-            "18": 3
+            "18": 4
           },
           "Branches": []
         },
         "System.UInt16 Machines.Common.Cia6526::get_TimerALatch()": {
           "Lines": {
-            "19": 9
+            "19": 11
           },
           "Branches": []
         },
         "System.Boolean Machines.Common.Cia6526::get_TimerAStarted()": {
           "Lines": {
-            "20": 6
+            "20": 7
           },
           "Branches": []
         },
         "System.UInt16 Machines.Common.Cia6526::get_TimerBCounter()": {
           "Lines": {
-            "22": 3
+            "22": 4
           },
           "Branches": []
         },
         "System.UInt16 Machines.Common.Cia6526::get_TimerBLatch()": {
           "Lines": {
-            "23": 9
+            "23": 11
           },
           "Branches": []
         },
         "System.Boolean Machines.Common.Cia6526::get_TimerBStarted()": {
           "Lines": {
-            "24": 5
+            "24": 6
           },
           "Branches": []
         },
         "System.Byte Machines.Common.Cia6526::get_ControlA()": {
           "Lines": {
-            "26": 2
+            "26": 4
           },
           "Branches": []
         },
         "System.Byte Machines.Common.Cia6526::get_ControlB()": {
           "Lines": {
-            "27": 2
+            "27": 4
           },
           "Branches": []
         },
@@ -7788,8 +7788,8 @@
         },
         "System.Byte Machines.Common.Cia6526::Read(System.UInt16)": {
           "Lines": {
-            "38": 5,
-            "39": 5,
+            "38": 7,
+            "39": 7,
             "42": 1,
             "43": 1,
             "46": 0,
@@ -7804,10 +7804,10 @@
             "60": 2,
             "61": 2,
             "62": 2,
-            "64": 0,
-            "65": 0,
+            "64": 1,
+            "65": 1,
             "68": 0,
-            "70": 5
+            "70": 7
           },
           "Branches": [
             {
@@ -7920,7 +7920,7 @@
               "EndOffset": 300,
               "Path": 15,
               "Ordinal": 15,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 39,
@@ -7928,7 +7928,7 @@
               "EndOffset": 310,
               "Path": 16,
               "Ordinal": 16,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 39,
@@ -7982,8 +7982,8 @@
         },
         "System.Void Machines.Common.Cia6526::Write(System.UInt16,System.Byte)": {
           "Lines": {
-            "73": 11,
-            "74": 11,
+            "73": 13,
+            "74": 13,
             "76": 2,
             "77": 0,
             "78": 2,
@@ -8011,15 +8011,15 @@
             "107": 0,
             "108": 2,
             "109": 2,
-            "112": 1,
-            "113": 1,
-            "114": 1,
-            "115": 1,
-            "118": 1,
-            "119": 1,
-            "120": 1,
-            "121": 1,
-            "123": 11
+            "112": 2,
+            "113": 2,
+            "114": 3,
+            "115": 2,
+            "118": 2,
+            "119": 2,
+            "120": 3,
+            "121": 2,
+            "123": 13
           },
           "Branches": [
             {
@@ -8164,7 +8164,7 @@
               "EndOffset": 403,
               "Path": 15,
               "Ordinal": 15,
-              "Hits": 1
+              "Hits": 2
             },
             {
               "Line": 114,
@@ -8172,7 +8172,7 @@
               "EndOffset": 437,
               "Path": 0,
               "Ordinal": 27,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 74,
@@ -8180,7 +8180,7 @@
               "EndOffset": 452,
               "Path": 16,
               "Ordinal": 16,
-              "Hits": 1
+              "Hits": 2
             },
             {
               "Line": 120,
@@ -8188,7 +8188,7 @@
               "EndOffset": 486,
               "Path": 0,
               "Ordinal": 29,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 74,
@@ -8196,7 +8196,7 @@
               "EndOffset": 501,
               "Path": 0,
               "Ordinal": 0,
-              "Hits": 11
+              "Hits": 13
             },
             {
               "Line": 74,
@@ -8204,7 +8204,7 @@
               "EndOffset": 501,
               "Path": 9,
               "Ordinal": 9,
-              "Hits": 11
+              "Hits": 13
             },
             {
               "Line": 74,
@@ -8212,7 +8212,7 @@
               "EndOffset": 501,
               "Path": 10,
               "Ordinal": 10,
-              "Hits": 11
+              "Hits": 13
             },
             {
               "Line": 74,
@@ -8220,7 +8220,7 @@
               "EndOffset": 501,
               "Path": 11,
               "Ordinal": 11,
-              "Hits": 11
+              "Hits": 13
             },
             {
               "Line": 74,
@@ -8228,7 +8228,7 @@
               "EndOffset": 501,
               "Path": 12,
               "Ordinal": 12,
-              "Hits": 11
+              "Hits": 13
             },
             {
               "Line": 74,
@@ -8236,7 +8236,7 @@
               "EndOffset": 501,
               "Path": 13,
               "Ordinal": 13,
-              "Hits": 11
+              "Hits": 13
             },
             {
               "Line": 84,
@@ -8244,7 +8244,7 @@
               "EndOffset": 501,
               "Path": 1,
               "Ordinal": 20,
-              "Hits": 11
+              "Hits": 13
             },
             {
               "Line": 93,
@@ -8252,7 +8252,7 @@
               "EndOffset": 501,
               "Path": 1,
               "Ordinal": 24,
-              "Hits": 11
+              "Hits": 13
             },
             {
               "Line": 114,
@@ -8260,7 +8260,7 @@
               "EndOffset": 501,
               "Path": 1,
               "Ordinal": 28,
-              "Hits": 11
+              "Hits": 13
             },
             {
               "Line": 120,
@@ -8268,7 +8268,7 @@
               "EndOffset": 501,
               "Path": 1,
               "Ordinal": 30,
-              "Hits": 11
+              "Hits": 13
             }
           ]
         },
@@ -8463,11 +8463,11 @@
       "Machines.Common.InterruptEdgeDetector": {
         "System.Boolean Machines.Common.InterruptEdgeDetector::Detect(System.Boolean)": {
           "Lines": {
-            "30": 0,
-            "31": 0,
-            "32": 0,
-            "33": 0,
-            "34": 0
+            "30": 4,
+            "31": 4,
+            "32": 4,
+            "33": 4,
+            "34": 4
           },
           "Branches": [
             {
@@ -8476,7 +8476,7 @@
               "EndOffset": 4,
               "Path": 0,
               "Ordinal": 0,
-              "Hits": 0
+              "Hits": 2
             },
             {
               "Line": 31,
@@ -8484,7 +8484,7 @@
               "EndOffset": 15,
               "Path": 1,
               "Ordinal": 1,
-              "Hits": 0
+              "Hits": 2
             }
           ]
         }
@@ -8494,17 +8494,17 @@
       "Machines.Common.MachineClock": {
         "System.UInt64 Machines.Common.MachineClock::get_Now()": {
           "Lines": {
-            "12": 0
+            "12": 10
           },
           "Branches": []
         },
         "System.Void Machines.Common.MachineClock::Advance(System.Int32)": {
           "Lines": {
-            "15": 0,
-            "16": 0,
+            "15": 3,
+            "16": 3,
             "17": 0,
-            "19": 0,
-            "20": 0
+            "19": 3,
+            "20": 3
           },
           "Branches": [
             {
@@ -8521,7 +8521,7 @@
               "EndOffset": 25,
               "Path": 1,
               "Ordinal": 1,
-              "Hits": 0
+              "Hits": 3
             }
           ]
         },
@@ -8806,51 +8806,51 @@
       "Machines.Common.Pokey": {
         "System.Byte Machines.Common.Pokey::get_Kbcode()": {
           "Lines": {
-            "14": 0
+            "14": 9
           },
           "Branches": []
         },
         "System.Byte Machines.Common.Pokey::get_Skstat()": {
           "Lines": {
-            "15": 0
+            "15": 4
           },
           "Branches": []
         },
         "System.Byte Machines.Common.Pokey::get_IrqEnable()": {
           "Lines": {
-            "16": 0
+            "16": 5
           },
           "Branches": []
         },
         "System.Byte Machines.Common.Pokey::get_IrqStatus()": {
           "Lines": {
-            "17": 0
+            "17": 9
           },
           "Branches": []
         },
         "System.Boolean Machines.Common.Pokey::get_Irq()": {
           "Lines": {
-            "19": 0
+            "19": 1
           },
           "Branches": []
         },
         "System.Func`1<System.Byte> Machines.Common.Pokey::get_ReadKeyboard()": {
           "Lines": {
-            "21": 0
+            "21": 1
           },
           "Branches": []
         },
         "System.Byte Machines.Common.Pokey::Read(System.UInt16)": {
           "Lines": {
-            "24": 0,
-            "25": 0,
-            "27": 0,
-            "28": 0,
-            "29": 0,
+            "24": 3,
+            "25": 3,
+            "27": 1,
+            "28": 1,
+            "29": 1,
             "30": 0,
             "31": 0,
             "32": 0,
-            "34": 0
+            "34": 3
           },
           "Branches": [
             {
@@ -8859,7 +8859,7 @@
               "EndOffset": 50,
               "Path": 1,
               "Ordinal": 1,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 25,
@@ -8867,7 +8867,7 @@
               "EndOffset": 69,
               "Path": 2,
               "Ordinal": 2,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 28,
@@ -8875,7 +8875,7 @@
               "EndOffset": 78,
               "Path": 0,
               "Ordinal": 9,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 28,
@@ -8891,7 +8891,7 @@
               "EndOffset": 95,
               "Path": 3,
               "Ordinal": 3,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 25,
@@ -8945,22 +8945,22 @@
         },
         "System.Void Machines.Common.Pokey::Write(System.UInt16,System.Byte)": {
           "Lines": {
-            "37": 0,
-            "38": 0,
-            "39": 0,
-            "41": 0,
-            "42": 0,
-            "43": 0,
-            "44": 0,
-            "45": 0,
-            "46": 0,
-            "47": 0,
-            "48": 0,
-            "49": 0,
-            "51": 0,
-            "52": 0,
-            "53": 0,
-            "54": 0
+            "37": 18,
+            "38": 18,
+            "39": 18,
+            "41": 18,
+            "42": 2,
+            "43": 2,
+            "44": 2,
+            "45": 2,
+            "46": 16,
+            "47": 2,
+            "48": 2,
+            "49": 1,
+            "51": 1,
+            "52": 1,
+            "53": 2,
+            "54": 18
           },
           "Branches": [
             {
@@ -8969,7 +8969,7 @@
               "EndOffset": 25,
               "Path": 0,
               "Ordinal": 0,
-              "Hits": 0
+              "Hits": 2
             },
             {
               "Line": 41,
@@ -8977,7 +8977,7 @@
               "EndOffset": 53,
               "Path": 1,
               "Ordinal": 1,
-              "Hits": 0
+              "Hits": 16
             },
             {
               "Line": 46,
@@ -8985,7 +8985,7 @@
               "EndOffset": 62,
               "Path": 0,
               "Ordinal": 2,
-              "Hits": 0
+              "Hits": 2
             },
             {
               "Line": 48,
@@ -8993,7 +8993,7 @@
               "EndOffset": 73,
               "Path": 0,
               "Ordinal": 4,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 48,
@@ -9001,7 +9001,7 @@
               "EndOffset": 87,
               "Path": 1,
               "Ordinal": 5,
-              "Hits": 0
+              "Hits": 2
             },
             {
               "Line": 46,
@@ -9009,19 +9009,19 @@
               "EndOffset": 88,
               "Path": 1,
               "Ordinal": 3,
-              "Hits": 0
+              "Hits": 18
             }
           ]
         },
         "System.Void Machines.Common.Pokey::TriggerKeypress(System.Byte)": {
           "Lines": {
-            "57": 0,
-            "58": 0,
-            "59": 0,
-            "60": 0,
-            "61": 0,
-            "62": 0,
-            "63": 0
+            "57": 2,
+            "58": 2,
+            "59": 2,
+            "60": 1,
+            "61": 1,
+            "62": 1,
+            "63": 2
           },
           "Branches": [
             {
@@ -9030,7 +9030,7 @@
               "EndOffset": 24,
               "Path": 0,
               "Ordinal": 0,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 59,
@@ -9038,7 +9038,7 @@
               "EndOffset": 46,
               "Path": 1,
               "Ordinal": 1,
-              "Hits": 0
+              "Hits": 2
             }
           ]
         },
@@ -9051,7 +9051,7 @@
         },
         "System.Void Machines.Common.Pokey::.ctor()": {
           "Lines": {
-            "12": 0
+            "12": 4
           },
           "Branches": []
         }
@@ -9059,7 +9059,7 @@
       "Machines.Common.RandomExtensions": {
         "System.Byte Machines.Common.RandomExtensions::NextByte(System.Random)": {
           "Lines": {
-            "73": 0
+            "73": 1
           },
           "Branches": []
         }
@@ -9429,20 +9429,20 @@
       "Machines.Common.TimingScheduler": {
         "System.Void Machines.Common.TimingScheduler::ScheduleAt(System.UInt64,System.Action)": {
           "Lines": {
-            "22": 0,
-            "23": 0,
-            "24": 0,
-            "25": 0
+            "22": 1,
+            "23": 1,
+            "24": 1,
+            "25": 1
           },
           "Branches": []
         },
         "System.Void Machines.Common.TimingScheduler::ScheduleIn(System.Int32,System.Action)": {
           "Lines": {
-            "28": 0,
-            "29": 0,
+            "28": 1,
+            "29": 1,
             "30": 0,
-            "32": 0,
-            "33": 0
+            "32": 1,
+            "33": 1
           },
           "Branches": [
             {
@@ -9459,19 +9459,19 @@
               "EndOffset": 25,
               "Path": 1,
               "Ordinal": 1,
-              "Hits": 0
+              "Hits": 1
             }
           ]
         },
         "System.Void Machines.Common.TimingScheduler::RunDue(System.UInt64)": {
           "Lines": {
-            "36": 0,
-            "37": 0,
-            "38": 0,
-            "39": 0,
-            "40": 0,
-            "41": 0,
-            "42": 0
+            "36": 2,
+            "37": 3,
+            "38": 1,
+            "39": 1,
+            "40": 1,
+            "41": 1,
+            "42": 2
           },
           "Branches": [
             {
@@ -9480,7 +9480,7 @@
               "EndOffset": 18,
               "Path": 0,
               "Ordinal": 0,
-              "Hits": 0
+              "Hits": 2
             },
             {
               "Line": 37,
@@ -9488,7 +9488,7 @@
               "EndOffset": 32,
               "Path": 1,
               "Ordinal": 1,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 37,
@@ -9496,7 +9496,7 @@
               "EndOffset": 37,
               "Path": 0,
               "Ordinal": 2,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 37,
@@ -9504,17 +9504,17 @@
               "EndOffset": 66,
               "Path": 1,
               "Ordinal": 3,
-              "Hits": 0
+              "Hits": 2
             }
           ]
         },
         "System.Void Machines.Common.TimingScheduler::.ctor(Machines.Common.IClock)": {
           "Lines": {
-            "13": 0,
-            "16": 0,
-            "17": 0,
-            "18": 0,
-            "19": 0
+            "13": 1,
+            "16": 1,
+            "17": 1,
+            "18": 1,
+            "19": 1
           },
           "Branches": [
             {
@@ -9531,7 +9531,7 @@
               "EndOffset": 36,
               "Path": 1,
               "Ordinal": 1,
-              "Hits": 0
+              "Hits": 1
             }
           ]
         }
@@ -9539,7 +9539,7 @@
       "Machines.Common.TimingScheduler/ScheduledCallback": {
         "System.Action Machines.Common.TimingScheduler/ScheduledCallback::get_Callback()": {
           "Lines": {
-            "44": 0
+            "44": 1
           },
           "Branches": []
         }
@@ -9549,15 +9549,15 @@
       "Machines.Common.TubeUla": {
         "System.Byte Machines.Common.TubeUla::Read(System.UInt16)": {
           "Lines": {
-            "46": 0,
-            "47": 0,
+            "46": 1,
+            "47": 1,
             "50": 0,
             "51": 0,
             "52": 0,
             "53": 0,
-            "56": 0,
+            "56": 1,
             "59": 0,
-            "61": 0
+            "61": 1
           },
           "Branches": [
             {
@@ -9566,7 +9566,7 @@
               "EndOffset": 13,
               "Path": 0,
               "Ordinal": 0,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 47,
@@ -9614,7 +9614,7 @@
               "EndOffset": 79,
               "Path": 1,
               "Ordinal": 3,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 47,
@@ -9628,11 +9628,11 @@
         },
         "System.Void Machines.Common.TubeUla::Write(System.UInt16,System.Byte)": {
           "Lines": {
-            "64": 0,
-            "65": 0,
-            "68": 0,
-            "69": 0,
-            "71": 0
+            "64": 1,
+            "65": 1,
+            "68": 1,
+            "69": 1,
+            "71": 1
           },
           "Branches": [
             {
@@ -9641,7 +9641,7 @@
               "EndOffset": 14,
               "Path": 1,
               "Ordinal": 1,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 65,
@@ -9649,22 +9649,22 @@
               "EndOffset": 29,
               "Path": 0,
               "Ordinal": 0,
-              "Hits": 0
+              "Hits": 1
             }
           ]
         },
         "System.Byte Machines.Common.TubeUla::ReadParasite(System.UInt16)": {
           "Lines": {
-            "74": 0,
-            "75": 0,
+            "74": 1,
+            "75": 1,
             "76": 0,
             "77": 0,
             "78": 0,
             "79": 0,
             "80": 0,
-            "83": 0,
-            "84": 0,
-            "86": 0
+            "83": 1,
+            "84": 1,
+            "86": 1
           },
           "Branches": [
             {
@@ -9713,18 +9713,18 @@
               "EndOffset": 70,
               "Path": 1,
               "Ordinal": 1,
-              "Hits": 0
+              "Hits": 1
             }
           ]
         },
         "System.Void Machines.Common.TubeUla::WriteParasite(System.UInt16,System.Byte)": {
           "Lines": {
-            "89": 0,
-            "90": 0,
-            "91": 0,
-            "92": 0,
-            "93": 0,
-            "94": 0
+            "89": 1,
+            "90": 1,
+            "91": 1,
+            "92": 1,
+            "93": 1,
+            "94": 1
           },
           "Branches": [
             {
@@ -9733,7 +9733,7 @@
               "EndOffset": 11,
               "Path": 0,
               "Ordinal": 0,
-              "Hits": 0
+              "Hits": 1
             },
             {
               "Line": 90,
@@ -9741,14 +9741,14 @@
               "EndOffset": 26,
               "Path": 1,
               "Ordinal": 1,
-              "Hits": 0
+              "Hits": 1
             }
           ]
         },
         "System.Void Machines.Common.TubeUla::.ctor()": {
           "Lines": {
-            "42": 0,
-            "43": 0
+            "42": 1,
+            "43": 1
           },
           "Branches": []
         }
@@ -9762,21 +9762,21 @@
         },
         "System.Void Machines.Common.TubeUla/FastRingBuffer16::Enqueue(System.Byte)": {
           "Lines": {
-            "28": 0,
-            "29": 0,
-            "30": 0,
-            "31": 0
+            "28": 2,
+            "29": 2,
+            "30": 2,
+            "31": 2
           },
           "Branches": []
         },
         "System.Byte Machines.Common.TubeUla/FastRingBuffer16::Dequeue()": {
           "Lines": {
-            "34": 0,
-            "35": 0,
-            "36": 0,
-            "37": 0,
-            "38": 0,
-            "39": 0
+            "34": 2,
+            "35": 2,
+            "36": 2,
+            "37": 2,
+            "38": 2,
+            "39": 2
           },
           "Branches": [
             {
@@ -9793,14 +9793,14 @@
               "EndOffset": 27,
               "Path": 1,
               "Ordinal": 1,
-              "Hits": 0
+              "Hits": 2
             }
           ]
         },
         "System.Void Machines.Common.TubeUla/FastRingBuffer16::.ctor()": {
           "Lines": {
-            "19": 0,
-            "23": 0
+            "19": 2,
+            "23": 4
           },
           "Branches": []
         }
