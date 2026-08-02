@@ -390,7 +390,7 @@ public class BbcMasterBenchmarks
 {
     private TubeUla _tube = null!;
     private BbcMasterAcccon _acccon = null!;
-    private Wd1770Fdc _fdc = null!;
+    private Machines.Common.Wd1770Fdc _fdc = null!;
     private byte[] _discImage = null!;
 
     [GlobalSetup]
@@ -398,7 +398,7 @@ public class BbcMasterBenchmarks
     {
         _tube = new TubeUla();
         _acccon = new BbcMasterAcccon();
-        _fdc = new Wd1770Fdc();
+        _fdc = new Machines.Common.Wd1770Fdc();
 
         _discImage = new byte[0x8000];
         _discImage[0x0400] = (byte)'H';
@@ -502,5 +502,15 @@ public class Atari800Benchmarks
             AtariProgramLoader.LoadXex(_xexImage, _machine.Bus);
         }
     }
+
+    [Benchmark]
+    public void Atari800_FullMachine_RunFrame_10()
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            _machine.RunFrame(_sink);
+        }
+    }
 }
+
 

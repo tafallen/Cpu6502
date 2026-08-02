@@ -1,11 +1,11 @@
+using System.Runtime.CompilerServices;
 using Cpu6502.Core;
 
 namespace Machines.Atari800;
 
 /// <summary>
-/// Atari GTIA (Graphics Television Interface Adapter) chip ($D000–$D01F).
-/// Features 256-color palette registers, 4 player + 4 missile hardware sprites,
-/// and hardware collision detection registers.
+/// Atari GTIA graphics engine ($D000–$D01F).
+/// Optimized with pre-computed 256-color RGBA palette cache.
 /// </summary>
 public sealed class Gtia : IBus
 {
@@ -19,7 +19,6 @@ public sealed class Gtia : IBus
 
     private void InitializePalette()
     {
-        // Generate Atari 256-color NTSC/PAL palette
         for (int i = 0; i < 256; i++)
         {
             int hue = (i >> 4) & 0x0F;
@@ -33,31 +32,34 @@ public sealed class Gtia : IBus
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public uint GetColor(byte index) => _palette[_registers[0x16 + (index & 0x08)]];
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public byte Read(ushort address)
     {
         byte reg = (byte)(address & 0x1F);
         switch (reg)
         {
-            case 0x00: return 0x00; // M0PF (Missile 0 to Playfield collision)
-            case 0x04: return 0x00; // P0PF (Player 0 to Playfield collision)
-            case 0x08: return 0x00; // M0PL (Missile 0 to Player collision)
-            case 0x0C: return 0x00; // P0PL (Player 0 to Player collision)
-            case 0x10: return 0x0F; // TRIG0 (Console trigger button 0)
-            case 0x1F: return 0x07; // CONSOL (Console switches: OPTION/SELECT/START)
+            case 0x00: return 0x00;
+            case 0x04: return 0x00;
+            case 0x08: return 0x00;
+            case 0x0C: return 0x00;
+            case 0x10: return 0x0F;
+            case 0x1F: return 0x07;
             default: return _registers[reg];
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Write(ushort address, byte value)
     {
         byte reg = (byte)(address & 0x1F);
         _registers[reg] = value;
 
-        if (reg == 0x1E) // HITCLR (Clear collisions)
+        if (reg == 0x1E)
         {
-            for (int i = 0; i < 16; i++) _registers[i] = 0;
+            Array.Clear(_registers, 0, 16);
         }
     }
 }
