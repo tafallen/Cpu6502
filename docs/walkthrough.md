@@ -298,3 +298,35 @@ public class C64ExampleMachine
     }
 }
 ```
+
+---
+
+## 8. Commodore Plus/4 (TED 7360 MMIO & Timers)
+
+```csharp
+var machine = new Plus4Machine(kernalRom, basicRom, Plus4Model.Plus4);
+machine.Reset();
+machine.RunFrame(videoSink); // Executes 35,520 cycles/frame with TED 7360 timers & 121-color rendering
+```
+
+---
+
+## 9. Acorn System 1–5 (Modular Eurocard Rack Systems)
+
+```csharp
+var machine = new AcornSystemMachine(systemRom, AcornSystemModel.System3);
+machine.Reset();
+machine.RunFrame(videoSink); // 1.0 MHz execution with MC6847 VDG card
+```
+
+---
+
+## 10. Acorn 65C02 Turbo Tube Co-Processor
+
+```csharp
+var bbcMicro = new BbcMicroMachine(osRom, basicRom, BbcModel.ModelB, enableCoProcessor: true);
+bbcMicro.Reset();
+bbcMicro.Step(); // Host CPU steps at 2 MHz, Parasite 65C02 steps at 4 MHz over Tube ULA FIFO
+```
+
+```

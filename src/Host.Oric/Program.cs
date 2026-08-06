@@ -21,7 +21,7 @@ byte[] osRom = File.Exists(options.OsPath) ? File.ReadAllBytes(options.OsPath) :
 var machine = new OricMachine(osRom);
 machine.Reset();
 
-using var display = new RaylibHost("Oric Atmos", new DisplayOptions(scale: options.Scale, smooth: options.Smooth, scanlines: options.Scanlines), 240, 200);
+using var display = new RaylibHost("Oric Atmos", new DisplayOptions(Scale: options.Scale, Smooth: options.Smooth, ScanlineIntensity: options.Scanlines), 240, 200);
 
 while (display.IsRunning)
 {

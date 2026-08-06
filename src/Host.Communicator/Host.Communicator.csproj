@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cpu6502.Core\Cpu6502.Core.csproj" />
+    <ProjectReference Include="..\Machines.Common\Machines.Common.csproj" />
+    <ProjectReference Include="..\Machines.Communicator\Machines.Communicator.csproj" />
+    <ProjectReference Include="..\Adapters.Raylib\Adapters.Raylib.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

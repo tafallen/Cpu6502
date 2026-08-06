@@ -3,6 +3,8 @@ namespace Host.BbcMicro;
 public sealed record BbcMicroOptions(
     string OsPath,
     string BasicPath,
+    Machines.BbcMicro.BbcModel Model,
+    bool Tube,
     int Scale,
     bool Smooth,
     float Scanlines
@@ -14,6 +16,8 @@ public static class BbcMicroCommandLine
     {
         string osPath = "roms/bbcmicro/os12.rom";
         string basicPath = "roms/bbcmicro/basic2.rom";
+        Machines.BbcMicro.BbcModel model = Machines.BbcMicro.BbcModel.ModelB;
+        bool tube = false;
         int scale = 3;
         bool smooth = false;
         float scanlines = 0f;
@@ -28,6 +32,19 @@ public static class BbcMicroCommandLine
                 case "--basic":
                     basicPath = args[++i];
                     break;
+                case "--tube":
+                    tube = true;
+                    break;
+                case "--model":
+                    string val = args[++i].ToLowerInvariant();
+                    model = val switch
+                    {
+                        "a" or "modela" => Machines.BbcMicro.BbcModel.ModelA,
+                        "b" or "modelb" => Machines.BbcMicro.BbcModel.ModelB,
+                        "bplus64" or "b+" or "modelbplus64" => Machines.BbcMicro.BbcModel.ModelBPlus64,
+                        _ => throw new ArgumentException($"Invalid model variant '{val}'. Options: a, b, b+.")
+                    };
+                    break;
                 case "--scale":
                     scale = int.Parse(args[++i]);
                     break;
@@ -40,6 +57,6 @@ public static class BbcMicroCommandLine
             }
         }
 
-        return new BbcMicroOptions(osPath, basicPath, scale, smooth, scanlines);
+        return new BbcMicroOptions(osPath, basicPath, model, tube, scale, smooth, scanlines);
     }
 }

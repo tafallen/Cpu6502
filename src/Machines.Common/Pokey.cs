@@ -1,4 +1,5 @@
 using Cpu6502.Core;
+using System.Runtime.CompilerServices;
 
 namespace Machines.Common;
 
@@ -10,6 +11,15 @@ namespace Machines.Common;
 public sealed class Pokey : IBus
 {
     private readonly byte[] _registers = new byte[0x10];
+    private ushort _randomState = 0xACE1; // LFSR seed
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private byte NextRandom()
+    {
+        _randomState = (ushort)(_randomState * 25173 + 13849);
+        return (byte)(_randomState >> 8);
+    }
+
 
     public byte Kbcode { get; set; } = 0xFF;
     public byte Skstat { get; set; } = 0xFF;
@@ -20,19 +30,21 @@ public sealed class Pokey : IBus
 
     public Func<byte>? ReadKeyboard { get; set; }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public byte Read(ushort address)
     {
         switch (address & 0x0F)
         {
-            case 0x08: return (byte)(Random.Shared.Next(256)); // Random number generator (POT0 / ALLPOT)
+            case 0x08: return NextRandom();
             case 0x09: return ReadKeyboard?.Invoke() ?? Kbcode; // KBCODE
-            case 0x0A: return Random.Shared.NextByte(); // RANDOM byte generator
+            case 0x0A: return NextRandom();
             case 0x0E: return IrqStatus;
             case 0x0F: return Skstat;
             default: return _registers[address & 0x0F];
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Write(ushort address, byte value)
     {
         byte reg = (byte)(address & 0x0F);
@@ -53,6 +65,7 @@ public sealed class Pokey : IBus
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void TriggerKeypress(byte keyCode)
     {
         Kbcode = keyCode;
@@ -62,13 +75,9 @@ public sealed class Pokey : IBus
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Tick(int cycles = 1)
     {
         // POKEY audio timer dividers tick
     }
-}
-
-internal static class RandomExtensions
-{
-    public static byte NextByte(this Random rand) => (byte)rand.Next(256);
 }

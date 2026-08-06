@@ -21,7 +21,7 @@ byte[] romData = File.Exists(options.RomPath) ? File.ReadAllBytes(options.RomPat
 var machine = new PetMachine(romData);
 machine.Reset();
 
-using var display = new RaylibHost("Commodore PET 2001", new DisplayOptions(scale: options.Scale, smooth: options.Smooth, scanlines: options.Scanlines), 320, 200);
+using var display = new RaylibHost("Commodore PET 2001", new DisplayOptions(Scale: options.Scale, Smooth: options.Smooth, ScanlineIntensity: options.Scanlines), 320, 200);
 
 while (display.IsRunning)
 {

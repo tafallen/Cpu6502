@@ -22,6 +22,7 @@ public sealed class Antic : IBus
 
     public bool Nmi => (NmiStatus & NmiEnable & 0xC0) != 0;
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public byte Read(ushort address)
     {
         byte reg = (byte)(address & 0x0F);
@@ -30,6 +31,7 @@ public sealed class Antic : IBus
         return _registers[reg];
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Write(ushort address, byte value)
     {
         byte reg = (byte)(address & 0x0F);
@@ -41,9 +43,11 @@ public sealed class Antic : IBus
         else if (reg == 0x0F) NmiStatus &= 0x1F;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Tick(int cycles = 1)
     {
-        _vcount = (ushort)((_vcount + cycles) % 262);
+        _vcount += (ushort)cycles;
+        if (_vcount >= 262) _vcount -= 262;
 
         if (_vcount == 248 && (NmiEnable & 0x40) != 0)
         {
@@ -60,35 +64,47 @@ public sealed class Antic : IBus
         uint bgColor = 0xFF000000;
         uint fgColor = 0xFFFFFFFF;
         uint bgGlyph = 0xFF222222;
-        bufferSpan.Fill(bgColor);
+
+        // Fill only border regions, not the 320×192 active area that will be overwritten
+        bufferSpan.Slice(0, 24 * 336).Fill(bgColor);           // Top border (rows 0-23)
+        bufferSpan.Slice(216 * 336, 24 * 336).Fill(bgColor);   // Bottom border (rows 216-239)
+        for (int y = 24; y < 216; y++)
+        {
+            int rowBase = y * 336;
+            bufferSpan.Slice(rowBase, 8).Fill(bgColor);         // Left border
+            bufferSpan.Slice(rowBase + 328, 8).Fill(bgColor);   // Right border
+        }
 
         ushort screenMem = 0x4000;
 
         ref byte ramRef = ref MemoryMarshal.GetArrayDataReference(ramBuf);
         ref uint fbRef = ref MemoryMarshal.GetArrayDataReference(_frameBuffer);
 
+        // Branchless color lookup: index 0 = bg, index 1 = fg
+        ReadOnlySpan<uint> colors = stackalloc uint[] { bgGlyph, fgColor };
+
         for (int row = 0; row < 24; row++)
         {
-            int screenY = 24 + row * 8;
             int rowAddr = screenMem + row * 40;
+            int pixelBase = (24 + row * 8) * 336 + 8; // screenY * 336 + screenX(col=0)
 
             for (int col = 0; col < 40; col++)
             {
-                int screenX = 8 + col * 8;
                 byte charCode = Unsafe.Add(ref ramRef, rowAddr + col);
+                int pixelOffset = pixelBase + col * 8;
 
                 for (int py = 0; py < 8; py++)
                 {
-                    int pixelOffset = (screenY + py) * 336 + screenX;
+                    Unsafe.Add(ref fbRef, pixelOffset + 0) = colors[(charCode >> 7) & 1];
+                    Unsafe.Add(ref fbRef, pixelOffset + 1) = colors[(charCode >> 6) & 1];
+                    Unsafe.Add(ref fbRef, pixelOffset + 2) = colors[(charCode >> 5) & 1];
+                    Unsafe.Add(ref fbRef, pixelOffset + 3) = colors[(charCode >> 4) & 1];
+                    Unsafe.Add(ref fbRef, pixelOffset + 4) = colors[(charCode >> 3) & 1];
+                    Unsafe.Add(ref fbRef, pixelOffset + 5) = colors[(charCode >> 2) & 1];
+                    Unsafe.Add(ref fbRef, pixelOffset + 6) = colors[(charCode >> 1) & 1];
+                    Unsafe.Add(ref fbRef, pixelOffset + 7) = colors[charCode & 1];
 
-                    Unsafe.Add(ref fbRef, pixelOffset + 0) = (charCode & 0x80) != 0 ? fgColor : bgGlyph;
-                    Unsafe.Add(ref fbRef, pixelOffset + 1) = (charCode & 0x40) != 0 ? fgColor : bgGlyph;
-                    Unsafe.Add(ref fbRef, pixelOffset + 2) = (charCode & 0x20) != 0 ? fgColor : bgGlyph;
-                    Unsafe.Add(ref fbRef, pixelOffset + 3) = (charCode & 0x10) != 0 ? fgColor : bgGlyph;
-                    Unsafe.Add(ref fbRef, pixelOffset + 4) = (charCode & 0x08) != 0 ? fgColor : bgGlyph;
-                    Unsafe.Add(ref fbRef, pixelOffset + 5) = (charCode & 0x04) != 0 ? fgColor : bgGlyph;
-                    Unsafe.Add(ref fbRef, pixelOffset + 6) = (charCode & 0x02) != 0 ? fgColor : bgGlyph;
-                    Unsafe.Add(ref fbRef, pixelOffset + 7) = (charCode & 0x01) != 0 ? fgColor : bgGlyph;
+                    pixelOffset += 336; // Advance to next scanline
                 }
             }
         }

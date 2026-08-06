@@ -84,6 +84,24 @@ An overlay appears for 1 second confirming each change.
 
 ---
 
+## Acorn BBC Micro (`Host.BbcMicro`)
+
+```bash
+dotnet run --project src/Host.BbcMicro -- --model b --os roms/bbcmicro/os12.rom --basic roms/bbcmicro/basic2.rom --tube --scale 3
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--model <m>` | `b` | Hardware model variant (`a` = 16 KB RAM, `b` = 32 KB RAM, `b+` / `bplus64` = 64 KB RAM) |
+| `--os <path>` | `roms/bbcmicro/os12.rom` | 16 KB OS 1.20 ROM file ($C000–$FFFF) |
+| `--basic <path>` | `roms/bbcmicro/basic2.rom` | 16 KB BASIC 2.0 ROM file ($8000–$BFFF / Sideways Bank 15) |
+| `--tube` | off | Enable 65C02 Turbo 4 MHz Second Processor (Co-Processor card) |
+| `--scale <n>` | 3 | Window scale factor (640×256 × scale) |
+| `--smooth` | off | Enable bilinear texture filtering |
+| `--scanlines <f>` | 0 | CRT scanline intensity (0.0–1.0) |
+
+---
+
 ## Commodore VIC-20
 
 ### Required arguments
@@ -388,4 +406,55 @@ dotnet run --project src/Host.C64 -- --kernal roms/c64/kernal.rom --basic roms/c
 | `--scale <n>` | 3 | Window scale factor |
 | `--smooth` | off | Enable bilinear texture filtering for smooth scaling |
 | `--scanlines <f>` | 0 | CRT scanline intensity (0.0 = off, 0.5 = moderate, 1.0 = full) |
+
+---
+
+## Commodore Plus/4 & C16 (`Host.Plus4`)
+
+```bash
+dotnet run --project src/Host.Plus4 -- --model c16 --kernal roms/plus4/kernal.bin --basic roms/plus4/basic.bin --scale 3
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--model <m>` | `plus4` | Hardware model variant (`plus4` = 64 KB RAM, `c16` = 16 KB RAM) |
+| `--kernal <path>` | `roms/plus4/kernal.bin` | 16 KB Kernal ROM file |
+| `--basic <path>` | `roms/plus4/basic.bin` | 16 KB BASIC 3.5 ROM file |
+| `--prg <path>` | (none) | Auto-load `.prg` program binary file directly into RAM |
+| `--scale <n>` | 3 | Window scale factor |
+| `--smooth` | off | Enable bilinear texture filtering |
+| `--scanlines <f>` | 0 | CRT scanline intensity (0.0–1.0) |
+
+---
+
+## Acorn System 1–5 (`Host.AcornSystem`)
+
+```bash
+dotnet run --project src/Host.AcornSystem -- --model system3 --rom roms/acornsystem/sys3.rom --scale 3
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--model <m>` | `system3` | System model variant (`system1`=512B, `system2`=1KB, `system3`=16KB, `system4`=32KB, `system5`=48KB) |
+| `--rom <path>` | `roms/acornsystem/sys3.rom` | System OS / Monitor ROM file |
+| `--disc <path>` | (none) | Floppy disc image file (`.dsk` / `.img`) |
+| `--scale <n>` | 3 | Window scale factor |
+| `--smooth` | off | Enable bilinear texture filtering |
+| `--scanlines <f>` | 0 | CRT scanline intensity (0.0–1.0) |
+
+---
+
+## Acorn Communicator (`Host.Communicator`)
+
+```bash
+dotnet run --project src/Host.Communicator -- --rom roms/communicator/os.rom --scale 3
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--rom <path>` | `roms/communicator/os.rom` | 32 KB Paged OS System ROM file |
+| `--scale <n>` | 3 | Window scale factor |
+| `--smooth` | off | Enable bilinear texture filtering |
+| `--scanlines <f>` | 0 | CRT scanline intensity (0.0–1.0) |
+
 

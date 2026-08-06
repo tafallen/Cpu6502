@@ -19,7 +19,19 @@ public sealed class AtariBus : IBus
     public byte[] OsRom { get; } = new byte[0x4000];
     public byte[] BasicRom { get; } = new byte[0x2000];
 
+    private readonly byte[] _ramBuf;
+    private readonly byte[] _basicRomBuf;
+    private readonly byte[] _osRomBuf;
+
+    public AtariBus()
+    {
+        _ramBuf = Ram.DirectWriteBuffer!;
+        _basicRomBuf = BasicRom;
+        _osRomBuf = OsRom;
+    }
+
     public bool OsRomEnabled => (Pia.PortB & 0x01) == 0;
+    
     public bool BasicRomEnabled => (Pia.PortB & 0x02) == 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -35,24 +47,22 @@ public sealed class AtariBus : IBus
             if (page == 0xD3) return Pia.Read(address);
             if (page == 0xD4) return Antic.Read(address);
 
-            return Ram.Read(address);
+            return _ramBuf[address];
         }
 
         // BASIC ROM ($A000–$BFFF)
         if ((page & 0xE0) == 0xA0 && BasicRomEnabled)
         {
-            ref byte romRef = ref MemoryMarshal.GetArrayDataReference(BasicRom);
-            return Unsafe.Add(ref romRef, address - 0xA000);
+            return _basicRomBuf[address - 0xA000];
         }
 
         // OS ROM ($C000–$FFFF excluding I/O)
         if (page >= 0xC0 && OsRomEnabled)
         {
-            ref byte osRef = ref MemoryMarshal.GetArrayDataReference(OsRom);
-            return Unsafe.Add(ref osRef, address - 0xC000);
+            return _osRomBuf[address - 0xC000];
         }
 
-        return Ram.Read(address);
+        return _ramBuf[address];
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -68,6 +78,6 @@ public sealed class AtariBus : IBus
             else if (page == 0xD4) Antic.Write(address, value);
         }
 
-        Ram.Write(address, value);
+        _ramBuf[address] = value;
     }
 }

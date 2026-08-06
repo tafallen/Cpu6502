@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Cpu6502.Core;
 using Machines.Common;
 
@@ -39,13 +40,14 @@ public sealed class Atari800Machine
         if (basicRom is not null && basicRom.Length >= 0x2000)
             Array.Copy(basicRom, 0, Bus.BasicRom, 0, 0x2000);
 
-        _pokey.ReadKeyboard = () => Keyboard.ReadKeyCode();
+        _pokey.ReadKeyboard = Keyboard.ReadKeyCode;
 
         Cpu = new Cpu(Bus);
     }
 
     public void Reset() => Cpu.Reset();
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Step()
     {
         ulong cyclesBefore = Cpu.TotalCycles;

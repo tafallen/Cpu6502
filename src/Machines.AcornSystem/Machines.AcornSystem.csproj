@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cpu6502.Core\Cpu6502.Core.csproj" />
+    <ProjectReference Include="..\Machines.Common\Machines.Common.csproj" />
+    <ProjectReference Include="..\Machines.Atom\Machines.Atom.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

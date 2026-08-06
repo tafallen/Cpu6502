@@ -5,6 +5,8 @@ public sealed record Vic20Options(
     string KernalPath,
     string? CharPath,
     string? TapePath,
+    string? CartPath,
+    Machines.Vic20.RamExpansion RamExpansion,
     int Scale,
     bool Smooth,
     float ScanlineIntensity,
@@ -20,6 +22,8 @@ public static class Vic20CommandLine
         string? kernalPath = null;
         string? charPath = null;
         string? tapePath = null;
+        string? cartPath = null;
+        Machines.Vic20.RamExpansion ramExpansion = Machines.Vic20.RamExpansion.None;
         int scale = 3;
         bool smooth = false;
         float scanlineIntensity = 0f;
@@ -35,6 +39,20 @@ public static class Vic20CommandLine
                 case "--kernal": kernalPath = RequireValue(args, ref i, "--kernal"); break;
                 case "--char": charPath = RequireValue(args, ref i, "--char"); break;
                 case "--tape": tapePath = RequireValue(args, ref i, "--tape"); break;
+                case "--cart": cartPath = RequireValue(args, ref i, "--cart"); break;
+                case "--ram":
+                    string ramVal = RequireValue(args, ref i, "--ram").ToLowerInvariant();
+                    ramExpansion = ramVal switch
+                    {
+                        "3k" or "3" => Machines.Vic20.RamExpansion.Ram3K,
+                        "8k" or "8" => Machines.Vic20.RamExpansion.Ram8K,
+                        "16k" or "16" => Machines.Vic20.RamExpansion.Ram16K,
+                        "24k" or "24" => Machines.Vic20.RamExpansion.Ram24K,
+                        "32k" or "32" => Machines.Vic20.RamExpansion.Ram32K,
+                        "none" or "0" => Machines.Vic20.RamExpansion.None,
+                        _ => throw new ArgumentException($"Invalid RAM expansion '{ramVal}'. Valid options: 3k, 8k, 16k, 24k, 32k.")
+                    };
+                    break;
                 case "--scale":
                     if (!int.TryParse(RequireValue(args, ref i, "--scale"), out scale))
                         throw new ArgumentException("Invalid value for --scale.");
@@ -65,7 +83,7 @@ public static class Vic20CommandLine
         if (basicPath is null || kernalPath is null)
             throw new ArgumentException("--basic and --kernal are required.");
 
-        return new Vic20Options(basicPath, kernalPath, charPath, tapePath, scale, smooth, scanlineIntensity, debugKeys, gdb, gdbPort);
+        return new Vic20Options(basicPath, kernalPath, charPath, tapePath, cartPath, ramExpansion, scale, smooth, scanlineIntensity, debugKeys, gdb, gdbPort);
     }
 
     private static string RequireValue(string[] args, ref int index, string optionName)

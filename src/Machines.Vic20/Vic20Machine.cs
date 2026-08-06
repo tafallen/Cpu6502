@@ -3,31 +3,34 @@ using Machines.Common;
 
 namespace Machines.Vic20;
 
+/// <summary>VIC-20 RAM expansion configurations.</summary>
+public enum RamExpansion
+{
+    None = 0,    // Unexpanded (4KB main RAM at $1000–$1FFF)
+    Ram3K = 1,   // +3KB at $0400–$0FFF
+    Ram8K = 2,   // +8KB at $2000–$3FFF (Block 1)
+    Ram16K = 3,  // +16KB at $2000–$5FFF (Blocks 1 & 2)
+    Ram24K = 4,  // +24KB at $2000–$7FFF (Blocks 1, 2 & 3)
+    Ram32K = 5   // +32KB (3K at $0400–$0FFF + 24K at $2000–$7FFF)
+}
+
 /// <summary>
-/// VIC-20 (unexpanded PAL) machine compositor.
+/// VIC-20 (unexpanded or expanded PAL) machine compositor.
 ///
 /// Address map:
 ///   $0000–$00FF  Zero page (RAM)
 ///   $0100–$01FF  Stack (RAM)
-///   $0200–$0FFF  System/work RAM
-///   $1000–$1FFF  Main RAM (4KB, unexpanded)
-///   $2000–$7FFF  Expansion RAM area (unmapped → $FF)
+///   $0200–$03FF  System/work RAM
+///   $0400–$0FFF  3KB RAM expansion slot (optional)
+///   $1000–$1FFF  Main RAM (4KB)
+///   $2000–$7FFF  Expansion RAM Blocks 1, 2, 3 (optional, 8KB each)
 ///   $8000–$8FFF  Colour RAM (4-bit nibbles, 1KB usable; upper nibble open)
 ///   $9000–$900F  VIC-I video/audio registers
 ///   $9110–$911F  VIA 1 (serial bus, tape, joystick)
 ///   $9120–$912F  VIA 2 (keyboard matrix, joystick)
-///   $A000–$BFFF  Expansion cartridge area (Block 5; unmapped on unexpanded VIC-20)
+///   $A000–$BFFF  Expansion cartridge area (Block 5; unmapped or ROM cartridge)
 ///   $C000–$DFFF  BASIC ROM (8KB)
 ///   $E000–$FFFF  Kernal ROM (8KB; reset vector at $FFFC/$FFFD)
-///
-/// Emulator loop:
-///   machine.Reset();
-///   while (running)
-///   {
-///       host.PollEvents();
-///       machine.RunFrame();
-///       machine.RenderFrame(host);
-///   }
 /// </summary>
 public sealed class Vic20Machine : IComponent
 {
@@ -58,13 +61,17 @@ public sealed class Vic20Machine : IComponent
     /// <param name="keyboard">Physical keyboard source. Pass null for headless/test use.</param>
     /// <param name="audio">Audio sink. Pass null for silent/test use.</param>
     /// <param name="tape">Optional tape adapter. Motor driven by VIA 1 Port B bit 3.</param>
+    /// <param name="ramExpansion">RAM expansion configuration (None, 3K, 8K, 16K, 24K, 32K).</param>
+    /// <param name="cartridgeRom">Optional cartridge ROM image (mapped at $A000–$BFFF Block 5, or $6000–$7FFF Block 3 depending on size).</param>
     public Vic20Machine(
         byte[]              basicRom,
         byte[]              kernalRom,
-        byte[]?             charRom  = null,
-        IPhysicalKeyboard?  keyboard = null,
-        IAudioSink?         audio    = null,
-        Vic20TapeAdapter?   tape     = null)
+        byte[]?             charRom      = null,
+        IPhysicalKeyboard?  keyboard     = null,
+        IAudioSink?         audio        = null,
+        Vic20TapeAdapter?   tape         = null,
+        RamExpansion        ramExpansion = RamExpansion.None,
+        byte[]?             cartridgeRom = null)
     {
         Ram       = new Ram(0x2000);   // covers $0000–$1FFF (4KB zero+stack+main)
         _colorRam = new Ram(0x0400);   // 1KB at $8000
@@ -75,7 +82,51 @@ public sealed class Vic20Machine : IComponent
         Tape      = tape;
 
         _bus = new AddressDecoder();
-        _bus.Map(0x0000, 0x1FFF, Ram);
+        _bus.Map(0x0000, 0x1FFF, Ram); // Default 8KB Ram covers $0000–$1FFF
+
+        // Map RAM expansions
+        if (ramExpansion is RamExpansion.Ram3K or RamExpansion.Ram32K)
+        {
+            _bus.Map(0x0400, 0x0FFF, new Ram(0x0C00)); // 3KB RAM expansion slot
+        }
+
+        if (ramExpansion is RamExpansion.Ram8K or RamExpansion.Ram16K or RamExpansion.Ram24K or RamExpansion.Ram32K)
+        {
+            _bus.Map(0x2000, 0x3FFF, new Ram(0x2000)); // 8KB Block 1 RAM
+        }
+
+        if (ramExpansion is RamExpansion.Ram16K or RamExpansion.Ram24K or RamExpansion.Ram32K)
+        {
+            _bus.Map(0x4000, 0x5FFF, new Ram(0x2000)); // 8KB Block 2 RAM
+        }
+
+        if (ramExpansion is RamExpansion.Ram24K or RamExpansion.Ram32K)
+        {
+            _bus.Map(0x6000, 0x7FFF, new Ram(0x2000)); // 8KB Block 3 RAM
+        }
+
+        // Map Cartridge ROM if supplied
+        if (cartridgeRom is not null && cartridgeRom.Length > 0)
+        {
+            if (cartridgeRom.Length <= 0x2000)
+            {
+                // 4KB/8KB Cartridge -> Block 5 ($A000–$BFFF)
+                _bus.Map(0xA000, (ushort)(0xA000 + Math.Min(cartridgeRom.Length, 0x2000) - 1), new Rom(cartridgeRom));
+            }
+            else
+            {
+                // 16KB Cartridge -> Block 3 ($6000–$7FFF) and Block 5 ($A000–$BFFF)
+                byte[] block3Rom = new byte[0x2000];
+                byte[] block5Rom = new byte[0x2000];
+                Array.Copy(cartridgeRom, 0, block3Rom, 0, Math.Min(cartridgeRom.Length, 0x2000));
+                if (cartridgeRom.Length > 0x2000)
+                    Array.Copy(cartridgeRom, 0x2000, block5Rom, 0, Math.Min(cartridgeRom.Length - 0x2000, 0x2000));
+
+                _bus.Map(0x6000, 0x7FFF, new Rom(block3Rom));
+                _bus.Map(0xA000, 0xBFFF, new Rom(block5Rom));
+            }
+        }
+
         _bus.Map(0x8000, 0x83FF, _colorRam);
         _bus.Map(0x9000, 0x900F, _vic);
         _bus.Map(0x9110, 0x911F, Via1);

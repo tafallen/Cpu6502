@@ -31,14 +31,28 @@ if (options.TapePath is not null)
     Console.WriteLine($"Tape loaded: {Path.GetFileName(options.TapePath)}");
 }
 
+// ── load cartridge ─────────────────────────────────────────────────────────────
+byte[]? cartridgeRom = options.CartPath is not null ? File.ReadAllBytes(options.CartPath) : null;
+if (cartridgeRom is not null)
+{
+    Console.WriteLine($"Cartridge loaded: {Path.GetFileName(options.CartPath)} ({cartridgeRom.Length} bytes)");
+}
+
+if (options.RamExpansion != RamExpansion.None)
+{
+    Console.WriteLine($"RAM Expansion: {options.RamExpansion}");
+}
+
 if (options.Gdb)
 {
     var gdbMachine = new Vic20Machine(
         basicRom, kernalRom,
-        charRom:  charRom,
-        keyboard: null,
-        audio:    null,
-        tape:     tape);
+        charRom:      charRom,
+        keyboard:     null,
+        audio:        null,
+        tape:         tape,
+        ramExpansion: options.RamExpansion,
+        cartridgeRom: cartridgeRom);
 
     gdbMachine.Reset();
     using var gdbTarget = new Cpu6502GdbTarget(gdbMachine.Cpu, gdbMachine.Bus);
@@ -68,10 +82,12 @@ using var host = new RaylibHost(
 
 var machine = new Vic20Machine(
     basicRom, kernalRom,
-    charRom:  charRom,
-    keyboard: host,
-    audio:    host,
-    tape:     tape);
+    charRom:      charRom,
+    keyboard:     host,
+    audio:        host,
+    tape:         tape,
+    ramExpansion: options.RamExpansion,
+    cartridgeRom: cartridgeRom);
 
 machine.Reset();
 
@@ -93,6 +109,8 @@ static void PrintUsage()
         Options:
           --char       <path>   Character ROM image (4KB)
           --tape       <path>   TAP tape image
+          --cart       <path>   ROM cartridge image (4KB/8KB/16KB)
+          --ram        <size>   RAM expansion (3k, 8k, 16k, 24k, 32k)
           --scale      <n>      Window scale factor (default: 3)
           --smooth             Enable bilinear texture filtering (smooth scaling)
           --scanlines  <0..1>   CRT scanline intensity (0 = off, 0.5 = moderate, default 0)

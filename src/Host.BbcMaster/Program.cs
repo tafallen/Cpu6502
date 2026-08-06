@@ -21,7 +21,7 @@ byte[] osRom = File.Exists(options.OsPath) ? File.ReadAllBytes(options.OsPath) :
 var machine = new BbcMasterMachine(osRom);
 machine.Reset();
 
-using var display = new RaylibHost("BBC Master 128", new DisplayOptions(scale: options.Scale, smooth: options.Smooth, scanlines: options.Scanlines), 640, 256);
+using var display = new RaylibHost("BBC Master 128", new DisplayOptions(Scale: options.Scale, Smooth: options.Smooth, ScanlineIntensity: options.Scanlines), 640, 256);
 
 while (display.IsRunning)
 {

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Cpu6502.Benchmarks.VideoRenderBenchmarks-20260731-183811</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.8894/25H2/2025Update/HudsonValley2)
+AMD Ryzen AI 7 350 w/ Radeon 860M 2.00GHz, 1 CPU, 16 logical and 8 physical cores
+.NET SDK 8.0.419
+  [Host] : .NET 8.0.25 (8.0.25, 8.0.2526.11203), X64 RyuJIT x86-64-v4
+</code></pre>
+<pre><code>Job=ShortRun  Toolchain=InProcessEmitToolchain  IterationCount=3  
+LaunchCount=1  WarmupCount=3  
+</code></pre>
+
+<table>
+<thead><tr><th>Method            </th><th>Mean</th><th>Error</th><th>StdDev</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>Mc6847_RenderFrame_100</td><td>20.33 &mu;s</td><td>21.23 &mu;s</td><td>1.164 &mu;s</td><td>-</td>
+</tr><tr><td>VicI_RenderFrame_100</td><td>26.64 &mu;s</td><td>116.88 &mu;s</td><td>6.407 &mu;s</td><td>-</td>
+</tr><tr><td>OricUla_RenderFrame_100</td><td>25.95 &mu;s</td><td>37.41 &mu;s</td><td>2.050 &mu;s</td><td>-</td>
+</tr><tr><td>PetVideo_RenderFrame_100</td><td>70.15 &mu;s</td><td>24.32 &mu;s</td><td>1.333 &mu;s</td><td>-</td>
+</tr><tr><td>Saa5050_RenderMode7_100</td><td>198.64 &mu;s</td><td>517.20 &mu;s</td><td>28.350 &mu;s</td><td>-</td>
+</tr></tbody></table>
+</body>
+</html>

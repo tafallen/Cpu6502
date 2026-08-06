@@ -23,6 +23,7 @@ public sealed class BbcSheilaBus : IBus
     public Via6522 UserViaController { get; } = new();
     public Mc6845 CrtcController { get; } = new();
     public Bbc8271Fdc FdcController { get; } = new();
+    public TubeUla TubeInterface { get; } = new();
 
     public IBus SystemVia => SystemViaController;
     public IBus UserVia => UserViaController;
@@ -37,6 +38,10 @@ public sealed class BbcSheilaBus : IBus
     public byte Read(ushort address)
     {
         ushort offset = (ushort)(address & 0xFF);
+
+        // $FEE0–$FEEF: Tube ULA
+        if (offset >= 0xE0 && offset <= 0xEF)
+            return TubeInterface.Read((ushort)(offset & 0x0F));
 
         // $FE40–$FE5F: System VIA
         if (offset >= 0x40 && offset <= 0x5F)
@@ -61,6 +66,13 @@ public sealed class BbcSheilaBus : IBus
     {
         ushort offset = (ushort)(address & 0xFF);
         _registers[offset] = value;
+
+        // $FEE0–$FEEF: Tube ULA
+        if (offset >= 0xE0 && offset <= 0xEF)
+        {
+            TubeInterface.Write((ushort)(offset & 0x0F), value);
+            return;
+        }
 
         // $FE30–$FE3F: ROM Select Latch (IC32)
         if (offset >= 0x30 && offset <= 0x3F)

@@ -22,29 +22,17 @@ Console.WriteLine($"BASIC ROM: {options.BasicPath}");
 byte[] osRom = File.Exists(options.OsPath) ? File.ReadAllBytes(options.OsPath) : new byte[0x4000];
 byte[] basicRom = File.Exists(options.BasicPath) ? File.ReadAllBytes(options.BasicPath) : new byte[0x4000];
 
-var ram = new Ram(0x8000); // 32 KB main RAM ($0000–$7FFF)
-var ula = new ElectronUla(basicRom: basicRom, osRom: osRom);
-var bus = new AddressDecoder();
+var machine = new ElectronMachine(osRom: osRom, basicRom: basicRom);
+machine.Reset();
 
-bus.Map(0x0000, 0x7FFF, ram);
-bus.Map(0x8000, 0xFFFF, ula);
-
-var cpu = new Cpu(bus);
-cpu.Reset();
-
-using var display = new RaylibHost("Acorn Electron", new DisplayOptions(scale: options.Scale, smooth: options.Smooth, scanlines: options.Scanlines), 640, 256);
+using var display = new RaylibHost("Acorn Electron", new DisplayOptions(Scale: options.Scale, Smooth: options.Smooth, ScanlineIntensity: options.Scanlines), 640, 256);
 
 const int cyclesPerFrame = 20_000;
 
 while (display.IsRunning)
 {
     display.PollEvents();
-    
-    ulong target = cpu.TotalCycles + cyclesPerFrame;
-    while (cpu.TotalCycles < target)
-    {
-        cpu.Step();
-    }
+    machine.RunFrame(cyclesPerFrame);
 }
 
 return 0;

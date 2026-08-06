@@ -23,7 +23,7 @@ byte[] chgen  = File.Exists(options.CharPath)   ? File.ReadAllBytes(options.Char
 var machine = new C64Machine(kernal, basic, chgen);
 machine.Reset();
 
-using var display = new RaylibHost("Commodore 64", new DisplayOptions(scale: options.Scale, smooth: options.Smooth, scanlines: options.Scanlines), 384, 272);
+using var display = new RaylibHost("Commodore 64", new DisplayOptions(Scale: options.Scale, Smooth: options.Smooth, ScanlineIntensity: options.Scanlines), 384, 272);
 
 while (display.IsRunning)
 {

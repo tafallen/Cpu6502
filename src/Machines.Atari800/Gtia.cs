@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Cpu6502.Core;
 
 namespace Machines.Atari800;
@@ -33,7 +34,13 @@ public sealed class Gtia : IBus
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public uint GetColor(byte index) => _palette[_registers[0x16 + (index & 0x08)]];
+    public uint GetColor(byte index)
+    {
+        ref byte regRef = ref System.Runtime.InteropServices.MemoryMarshal.GetArrayDataReference(_registers);
+        ref uint palRef = ref System.Runtime.InteropServices.MemoryMarshal.GetArrayDataReference(_palette);
+        byte colorIdx = Unsafe.Add(ref regRef, 0x16 + (index & 0x08));
+        return Unsafe.Add(ref palRef, colorIdx);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public byte Read(ushort address)
@@ -59,7 +66,7 @@ public sealed class Gtia : IBus
 
         if (reg == 0x1E)
         {
-            Array.Clear(_registers, 0, 16);
+            _registers.AsSpan(0, 16).Clear();
         }
     }
 }

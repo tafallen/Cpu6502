@@ -1,4 +1,5 @@
 using Cpu6502.Core;
+using System.Runtime.CompilerServices;
 
 namespace Machines.Common;
 
@@ -19,6 +20,7 @@ public class Pia6520 : IBus
     public Func<byte> ReadPortA = () => 0xFF;
     public Func<byte> ReadPortB = () => 0xFF;
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public byte Read(ushort address)
     {
         switch (address & 3)
@@ -31,6 +33,7 @@ public class Pia6520 : IBus
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Write(ushort address, byte value)
     {
         switch (address & 3)
