@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Cpu6502.Benchmarks.LynxBenchmarks-20260807-194201</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.8894/25H2/2025Update/HudsonValley2)
+AMD Ryzen AI 7 350 w/ Radeon 860M 2.00GHz, 1 CPU, 16 logical and 8 physical cores
+.NET SDK 8.0.419
+  [Host]   : .NET 8.0.25 (8.0.25, 8.0.2526.11203), X64 RyuJIT x86-64-v4
+  ShortRun : .NET 8.0.25 (8.0.25, 8.0.2526.11203), X64 RyuJIT x86-64-v4
+</code></pre>
+<pre><code>Job=ShortRun  IterationCount=3  LaunchCount=1  
+WarmupCount=3  
+</code></pre>
+
+<table>
+<thead><tr><th>Method                </th><th>Toolchain       </th><th>Mean </th><th>Error</th><th>StdDev</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>Lynx_Mikey_RenderFrame_100</td><td>Default</td><td>1,082.31 &mu;s</td><td>642.60 &mu;s</td><td>35.223 &mu;s</td><td>-</td>
+</tr><tr><td>Lynx_Suzy_MathOperation_10k</td><td>Default</td><td>42.67 &mu;s</td><td>226.51 &mu;s</td><td>12.416 &mu;s</td><td>-</td>
+</tr><tr><td>Lynx_FullMachine_RunFrame_10</td><td>Default</td><td>6,176.38 &mu;s</td><td>7,300.84 &mu;s</td><td>400.184 &mu;s</td><td>-</td>
+</tr><tr><td>Lynx_Mikey_RenderFrame_100</td><td>InProcessEmitToolchain</td><td>1,307.17 &mu;s</td><td>387.44 &mu;s</td><td>21.237 &mu;s</td><td>-</td>
+</tr><tr><td>Lynx_Suzy_MathOperation_10k</td><td>InProcessEmitToolchain</td><td>57.98 &mu;s</td><td>77.67 &mu;s</td><td>4.257 &mu;s</td><td>-</td>
+</tr><tr><td>Lynx_FullMachine_RunFrame_10</td><td>InProcessEmitToolchain</td><td>5,207.05 &mu;s</td><td>3,640.60 &mu;s</td><td>199.554 &mu;s</td><td>10 B</td>
+</tr></tbody></table>
+</body>
+</html>

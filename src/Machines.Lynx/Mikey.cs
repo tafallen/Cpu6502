@@ -82,6 +82,7 @@ public sealed class Mikey : IBus
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void RenderFrame(Ram ram, IVideoSink sink)
     {
         byte[]? ramBuf = ram.DirectWriteBuffer;
@@ -95,20 +96,35 @@ public sealed class Mikey : IBus
         }
 
         Span<uint> bufferSpan = _frameBuffer;
+        ReadOnlySpan<uint> paletteSpan = _palette;
 
         // 160×102 4-bit packed pixels (2 pixels per byte)
         for (int y = 0; y < 102; y++)
         {
-            int lineBase = dispAddr + y * 80;
+            int lineBase = dispAddr + (y * 80);
             int pixelOffset = y * 160;
 
-            for (int x = 0; x < 160; x += 2)
+            if (lineBase + 80 <= ramBuf.Length)
             {
-                if (lineBase + (x >> 1) < ramBuf.Length)
+                // Unroll loop 4x: process 4 bytes (8 pixels) per iteration
+                for (int x = 0; x < 160; x += 8)
                 {
-                    byte b = ramBuf[lineBase + (x >> 1)];
-                    bufferSpan[pixelOffset + x] = _palette[b >> 4];
-                    bufferSpan[pixelOffset + x + 1] = _palette[b & 0x0F];
+                    int srcIdx = lineBase + (x >> 1);
+                    int dstIdx = pixelOffset + x;
+
+                    byte b0 = ramBuf[srcIdx];
+                    byte b1 = ramBuf[srcIdx + 1];
+                    byte b2 = ramBuf[srcIdx + 2];
+                    byte b3 = ramBuf[srcIdx + 3];
+
+                    bufferSpan[dstIdx]     = paletteSpan[b0 >> 4];
+                    bufferSpan[dstIdx + 1] = paletteSpan[b0 & 0x0F];
+                    bufferSpan[dstIdx + 2] = paletteSpan[b1 >> 4];
+                    bufferSpan[dstIdx + 3] = paletteSpan[b1 & 0x0F];
+                    bufferSpan[dstIdx + 4] = paletteSpan[b2 >> 4];
+                    bufferSpan[dstIdx + 5] = paletteSpan[b2 & 0x0F];
+                    bufferSpan[dstIdx + 6] = paletteSpan[b3 >> 4];
+                    bufferSpan[dstIdx + 7] = paletteSpan[b3 & 0x0F];
                 }
             }
         }

@@ -2,6 +2,7 @@ namespace Host.Lynx;
 
 public sealed record LynxOptions(
     string? CartPath,
+    string? BootPath,
     int Scale,
     bool Smooth,
     float Scanlines
@@ -12,6 +13,7 @@ public static class LynxCommandLine
     public static LynxOptions Parse(string[] args)
     {
         string? cartPath = null;
+        string? bootPath = null;
         int scale = 4;
         bool smooth = false;
         float scanlines = 0f;
@@ -23,6 +25,10 @@ public static class LynxCommandLine
                 case "--cart":
                 case "--lnx":
                     cartPath = RequireValue(args, ref i, "--cart");
+                    break;
+                case "--boot":
+                case "--rom":
+                    bootPath = RequireValue(args, ref i, "--boot");
                     break;
                 case "--scale":
                     if (!int.TryParse(RequireValue(args, ref i, "--scale"), out scale))
@@ -39,7 +45,7 @@ public static class LynxCommandLine
             }
         }
 
-        return new LynxOptions(cartPath, scale, smooth, scanlines);
+        return new LynxOptions(cartPath, bootPath, scale, smooth, scanlines);
     }
 
     private static string RequireValue(string[] args, ref int index, string optionName)

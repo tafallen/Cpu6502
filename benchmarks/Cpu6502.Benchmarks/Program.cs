@@ -10,6 +10,7 @@ using Machines.BbcMaster;
 using Machines.BbcMicro;
 using Machines.C64;
 using Machines.Common;
+using Machines.Lynx;
 using Machines.Vic20;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
@@ -512,5 +513,65 @@ public class Atari800Benchmarks
         }
     }
 }
+
+[ShortRunJob]
+[MemoryDiagnoser]
+public class LynxBenchmarks
+{
+    private LynxMachine _machine = null!;
+    private VideoRenderBenchmarks.DummyVideoSink _sink = null!;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _machine = new LynxMachine();
+        _sink = new VideoRenderBenchmarks.DummyVideoSink();
+
+        byte[]? ramBuf = _machine.Ram.DirectWriteBuffer;
+        if (ramBuf is not null)
+        {
+            ramBuf[0xFFFC] = 0x00;
+            ramBuf[0xFFFD] = 0x02;
+
+            for (int i = 0; i < 0x0100; i++)
+            {
+                ramBuf[0x0200 + i] = 0xEA; // NOP
+            }
+        }
+        _machine.Reset();
+    }
+
+    [Benchmark]
+    public void Lynx_Mikey_RenderFrame_100()
+    {
+        for (int i = 0; i < 100; i++)
+        {
+            _machine.Mikey.RenderFrame(_machine.Ram, _sink);
+        }
+    }
+
+    [Benchmark]
+    public void Lynx_Suzy_MathOperation_10k()
+    {
+        var suzy = _machine.Suzy;
+        for (int i = 0; i < 10_000; i++)
+        {
+            suzy.Write(0x52, 123);
+            suzy.Write(0x53, 0);
+            suzy.Write(0x54, 200);
+            suzy.Write(0x55, 0); // Triggers multiply
+        }
+    }
+
+    [Benchmark]
+    public void Lynx_FullMachine_RunFrame_10()
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            _machine.RunFrame(_sink);
+        }
+    }
+}
+
 
 

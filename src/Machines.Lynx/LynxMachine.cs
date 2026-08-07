@@ -41,8 +41,10 @@ public sealed class LynxMachine
         Cpu = new Cpu(Bus);
     }
 
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public void Reset() => Cpu.Reset();
 
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public void Step()
     {
         ulong cyclesBefore = Cpu.TotalCycles;
@@ -57,6 +59,7 @@ public sealed class LynxMachine
         }
     }
 
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public void RunFrame(IVideoSink? sink = null)
     {
         ulong target = Cpu.TotalCycles + CyclesPerFrame;
