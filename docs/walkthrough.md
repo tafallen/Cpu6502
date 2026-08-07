@@ -329,4 +329,15 @@ bbcMicro.Reset();
 bbcMicro.Step(); // Host CPU steps at 2 MHz, Parasite 65C02 steps at 4 MHz over Tube ULA FIFO
 ```
 
+---
+
+## 11. Atari Lynx (MIKEY, SUZY Math & Hardware Sprites)
+
+```csharp
+var lynx = new LynxMachine(cartridgeRom);
+lynx.Reset();
+lynx.RunFrame(videoSink); // 4.0 MHz WDC 65SC02 execution with MIKEY RGB444 video & SUZY coprocessor
+```
+
+
 ```

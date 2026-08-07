@@ -1,0 +1,98 @@
+using Cpu6502.Core;
+using Machines.Common;
+
+namespace Machines.Lynx;
+
+/// <summary>
+/// Master machine container for the Atari Lynx handheld console target (1989).
+/// Features 65SC02 CPU core running at up to 4.0 MHz, 64 KB RAM ($0000–$FFF7),
+/// MIKEY VLSI chip ($FD00–$FDFF), SUZY VLSI chip ($FC00–$FCFF), and Cartridge ROM reader.
+/// </summary>
+public sealed class LynxMachine
+{
+    public Cpu Cpu { get; }
+    public Ram Ram { get; }
+    public Mikey Mikey { get; }
+    public Suzy Suzy { get; }
+    public AddressDecoder Bus { get; }
+
+    public const int CyclesPerFrame = 80_000; // 4.0 MHz / 50 Hz PAL
+
+    public LynxMachine(byte[]? cartridgeRom = null)
+    {
+        Ram = new Ram(0x10000); // 64 KB Full DRAM
+        Mikey = new Mikey();
+        Suzy = new Suzy();
+
+        Bus = new AddressDecoder();
+        Bus.Map(0x0000, 0xFFFF, Ram);
+
+        // Map SUZY registers at $FC00–$FCFF
+        Bus.Map(0xFC00, 0xFCFF, Suzy, baseAddress: 0xFC00);
+
+        // Map MIKEY registers at $FD00–$FDFF
+        Bus.Map(0xFD00, 0xFDFF, Mikey, baseAddress: 0xFD00);
+
+        if (cartridgeRom is not null && cartridgeRom.Length > 0)
+        {
+            LoadCartridge(cartridgeRom, this);
+        }
+
+        Cpu = new Cpu(Bus);
+    }
+
+    public void Reset() => Cpu.Reset();
+
+    public void Step()
+    {
+        ulong cyclesBefore = Cpu.TotalCycles;
+        Cpu.Step();
+        int delta = (int)(Cpu.TotalCycles - cyclesBefore);
+
+        Mikey.Tick(delta);
+
+        if (Mikey.Irq)
+        {
+            Cpu.Irq();
+        }
+    }
+
+    public void RunFrame(IVideoSink? sink = null)
+    {
+        ulong target = Cpu.TotalCycles + CyclesPerFrame;
+        while (Cpu.TotalCycles < target)
+        {
+            Step();
+        }
+
+        if (sink is not null)
+        {
+            Mikey.RenderFrame(Ram, sink);
+        }
+    }
+
+    public static void LoadCartridge(byte[] cartBytes, LynxMachine machine)
+    {
+        int headerOffset = 0;
+
+        // Check for 64-byte LNX header ("LYNX")
+        if (cartBytes.Length >= 64 &&
+            cartBytes[0] == 'L' && cartBytes[1] == 'Y' &&
+            cartBytes[2] == 'N' && cartBytes[3] == 'X')
+        {
+            headerOffset = 64;
+        }
+
+        int payloadLength = cartBytes.Length - headerOffset;
+        byte[]? ramBuf = machine.Ram.DirectWriteBuffer;
+        if (ramBuf is not null && payloadLength > 0)
+        {
+            int bytesToCopy = Math.Min(payloadLength, ramBuf.Length);
+            Array.Copy(cartBytes, headerOffset, ramBuf, 0x0200, bytesToCopy - 0x0200);
+
+            // Set RESET vector at $FFFC/$FFFD -> $0200
+            ramBuf[0xFFFC] = 0x00;
+            ramBuf[0xFFFD] = 0x02;
+        }
+    }
+}

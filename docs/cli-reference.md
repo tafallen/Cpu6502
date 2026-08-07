@@ -457,4 +457,20 @@ dotnet run --project src/Host.Communicator -- --rom roms/communicator/os.rom --s
 | `--smooth` | off | Enable bilinear texture filtering |
 | `--scanlines <f>` | 0 | CRT scanline intensity (0.0–1.0) |
 
+---
+
+## Atari Lynx (`Host.Lynx`)
+
+```bash
+dotnet run --project src/Host.Lynx -- --cart roms/lynx/game.lnx --scale 4
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--cart <path>` | (none) | Cartridge ROM image file (`.lnx` or `.lyx`) |
+| `--scale <n>` | 4 | Window scale factor (160×102 LCD resolution × scale) |
+| `--smooth` | off | Enable bilinear texture filtering |
+| `--scanlines <f>` | 0 | CRT scanline intensity (0.0–1.0) |
+
+
 
