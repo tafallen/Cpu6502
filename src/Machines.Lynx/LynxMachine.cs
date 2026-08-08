@@ -39,7 +39,7 @@ public sealed class LynxMachine
             byte[] paddedBoot = new byte[512];
             Array.Copy(bootRom, 0, paddedBoot, 0, 512);
             BootRom = new Rom(paddedBoot);
-            Bus.Map(0xFE00, 0xFFFF, BootRom, baseAddress: 0xFE00);
+            Bus.Map(0xFE00, 0xFFFF, BootRom, baseAddress: 0x0000);
         }
 
         // Map SUZY registers at $FC00–$FCFF

@@ -160,9 +160,10 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
 
         if (Vector256.IsHardwareAccelerated && count >= Vector256<uint>.Count)
         {
-            var maskAG = Vector256.Create(0xFF00FF00u);
-            var maskR  = Vector256.Create(0x00FF0000u);
-            var maskB  = Vector256.Create(0x000000FFu);
+            var maskA = Vector256.Create(0xFF000000u);
+            var maskR = Vector256.Create(0x00FF0000u);
+            var maskG = Vector256.Create(0x0000FF00u);
+            var maskB = Vector256.Create(0x000000FFu);
 
             int vectorCount = count - (count % Vector256<uint>.Count);
             ref readonly uint srcRef = ref MemoryMarshal.GetReference(pixels);
@@ -171,18 +172,20 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
             for (; i < vectorCount; i += Vector256<uint>.Count)
             {
                 var v  = Vector256.LoadUnsafe(in srcRef, (uint)i);
-                var ag = Vector256.BitwiseAnd(v, maskAG);
+                var a  = Vector256.BitwiseAnd(v, maskA);
                 var r  = Vector256.ShiftRightLogical(Vector256.BitwiseAnd(v, maskR), 16);
+                var g  = Vector256.BitwiseAnd(v, maskG);
                 var b  = Vector256.ShiftLeft(Vector256.BitwiseAnd(v, maskB), 16);
-                var rgba = Vector256.BitwiseOr(ag, Vector256.BitwiseOr(r, b));
+                var rgba = Vector256.BitwiseOr(a, Vector256.BitwiseOr(g, Vector256.BitwiseOr(r, b)));
                 rgba.StoreUnsafe(ref dstRef, (uint)i);
             }
         }
         else if (Vector128.IsHardwareAccelerated && count >= Vector128<uint>.Count)
         {
-            var maskAG = Vector128.Create(0xFF00FF00u);
-            var maskR  = Vector128.Create(0x00FF0000u);
-            var maskB  = Vector128.Create(0x000000FFu);
+            var maskA = Vector128.Create(0xFF000000u);
+            var maskR = Vector128.Create(0x00FF0000u);
+            var maskG = Vector128.Create(0x0000FF00u);
+            var maskB = Vector128.Create(0x000000FFu);
 
             int vectorCount = count - (count % Vector128<uint>.Count);
             ref readonly uint srcRef = ref MemoryMarshal.GetReference(pixels);
@@ -191,10 +194,11 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
             for (; i < vectorCount; i += Vector128<uint>.Count)
             {
                 var v  = Vector128.LoadUnsafe(in srcRef, (uint)i);
-                var ag = Vector128.BitwiseAnd(v, maskAG);
+                var a  = Vector128.BitwiseAnd(v, maskA);
                 var r  = Vector128.ShiftRightLogical(Vector128.BitwiseAnd(v, maskR), 16);
+                var g  = Vector128.BitwiseAnd(v, maskG);
                 var b  = Vector128.ShiftLeft(Vector128.BitwiseAnd(v, maskB), 16);
-                var rgba = Vector128.BitwiseOr(ag, Vector128.BitwiseOr(r, b));
+                var rgba = Vector128.BitwiseOr(a, Vector128.BitwiseOr(g, Vector128.BitwiseOr(r, b)));
                 rgba.StoreUnsafe(ref dstRef, (uint)i);
             }
         }
@@ -202,7 +206,7 @@ public sealed class RaylibHost : IVideoSink, IPhysicalKeyboard, IAudioSink, IDis
         for (; i < count; i++)
         {
             uint argb = pixels[i];
-            _rgbaBuffer[i] = (argb & 0xFF00FF00u) | ((argb & 0x00FF0000u) >> 16) | ((argb & 0x000000FFu) << 16);
+            _rgbaBuffer[i] = (argb & 0xFF000000u) | ((argb & 0x0000FF00u)) | ((argb & 0x00FF0000u) >> 16) | ((argb & 0x000000FFu) << 16);
         }
 
         // Apply scanlines if configured
