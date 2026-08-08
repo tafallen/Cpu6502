@@ -40,10 +40,22 @@ machine.Reset();
 
 using var display = new RaylibHost("Atari Lynx Handheld", new DisplayOptions(Scale: options.Scale, Smooth: options.Smooth, ScanlineIntensity: options.Scanlines), 160, 102);
 
+int frameCounter = 0;
+long lastLogTime = DateTime.UtcNow.Ticks;
+
 while (display.IsRunning)
 {
     display.PollEvents();
     machine.RunFrame(display);
+
+    frameCounter++;
+    long now = DateTime.UtcNow.Ticks;
+    if (now - lastLogTime >= TimeSpan.TicksPerSecond)
+    {
+        lastLogTime = now;
+        ushort dispAddr = (ushort)(machine.Mikey.Read(0x94) | (machine.Mikey.Read(0x95) << 8));
+        Console.WriteLine($"[Lynx Diagnostics] Frame: {frameCounter:D5} | CPU PC: 0x{machine.Cpu.PC:X4} | Cycles: {machine.Cpu.TotalCycles:N0} | DISPADDR: 0x{dispAddr:X4}");
+    }
 }
 
 return 0;
