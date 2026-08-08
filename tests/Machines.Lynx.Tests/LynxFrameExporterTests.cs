@@ -28,7 +28,7 @@ public class LynxFrameExporterTests
         Assert.NotNull(bootRom);
         Assert.NotNull(gameCart);
 
-        var machine = new LynxMachine(cartridgeRom: gameCart, bootRom: bootRom);
+        var machine = new LynxMachine(cartridgeRom: gameCart);
         var sink = new PpmVideoSink(outputDirectory: "../../../../../docs/lynx_frames");
 
         machine.Reset();

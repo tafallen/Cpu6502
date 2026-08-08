@@ -118,7 +118,7 @@ public sealed class Mikey : IBus
 
         // LCD display base address from DISPADDR ($FD94/$FD95)
         ushort dispAddr = (ushort)(_registers[0x94] | (_registers[0x95] << 8));
-        if (dispAddr + (160 * 102 / 2) > ramBuf.Length)
+        if (dispAddr == 0 || dispAddr + (160 * 102 / 2) > ramBuf.Length)
         {
             dispAddr = 0x2000;
         }
