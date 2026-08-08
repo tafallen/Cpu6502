@@ -82,9 +82,16 @@ public sealed class Mikey : IBus
         }
         else if (reg == 0x87) // SYSCTL1
         {
-            // Cartridge Address Strobe (Bit 0). Data comes from IODAT (0x8B) Bit 1.
+            // Cartridge Address Counter Reset (Bit 0). Data comes from IODAT (0x8B) Bit 1.
             bool strobe = (value & 0x01) != 0;
             bool data = (_registers[0x8B] & 0x02) != 0;
+            _cartridge?.SetStrobe(strobe, data);
+        }
+        else if (reg == 0x8B) // IODAT
+        {
+            // Writing IODAT Bit 1 clocks the Cartridge Shift Register when SYSCTL1 strobe is active
+            bool strobe = (_registers[0x87] & 0x01) != 0;
+            bool data = (value & 0x02) != 0;
             _cartridge?.SetStrobe(strobe, data);
         }
     }
