@@ -48,9 +48,11 @@ public sealed class LynxMachine
         // Map MIKEY registers at $FD00–$FDFF
         Bus.Map(0xFD00, 0xFDFF, Mikey, baseAddress: 0xFD00);
 
-        // We no longer call LoadCartridge to dump the ROM directly into RAM.
-        // The boot ROM will load and decrypt the game dynamically via Cartridge I/O.
-        
+        if ((bootRom is null || bootRom.Length == 0) && cartridgeRom is not null && cartridgeRom.Length > 0)
+        {
+            LoadCartridge(cartridgeRom, this);
+        }
+
         Cpu = new Cpu(Bus);
     }
 

@@ -691,8 +691,7 @@ public sealed partial class Cpu
 
     private void IllegalOpcode()
     {
-        byte opcode = _bus.Read((ushort)(PC - 1));
-        throw new InvalidOperationException(
-            $"Illegal opcode 0x{opcode:X2} at PC=0x{PC - 1:X4}");
+        // Treat unhandled opcodes as NOP to avoid crashing emulator loops on undefined instructions
+        TotalCycles += 2;
     }
 }

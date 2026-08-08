@@ -26,6 +26,13 @@ public sealed class Mikey : IBus
     {
         _audio = audio;
         _cartridge = cartridge;
+
+        // Initialize default non-black palette (4-bit grey ramp)
+        for (int i = 0; i < 16; i++)
+        {
+            byte c = (byte)(i * 17);
+            _palette[i] = 0xFF000000u | ((uint)c << 16) | ((uint)c << 8) | c;
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

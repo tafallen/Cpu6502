@@ -46,7 +46,7 @@ public sealed class AddressDecoder : IBus
             for (int addr = start; addr <= end; addr++)
             {
                 _readMap[addr] = route.Device;
-                _baseMap[addr] = (ushort)(route.StartAddress - route.BaseAddress);
+                _baseMap[addr] = route.BaseAddress;
             }
         }
     }
