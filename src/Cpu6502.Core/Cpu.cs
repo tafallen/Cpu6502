@@ -13,7 +13,7 @@ public sealed partial class Cpu
     public byte   X  { get; private set; }
     public byte   Y  { get; private set; }
     public byte   SP { get; private set; }
-    public ushort PC { get; private set; }
+    public ushort PC { get; set; }
 
     // ── Processor Status Register (P) ─────────────────────────────────────────
     public byte P { get; private set; }

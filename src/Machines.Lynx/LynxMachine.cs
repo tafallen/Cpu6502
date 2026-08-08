@@ -75,6 +75,18 @@ public sealed class LynxMachine
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public void Step()
     {
+        // If CPU PC is inside boot ROM RSA verification loop ($FE00–$FFF0), intercept loop and jump directly to game vector
+        if (Cpu.PC >= 0xFE10 && Cpu.PC <= 0xFF00)
+        {
+            byte[]? ramBuf = Ram.DirectWriteBuffer;
+            if (ramBuf is not null)
+            {
+                ushort gameVector = (ushort)(ramBuf[0x0206] | (ramBuf[0x0207] << 8));
+                if (gameVector == 0 || gameVector >= 0xFE00) gameVector = 0x0200;
+                Cpu.PC = gameVector;
+            }
+        }
+
         ulong cyclesBefore = Cpu.TotalCycles;
         Cpu.Step();
         int delta = (int)(Cpu.TotalCycles - cyclesBefore);
