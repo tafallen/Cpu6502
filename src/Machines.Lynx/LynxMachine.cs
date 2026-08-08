@@ -42,6 +42,9 @@ public sealed class LynxMachine
             Bus.Map(0xFE00, 0xFFFF, BootRom, baseAddress: 0x0000);
         }
 
+        Suzy.Ram = Ram;
+        Suzy.Mikey = Mikey;
+
         // Map SUZY registers at $FC00–$FCFF
         Bus.Map(0xFC00, 0xFCFF, Suzy, baseAddress: 0xFC00);
 
