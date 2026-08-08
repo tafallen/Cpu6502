@@ -239,6 +239,14 @@ public sealed partial class Cpu
     private void LDA_AbsoluteY() => A = ExecuteLoad(AddressingMode.AbsoluteY);
     private void LDA_IndirectX() => A = ExecuteLoad(AddressingMode.IndirectX);
     private void LDA_IndirectY() => A = ExecuteLoad(AddressingMode.IndirectY);
+    private void LDA_ZeroPageIndirect()
+    {
+        byte zp = Fetch();
+        ushort addr = ReadWord(zp);
+        A = ReadByte(addr);
+        SetZN(A);
+        TotalCycles += 5;
+    }
 
     // ── Load X (LDX) ──────────────────────────────────────────────────────────
     private void LDX_Immediate() => X = ExecuteLoad(AddressingMode.Immediate);

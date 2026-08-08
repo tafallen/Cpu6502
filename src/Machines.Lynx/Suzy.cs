@@ -11,6 +11,12 @@ namespace Machines.Lynx;
 public sealed class Suzy : IBus
 {
     private readonly byte[] _registers = new byte[0x100];
+    private readonly Cartridge? _cartridge;
+
+    public Suzy(Cartridge? cartridge = null)
+    {
+        _cartridge = cartridge;
+    }
 
     // Math Coprocessor Registers
     public ushort MATHA { get; set; }
@@ -33,6 +39,8 @@ public sealed class Suzy : IBus
             0x61 => (byte)((MATHRESULT >> 8) & 0xFF),
             0x62 => (byte)((MATHRESULT >> 16) & 0xFF),
             0x63 => (byte)((MATHRESULT >> 24) & 0xFF),
+            0x88 => 0x01, // SUZYHREV
+            0xB2 => _cartridge?.ReadBank0() ?? 0xFF,
             _ => _registers[reg]
         };
     }

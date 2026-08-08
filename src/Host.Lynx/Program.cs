@@ -34,18 +34,7 @@ if (cartBytes is not null)
     Console.WriteLine($"Cartridge ROM: {options.CartPath} ({cartBytes.Length} bytes)");
 }
 
-var machine = new LynxMachine(cartridgeRom: cartBytes);
-
-if (bootBytes is not null && bootBytes.Length >= 512)
-{
-    byte[]? ramBuf = machine.Ram.DirectWriteBuffer;
-    if (ramBuf is not null)
-    {
-        Array.Copy(bootBytes, 0, ramBuf, 0xFE00, 512);
-        ramBuf[0xFFFC] = 0x00;
-        ramBuf[0xFFFD] = 0xFE;
-    }
-}
+var machine = new LynxMachine(cartridgeRom: cartBytes, bootRom: bootBytes);
 
 machine.Reset();
 

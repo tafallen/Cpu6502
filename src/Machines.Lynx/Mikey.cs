@@ -20,10 +20,12 @@ public sealed class Mikey : IBus
     public bool Irq => (IrqStatus & IrqEnable) != 0;
 
     private readonly IAudioSink? _audio;
+    private readonly Cartridge? _cartridge;
 
-    public Mikey(IAudioSink? audio = null)
+    public Mikey(IAudioSink? audio = null, Cartridge? cartridge = null)
     {
         _audio = audio;
+        _cartridge = cartridge;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -34,6 +36,7 @@ public sealed class Mikey : IBus
         {
             0x80 => IrqStatus,
             0x81 => IrqEnable,
+            0x88 => 0x01, // MIKEYHREV
             _ => _registers[reg]
         };
     }
@@ -69,16 +72,33 @@ public sealed class Mikey : IBus
         {
             IrqEnable = value;
         }
+        else if (reg == 0x87) // SYSCTL1
+        {
+            // Cartridge Address Strobe (Bit 0). Data comes from IODAT (0x8B) Bit 1.
+            bool strobe = (value & 0x01) != 0;
+            bool data = (_registers[0x8B] & 0x02) != 0;
+            _cartridge?.SetStrobe(strobe, data);
+        }
     }
+
+    private int _vblankAccum;
+    private int _hblankAccum;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Tick(int cycles = 1)
     {
-        // Periodic timer 0 (V-BLANK rate tick)
-        _registers[0x00] = (byte)(_registers[0x00] - cycles);
-        if (_registers[0x00] == 0)
+        _hblankAccum += cycles;
+        if (_hblankAccum >= 500)
         {
-            IrqStatus |= 0x01; // Timer 0 IRQ bit
+            _hblankAccum -= 500;
+            IrqStatus |= 0x01; // Timer 0 (HBLANK)
+        }
+
+        _vblankAccum += cycles;
+        if (_vblankAccum >= 80000)
+        {
+            _vblankAccum -= 80000;
+            IrqStatus |= 0x04; // Timer 2 (VBLANK)
         }
     }
 

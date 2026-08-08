@@ -302,6 +302,7 @@ public sealed partial class Cpu
             case 0xB9: LDA_AbsoluteY(); break;
             case 0xA1: LDA_IndirectX(); break;
             case 0xB1: LDA_IndirectY(); break;
+            case 0xB2: LDA_ZeroPageIndirect(); break;
 
             // LDX
             case 0xA2: LDX_Immediate(); break;
@@ -472,14 +473,37 @@ public sealed partial class Cpu
             case 0x10: BPL(); break;
             case 0x70: BVS(); break;
             case 0x50: BVC(); break;
+            case 0x80: Branch(true); break; // BRA (65C02 Branch Always)
 
             // Jumps / Calls
             case 0x4C: JMP_Abs(); break;
             case 0x6C: JMP_Ind(); break;
+            case 0x7C: { ushort b = (ushort)(Fetch() | (Fetch() << 8)); PC = ReadWord((ushort)(b + X)); TotalCycles += 6; break; } // JMP (abs,X) (65C02)
             case 0x20: JSR(); break;
             case 0x60: RTS(); break;
             case 0x00: BRK(); break;
             case 0x40: RTI(); break;
+
+            // 65C02 Stack / Register opcodes
+            case 0x1A: A++; SetZN(A); TotalCycles += 2; break; // INC A (INA)
+            case 0x3A: A--; SetZN(A); TotalCycles += 2; break; // DEC A (DEA)
+            case 0x5A: StackPush(Y); TotalCycles += 3; break;  // PHY
+            case 0x7A: Y = StackPull(); SetZN(Y); TotalCycles += 4; break; // PLY
+            case 0xDA: StackPush(X); TotalCycles += 3; break;  // PHX
+            case 0xFA: X = StackPull(); SetZN(X); TotalCycles += 4; break; // PLX
+
+            // 65C02 STZ (Store Zero)
+            case 0x64: WriteByte((ushort)Fetch(), 0); TotalCycles += 3; break; // STZ zp
+            case 0x74: WriteByte((ushort)((Fetch() + X) & 0xFF), 0); TotalCycles += 4; break; // STZ zp,X
+
+            // 65C02 (zp) Indirect Opcodes
+            case 0x12: { byte zp = Fetch(); A |= ReadByte(ReadWord(zp)); SetZN(A); TotalCycles += 5; break; } // ORA (zp)
+            case 0x32: { byte zp = Fetch(); A &= ReadByte(ReadWord(zp)); SetZN(A); TotalCycles += 5; break; } // AND (zp)
+            case 0x52: { byte zp = Fetch(); A ^= ReadByte(ReadWord(zp)); SetZN(A); TotalCycles += 5; break; } // EOR (zp)
+            case 0x72: { byte zp = Fetch(); AdcCore(ReadByte(ReadWord(zp))); TotalCycles += 5; break; }       // ADC (zp)
+            case 0x92: { byte zp = Fetch(); WriteByte(ReadWord(zp), A); TotalCycles += 5; break; }            // STA (zp)
+            case 0xD2: { byte zp = Fetch(); DoCMP(A, ReadByte(ReadWord(zp))); TotalCycles += 5; break; }       // CMP (zp)
+            case 0xF2: { byte zp = Fetch(); SbcCore(ReadByte(ReadWord(zp))); TotalCycles += 5; break; }       // SBC (zp)
 
             // Flags
             case 0x18: CLC(); break;
@@ -491,12 +515,11 @@ public sealed partial class Cpu
             case 0xB8: CLV(); break;
 
             // Illegal opcodes
-            case 0x1A: case 0x3A: case 0x5A: case 0x7A: case 0xDA: case 0xFA: TotalCycles += 2; break;
-            case 0x80: case 0x82: case 0x89: case 0xC2: case 0xE2: Fetch(); TotalCycles += 2; break;
-            case 0x04: case 0x44: case 0x64: ReadByte((ushort)Fetch()); TotalCycles += 3; break;
-            case 0x14: case 0x34: case 0x54: case 0x74: case 0xD4: case 0xF4: ReadByte((ushort)((Fetch() + X) & 0xFF)); TotalCycles += 4; break;
+            case 0x82: case 0x89: case 0xC2: case 0xE2: Fetch(); TotalCycles += 2; break;
+            case 0x04: case 0x44: ReadByte((ushort)Fetch()); TotalCycles += 3; break;
+            case 0x14: case 0x34: case 0x54: case 0xF4: ReadByte((ushort)((Fetch() + X) & 0xFF)); TotalCycles += 4; break;
             case 0x0C: { ushort a = (ushort)(Fetch() | (Fetch() << 8)); ReadByte(a); TotalCycles += 4; break; }
-            case 0x1C: case 0x3C: case 0x5C: case 0x7C: case 0xDC: case 0xFC:
+            case 0x1C: case 0x3C: case 0x5C: case 0xDC: case 0xFC:
                 { ushort b = (ushort)(Fetch() | (Fetch() << 8)); ReadByte((ushort)(b + X)); TotalCycles += 4; break; }
 
             // LAX
@@ -621,7 +644,7 @@ public sealed partial class Cpu
                     break;
                 }
 
-            // SHY
+            // SHY (illegal NMOS 6502 / STZ abs on 65C02)
             case 0x9C:
                 {
                     ushort base16 = (ushort)(Fetch() | (Fetch() << 8));
@@ -631,7 +654,7 @@ public sealed partial class Cpu
                     break;
                 }
 
-            // SHX
+            // SHX (illegal NMOS 6502 / STZ abs,X on 65C02)
             case 0x9E:
                 {
                     ushort base16 = (ushort)(Fetch() | (Fetch() << 8));

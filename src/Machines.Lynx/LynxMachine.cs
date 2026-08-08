@@ -15,17 +15,32 @@ public sealed class LynxMachine
     public Mikey Mikey { get; }
     public Suzy Suzy { get; }
     public AddressDecoder Bus { get; }
+    public Rom? BootRom { get; }
 
     public const int CyclesPerFrame = 80_000; // 4.0 MHz / 50 Hz PAL
 
-    public LynxMachine(byte[]? cartridgeRom = null)
+    public LynxMachine(byte[]? cartridgeRom = null, byte[]? bootRom = null)
     {
+        Cartridge? cart = null;
+        if (cartridgeRom is not null && cartridgeRom.Length > 0)
+        {
+            cart = new Cartridge(cartridgeRom);
+        }
+
         Ram = new Ram(0x10000); // 64 KB Full DRAM
-        Mikey = new Mikey();
-        Suzy = new Suzy();
+        Mikey = new Mikey(null, cart);
+        Suzy = new Suzy(cart);
 
         Bus = new AddressDecoder();
         Bus.Map(0x0000, 0xFFFF, Ram);
+
+        if (bootRom is not null && bootRom.Length >= 512)
+        {
+            byte[] paddedBoot = new byte[512];
+            Array.Copy(bootRom, 0, paddedBoot, 0, 512);
+            BootRom = new Rom(paddedBoot);
+            Bus.Map(0xFE00, 0xFFFF, BootRom, baseAddress: 0xFE00);
+        }
 
         // Map SUZY registers at $FC00–$FCFF
         Bus.Map(0xFC00, 0xFCFF, Suzy, baseAddress: 0xFC00);
@@ -33,11 +48,9 @@ public sealed class LynxMachine
         // Map MIKEY registers at $FD00–$FDFF
         Bus.Map(0xFD00, 0xFDFF, Mikey, baseAddress: 0xFD00);
 
-        if (cartridgeRom is not null && cartridgeRom.Length > 0)
-        {
-            LoadCartridge(cartridgeRom, this);
-        }
-
+        // We no longer call LoadCartridge to dump the ROM directly into RAM.
+        // The boot ROM will load and decrypt the game dynamically via Cartridge I/O.
+        
         Cpu = new Cpu(Bus);
     }
 
@@ -90,8 +103,8 @@ public sealed class LynxMachine
         byte[]? ramBuf = machine.Ram.DirectWriteBuffer;
         if (ramBuf is not null && payloadLength > 0)
         {
-            int bytesToCopy = Math.Min(payloadLength, ramBuf.Length);
-            Array.Copy(cartBytes, headerOffset, ramBuf, 0x0200, bytesToCopy - 0x0200);
+            int bytesToCopy = Math.Min(payloadLength, ramBuf.Length - 0x0200);
+            Array.Copy(cartBytes, headerOffset, ramBuf, 0x0200, bytesToCopy);
 
             // Set RESET vector at $FFFC/$FFFD -> $0200
             ramBuf[0xFFFC] = 0x00;
