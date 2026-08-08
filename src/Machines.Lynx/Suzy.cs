@@ -40,6 +40,7 @@ public sealed class Suzy : IBus
             0x62 => (byte)((MATHRESULT >> 16) & 0xFF),
             0x63 => (byte)((MATHRESULT >> 24) & 0xFF),
             0x88 => 0x01, // SUZYHREV
+            0x92 => 0x00, // SPRSYS (Bit 0 = SPRBUSY: 0 = idle)
             0xB2 => _cartridge?.ReadBank0() ?? 0xFF,
             _ => _registers[reg]
         };

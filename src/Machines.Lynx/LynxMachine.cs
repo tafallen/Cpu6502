@@ -34,7 +34,7 @@ public sealed class LynxMachine
         Bus = new AddressDecoder();
         Bus.Map(0x0000, 0xFFFF, Ram);
 
-        if (bootRom is not null && bootRom.Length >= 512)
+        if ((cartridgeRom is null || cartridgeRom.Length == 0) && bootRom is not null && bootRom.Length >= 512)
         {
             byte[] paddedBoot = new byte[512];
             Array.Copy(bootRom, 0, paddedBoot, 0, 512);
@@ -51,7 +51,7 @@ public sealed class LynxMachine
         // Map MIKEY registers at $FD00–$FDFF
         Bus.Map(0xFD00, 0xFDFF, Mikey, baseAddress: 0xFD00);
 
-        if ((bootRom is null || bootRom.Length == 0) && cartridgeRom is not null && cartridgeRom.Length > 0)
+        if (cartridgeRom is not null && cartridgeRom.Length > 0)
         {
             LoadCartridge(cartridgeRom, this);
         }

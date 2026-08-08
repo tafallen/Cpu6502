@@ -44,6 +44,7 @@ public sealed class Mikey : IBus
             0x80 => IrqStatus,
             0x81 => IrqEnable,
             0x88 => 0x01, // MIKEYHREV
+            0x8B => (byte)(_registers[0x8B] | 0x01), // IODAT (Bit 0 = Cartridge power status)
             _ => _registers[reg]
         };
     }
