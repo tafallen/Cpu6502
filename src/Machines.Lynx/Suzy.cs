@@ -124,27 +124,26 @@ public sealed class Suzy : IBus
             ushort dataPtr = (ushort)(ramBuf[ptr] | (ramBuf[ptr + 1] << 8));
             ptr += 2;
 
-            // Check reload mode in SPRCTL1 (bits 4..5)
-            int reloadMode = (sprctl1 >> 4) & 0x03;
+            // Check reload mode: SPRCTL1 bits 4..5 control PosX/PosY reload, SPRCTL0 bits 4..5 control Scale/Color
+            int posReload = (sprctl1 >> 4) & 0x03;
+            int scaleReload = (sprctl0 >> 4) & 0x03;
+
             int startX = _lastX;
             int startY = _lastY;
 
-            if (reloadMode != 0) // Reload Pos (01), Pos+Scale (10), Pos+Scale+Color (11)
+            if (posReload != 0 && ptr + 4 <= ramBuf.Length) // Reload PosX & PosY
             {
-                if (ptr + 4 <= ramBuf.Length)
-                {
-                    startX = (short)(ramBuf[ptr] | (ramBuf[ptr + 1] << 8));
-                    startY = (short)(ramBuf[ptr + 2] | (ramBuf[ptr + 3] << 8));
-                    ptr += 4;
-                    _lastX = startX;
-                    _lastY = startY;
-                }
+                startX = (short)(ramBuf[ptr] | (ramBuf[ptr + 1] << 8));
+                startY = (short)(ramBuf[ptr + 2] | (ramBuf[ptr + 3] << 8));
+                ptr += 4;
+                _lastX = startX;
+                _lastY = startY;
+            }
 
-                if (reloadMode >= 2) // Reload Scale
-                {
-                    ptr += 2; // Skip ScaleX
-                    if ((sprctl0 & 0x01) != 0) ptr += 2; // Skip ScaleY if 2D scaling
-                }
+            if (scaleReload != 0) // Reload ScaleX and optional ScaleY
+            {
+                ptr += 2; // Skip ScaleX
+                if ((sprctl0 & 0x01) != 0) ptr += 2; // Skip ScaleY if 2D scaling
             }
 
             // Reload SCB 16-color palette map if bit 3 of SPRCTL1 is set
