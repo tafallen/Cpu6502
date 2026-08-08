@@ -51,21 +51,21 @@ public sealed class LynxMachine
         // Map MIKEY registers at $FD00–$FDFF
         Bus.Map(0xFD00, 0xFDFF, Mikey, baseAddress: 0xFD00);
 
-        // If boot ROM is present, reset CPU to execute Boot ROM vector at $FE00
+        if (cartridgeRom is not null && cartridgeRom.Length > 0)
+        {
+            LoadCartridge(cartridgeRom, this);
+        }
+
         Cpu = new Cpu(Bus);
         if (bootRom is not null && bootRom.Length >= 512)
         {
-            // Set RESET vector at $FFFC/$FFFD to $FE00
+            // Set RESET vector at $FFFC/$FFFD to $FE00 to execute boot firmware
             byte[]? ramBuf = Ram.DirectWriteBuffer;
             if (ramBuf is not null)
             {
                 ramBuf[0xFFFC] = 0x00;
                 ramBuf[0xFFFD] = 0xFE;
             }
-        }
-        else if (cartridgeRom is not null && cartridgeRom.Length > 0)
-        {
-            LoadCartridge(cartridgeRom, this);
         }
     }
 

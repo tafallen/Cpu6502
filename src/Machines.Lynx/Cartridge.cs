@@ -36,6 +36,9 @@ public sealed class Cartridge
             _blockSize = 1024;
             _rom = cartBytes;
         }
+
+        // Initialize shift register to block 0 so first byte stream reads block 0
+        _shiftRegister = 0;
     }
 
     /// <summary>
@@ -70,11 +73,8 @@ public sealed class Cartridge
             value = _rom[address];
         }
         
-        if (!_lastStrobe)
-        {
-            _counter++;
-            _counter &= 0x07FF; // 11-bit ripple counter
-        }
+        _counter++;
+        _counter &= 0x07FF; // 11-bit ripple counter
         return value;
     }
 }
