@@ -95,6 +95,7 @@ public sealed class LynxMachine
     public static void LoadCartridge(byte[] cartBytes, LynxMachine machine)
     {
         int headerOffset = 0;
+        ushort loadAddress = 0x0200;
 
         // Check for 64-byte LNX header ("LYNX")
         if (cartBytes.Length >= 64 &&
@@ -102,18 +103,24 @@ public sealed class LynxMachine
             cartBytes[2] == 'N' && cartBytes[3] == 'X')
         {
             headerOffset = 64;
+            // LNX header bytes 6..7 store execution load address
+            ushort headerLoadAddr = (ushort)(cartBytes[6] | (cartBytes[7] << 8));
+            if (headerLoadAddr != 0)
+            {
+                loadAddress = headerLoadAddr;
+            }
         }
 
         int payloadLength = cartBytes.Length - headerOffset;
         byte[]? ramBuf = machine.Ram.DirectWriteBuffer;
         if (ramBuf is not null && payloadLength > 0)
         {
-            int bytesToCopy = Math.Min(payloadLength, ramBuf.Length - 0x0200);
-            Array.Copy(cartBytes, headerOffset, ramBuf, 0x0200, bytesToCopy);
+            int bytesToCopy = Math.Min(payloadLength, ramBuf.Length - loadAddress);
+            Array.Copy(cartBytes, headerOffset, ramBuf, loadAddress, bytesToCopy);
 
-            // Set RESET vector at $FFFC/$FFFD -> $0200
-            ramBuf[0xFFFC] = 0x00;
-            ramBuf[0xFFFD] = 0x02;
+            // Set RESET vector at $FFFC/$FFFD to game load address
+            ramBuf[0xFFFC] = (byte)(loadAddress & 0xFF);
+            ramBuf[0xFFFD] = (byte)(loadAddress >> 8);
         }
     }
 }

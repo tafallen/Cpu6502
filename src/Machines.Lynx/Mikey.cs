@@ -59,14 +59,14 @@ public sealed class Mikey : IBus
         if (reg >= 0xA0 && reg <= 0xBF)
         {
             int colorIdx = (reg - 0xA0) & 0x0F;
-            if ((reg & 0x10) == 0) // Green/Blue ($FDA0–$FDAF)
+            if ((reg & 0x10) == 0) // Green ($FDA0–$FDAF: low 4 bits) / Blue ($FDA0–$FDAF: high 4 bits)
             {
-                byte g = (byte)((value >> 4) * 17);
-                byte b = (byte)((value & 0x0F) * 17);
+                byte g = (byte)((value & 0x0F) * 17);
+                byte b = (byte)(((value >> 4) & 0x0F) * 17);
                 uint r = (_palette[colorIdx] >> 16) & 0xFF;
                 _palette[colorIdx] = 0xFF000000u | (r << 16) | ((uint)g << 8) | b;
             }
-            else // Red ($FDB0–$FDBF)
+            else // Red ($FDB0–$FDBF: low 4 bits)
             {
                 byte r = (byte)((value & 0x0F) * 17);
                 _palette[colorIdx] = (_palette[colorIdx] & 0xFF00FFFFu) | ((uint)r << 16);

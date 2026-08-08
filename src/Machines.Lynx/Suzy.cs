@@ -92,18 +92,24 @@ public sealed class Suzy : IBus
     public Ram? Ram { get; set; }
     public Mikey? Mikey { get; set; }
 
+    private int _lastX;
+    private int _lastY;
+
     private void ProcessBlit()
     {
         if (Ram?.DirectWriteBuffer is not byte[] ramBuf) return;
 
         ushort scbPtr = (ushort)(_registers[0x10] | (_registers[0x11] << 8)); // SPRINIT / SCB Ptr
-        int limit = 512; // Protection against infinite linked list loops
+        int limit = 512; // Safeguard against circular SCB linked lists
 
         ushort dispAddr = Mikey is not null
             ? (ushort)(Mikey.Read(0x94) | (Mikey.Read(0x95) << 8))
-            : (ushort)0x2000;
+            : (ushort)0x0400;
 
-        if (dispAddr == 0) dispAddr = 0x2000;
+        if (dispAddr == 0) dispAddr = 0x0400;
+
+        byte[] paletteMap = new byte[16];
+        for (int i = 0; i < 16; i++) paletteMap[i] = (byte)i;
 
         while (scbPtr != 0 && scbPtr < ramBuf.Length - 10 && --limit > 0)
         {
@@ -111,60 +117,112 @@ public sealed class Suzy : IBus
             byte sprctl1 = ramBuf[scbPtr + 1];
             byte sprcoll = ramBuf[scbPtr + 2];
             ushort nextScb = (ushort)(ramBuf[scbPtr + 3] | (ramBuf[scbPtr + 4] << 8));
-            ushort dataPtr = (ushort)(ramBuf[scbPtr + 5] | (ramBuf[scbPtr + 6] << 8));
 
-            int startX = (short)(ramBuf[scbPtr + 7] | (ramBuf[scbPtr + 8] << 8));
-            int startY = (short)(ramBuf[scbPtr + 9] | (ramBuf[scbPtr + 10] << 8));
+            int ptr = scbPtr + 5;
 
-            // Decode RLE / literal 4-bit nibble sprite data into framebuffer
+            // Bit 2 of SPRCTL0 determines if DataPtr is present
+            ushort dataPtr = (ushort)(ramBuf[ptr] | (ramBuf[ptr + 1] << 8));
+            ptr += 2;
+
+            // Check reload mode in SPRCTL1 (bits 4..5)
+            int reloadMode = (sprctl1 >> 4) & 0x03;
+            int startX = _lastX;
+            int startY = _lastY;
+
+            if (reloadMode != 0) // Reload Pos (01), Pos+Scale (10), Pos+Scale+Color (11)
+            {
+                if (ptr + 4 <= ramBuf.Length)
+                {
+                    startX = (short)(ramBuf[ptr] | (ramBuf[ptr + 1] << 8));
+                    startY = (short)(ramBuf[ptr + 2] | (ramBuf[ptr + 3] << 8));
+                    ptr += 4;
+                    _lastX = startX;
+                    _lastY = startY;
+                }
+
+                if (reloadMode >= 2) // Reload Scale
+                {
+                    ptr += 2; // Skip ScaleX
+                    if ((sprctl0 & 0x01) != 0) ptr += 2; // Skip ScaleY if 2D scaling
+                }
+            }
+
+            // Reload SCB 16-color palette map if bit 3 of SPRCTL1 is set
+            if ((sprctl1 & 0x08) != 0 && ptr + 8 <= ramBuf.Length)
+            {
+                for (int i = 0; i < 8; i++)
+                {
+                    byte pair = ramBuf[ptr++];
+                    paletteMap[i * 2]     = (byte)(pair >> 4);
+                    paletteMap[i * 2 + 1] = (byte)(pair & 0x0F);
+                }
+            }
+
+            // Decode 4-bit RLE / Literal nibble packet stream into video DRAM
             int currData = dataPtr;
             int y = startY;
 
-            while (currData < ramBuf.Length - 2)
+            while (currData < ramBuf.Length - 1)
             {
-                byte lineHeader = ramBuf[currData++];
-                if (lineHeader == 0x00 || lineHeader == 0x01) break; // End of sprite data
+                byte scanlineBytes = ramBuf[currData++];
+                if (scanlineBytes == 0x00 || scanlineBytes == 0x01) break; // End of sprite data stream
 
-                int bytesInLine = lineHeader & 0x7F;
+                int lineEnd = currData + (scanlineBytes & 0x7F) - 1;
                 int x = startX;
 
-                for (int b = 0; b < bytesInLine && currData < ramBuf.Length; b++)
+                while (currData < lineEnd && currData < ramBuf.Length)
                 {
-                    byte pixelByte = ramBuf[currData++];
-                    byte pixel1 = (byte)(pixelByte >> 4);
-                    byte pixel2 = (byte)(pixelByte & 0x0F);
+                    byte packetHeader = ramBuf[currData++];
+                    int count = (packetHeader & 0x0F) + 1;
+                    int packetType = (packetHeader >> 4) & 0x0F;
 
-                    if (y >= 0 && y < 102)
+                    if ((packetType & 0x08) == 0) // Literal packet: copy 'count' nibbles
                     {
-                        if (x >= 0 && x < 160)
+                        for (int i = 0; i < count && currData < ramBuf.Length; i++)
                         {
-                            int fbIndex = dispAddr + (y * 80) + (x >> 1);
-                            if (fbIndex < ramBuf.Length)
-                            {
-                                if ((x & 1) == 0)
-                                    ramBuf[fbIndex] = (byte)((ramBuf[fbIndex] & 0x0F) | (pixel1 << 4));
-                                else
-                                    ramBuf[fbIndex] = (byte)((ramBuf[fbIndex] & 0xF0) | pixel1);
-                            }
+                            byte nibble = (i & 1) == 0 ? (byte)(ramBuf[currData] >> 4) : (byte)(ramBuf[currData++] & 0x0F);
+                            PlotPixel(ramBuf, dispAddr, x++, y, paletteMap[nibble]);
                         }
-                        if (x + 1 >= 0 && x + 1 < 160)
+                        if ((count & 1) != 0 && currData < ramBuf.Length) currData++; // Align byte boundary
+                    }
+                    else if ((packetType & 0x04) != 0) // Repeat packet: repeat single nibble 'count' times
+                    {
+                        if (currData < ramBuf.Length)
                         {
-                            int fbIndex = dispAddr + (y * 80) + ((x + 1) >> 1);
-                            if (fbIndex < ramBuf.Length)
+                            byte repeatNibble = (byte)(ramBuf[currData++] >> 4);
+                            byte mappedColor = paletteMap[repeatNibble];
+                            for (int i = 0; i < count; i++)
                             {
-                                if (((x + 1) & 1) == 0)
-                                    ramBuf[fbIndex] = (byte)((ramBuf[fbIndex] & 0x0F) | (pixel2 << 4));
-                                else
-                                    ramBuf[fbIndex] = (byte)((ramBuf[fbIndex] & 0xF0) | pixel2);
+                                PlotPixel(ramBuf, dispAddr, x++, y, mappedColor);
                             }
                         }
                     }
-                    x += 2;
+                    else // Zero-run packet: skip 'count' transparent pixels
+                    {
+                        x += count;
+                    }
                 }
+                currData = lineEnd;
                 y++;
             }
 
             scbPtr = nextScb;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void PlotPixel(byte[] ramBuf, ushort dispAddr, int x, int y, byte colorIndex)
+    {
+        if (colorIndex == 0) return; // 0 = Transparent
+        if (x < 0 || x >= 160 || y < 0 || y >= 102) return;
+
+        int fbIndex = dispAddr + (y * 80) + (x >> 1);
+        if (fbIndex < ramBuf.Length)
+        {
+            if ((x & 1) == 0)
+                ramBuf[fbIndex] = (byte)((ramBuf[fbIndex] & 0x0F) | (colorIndex << 4));
+            else
+                ramBuf[fbIndex] = (byte)((ramBuf[fbIndex] & 0xF0) | colorIndex);
         }
     }
 
